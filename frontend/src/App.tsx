@@ -320,6 +320,7 @@ export function App() {
   const [suspensions, setSuspensions] = useState<Suspension[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
   const [localAttendanceStatusByMatchId, setLocalAttendanceStatusByMatchId] = useState<Record<string, AttendanceStatus>>({});
+  const attendanceOverridesRef = useRef<Record<string, AttendanceStatus>>({});
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -329,8 +330,15 @@ export function App() {
   const isAdmin = auth?.user.role === 'ADMIN';
   const activeSeason = seasons.find((season) => season.id === activeSeasonId) ?? seasons.find((season) => season.status === 'OPEN') ?? seasons[0];
 
+  function withAttendanceOverrides(matchData: MatchListItem[]): MatchListItem[] {
+    const overrides = attendanceOverridesRef.current;
+    return matchData.map((match) => overrides[match.id] ? { ...match, myAttendanceStatus: overrides[match.id] } : match);
+  }
+
   function markAttendanceSaved(matchId: string, status: AttendanceStatus) {
-    setLocalAttendanceStatusByMatchId((current) => ({ ...current, [matchId]: status }));
+    const nextOverrides = { ...attendanceOverridesRef.current, [matchId]: status };
+    attendanceOverridesRef.current = nextOverrides;
+    setLocalAttendanceStatusByMatchId(nextOverrides);
     setMatches((current) => current.map((match) => match.id === matchId ? { ...match, myAttendanceStatus: status } : match));
   }
 
@@ -359,7 +367,7 @@ export function App() {
         ]);
         setStandings(standingData);
         setRankings(rankingData);
-        setMatches(matchData);
+        setMatches(withAttendanceOverrides(matchData));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados.');
@@ -373,6 +381,7 @@ export function App() {
   }, [auth?.token]);
 
   useEffect(() => {
+    attendanceOverridesRef.current = {};
     setLocalAttendanceStatusByMatchId({});
   }, [auth?.user.id]);
 
@@ -385,7 +394,7 @@ export function App() {
     ]).then(([standingData, rankingData, matchData]) => {
       setStandings(standingData);
       setRankings(rankingData);
-      setMatches(matchData);
+      setMatches(withAttendanceOverrides(matchData));
     }).catch((err) => setError(err instanceof Error ? err.message : 'Falha ao trocar temporada.'));
   }, [activeSeasonId]);
 
@@ -393,7 +402,7 @@ export function App() {
     if (!auth || !activeSeasonId) return;
     const timer = window.setInterval(() => {
       api.request<MatchListItem[]>(`/matches?seasonId=${activeSeasonId}`)
-        .then(setMatches)
+        .then((matchData) => setMatches(withAttendanceOverrides(matchData)))
         .catch(() => undefined);
       if (selectedMatch?.id) {
         api.request<MatchDetail>(`/matches/${selectedMatch.id}`)
@@ -474,7 +483,7 @@ export function App() {
 
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
-      {!loading && <GlobalConfirmationPrompt api={api} matches={matches} attendanceOverrides={localAttendanceStatusByMatchId} canCoordinate={canCoordinate} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
+      {!loading && !selectedMatch && <GlobalConfirmationPrompt api={api} matches={matches} attendanceOverrides={localAttendanceStatusByMatchId} canCoordinate={canCoordinate} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
       {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
 
       <section className="context-row">
