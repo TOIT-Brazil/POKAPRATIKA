@@ -64,6 +64,7 @@ export type MatchListItem = {
   attendancePlaying?: number;
   attendancePresentOnly?: number;
   attendanceAbsent?: number;
+  attendanceDinnerPeople?: number;
   myAttendanceStatus?: 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE' | null;
   teamAName: string;
   teamBName: string;

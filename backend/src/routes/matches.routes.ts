@@ -264,14 +264,15 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
           count(*) FILTER (WHERE response_status = 'JOGAR')::INTEGER AS playing,
           count(*) FILTER (WHERE response_status = 'PRESENTE_SEM_JOGAR')::INTEGER AS present_only,
           count(*) FILTER (WHERE response_status = 'AUSENTE')::INTEGER AS absent,
+          COALESCE(sum(CASE WHEN dinner_confirmed THEN 1 + guest_count ELSE 0 END), 0)::INTEGER AS dinner_people,
           max(response_status) FILTER (WHERE user_id = $2::UUID) AS my_status
          FROM match_attendance_responses
          WHERE match_id = m.id
        ) att ON TRUE`
     : '';
   const attendanceSelect = hasAttendance
-    ? 'COALESCE(att.playing, 0) AS "attendancePlaying", COALESCE(att.present_only, 0) AS "attendancePresentOnly", COALESCE(att.absent, 0) AS "attendanceAbsent", att.my_status AS "myAttendanceStatus"'
-    : '0::INTEGER AS "attendancePlaying", 0::INTEGER AS "attendancePresentOnly", 0::INTEGER AS "attendanceAbsent", NULL::TEXT AS "myAttendanceStatus"';
+    ? 'COALESCE(att.playing, 0) AS "attendancePlaying", COALESCE(att.present_only, 0) AS "attendancePresentOnly", COALESCE(att.absent, 0) AS "attendanceAbsent", COALESCE(att.dinner_people, 0) AS "attendanceDinnerPeople", att.my_status AS "myAttendanceStatus"'
+    : '0::INTEGER AS "attendancePlaying", 0::INTEGER AS "attendancePresentOnly", 0::INTEGER AS "attendanceAbsent", 0::INTEGER AS "attendanceDinnerPeople", NULL::TEXT AS "myAttendanceStatus"';
   const result = await query(
     `SELECT m.id, m.season_id AS "seasonId", m.match_date AS "matchDate", m.title, m.referee_name AS "refereeName", m.status,
       m.team_a_name AS "teamAName", m.team_b_name AS "teamBName", m.team_a_score AS "teamAScore", m.team_b_score AS "teamBScore", m.created_at AS "createdAt",
@@ -603,6 +604,9 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
   if (match.rows[0].status !== 'DRAFT') throw httpError(409, 'A confirmação de presença só fica aberta enquanto a súmula está em rascunho.');
   if (!match.rows[0].confirmationOpen) throw httpError(409, 'A confirmação desta rodada ainda não foi aberta pela agenda ou coordenação.');
 
+  const dinnerConfirmed = body.responseStatus !== 'AUSENTE' && body.dinnerConfirmed;
+  const guestCount = dinnerConfirmed ? body.guestCount : 0;
+
   const result = await query(
     `INSERT INTO match_attendance_responses (match_id, user_id, response_status, dinner_confirmed, guest_count, notes, responded_at, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, now(), now())
@@ -613,7 +617,7 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
       notes = EXCLUDED.notes,
       updated_at = now()
      RETURNING user_id AS "userId", response_status AS "responseStatus", dinner_confirmed AS "dinnerConfirmed", guest_count AS "guestCount", notes, updated_at AS "updatedAt"`,
-    [params.id, req.user?.id, body.responseStatus, body.dinnerConfirmed, body.guestCount, body.notes?.trim() || null]
+    [params.id, req.user?.id, body.responseStatus, dinnerConfirmed, guestCount, body.notes?.trim() || null]
   );
   res.json(result.rows[0]);
 }));

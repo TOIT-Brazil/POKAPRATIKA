@@ -25,10 +25,15 @@ type CareerProfile = {
   badges: Array<{ id: string; code: string; label: string; icon?: string; color?: string; seasonId?: string | null }>;
   suspensions: Array<{ id: string; seasonName?: string | null; reason: string; servedAt?: string | null }>;
 };
-type PaymentRecord = { id?: string; userId?: string; userName?: string; referenceMonth: string; dueDate: string; amountCents: number; status: 'PENDING' | 'PAID' | 'LATE' | 'WAIVED'; paidAt?: string | null; earnsPoint: boolean; notes?: string | null };
+type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'LATE' | 'WAIVED';
+type PaymentRecord = { id?: string; userId?: string; userName?: string; referenceMonth: string; dueDate: string; amountCents: number; paidAmountCents?: number; balanceCents?: number; status: PaymentStatus; paidAt?: string | null; earnsPoint: boolean; notes?: string | null };
 type PaymentSummary = { totalCents: number; paidCents: number; openCents: number; total: number; paid: number; pending: number; late: number; waived: number; earlyPoints: number };
+type CashEntryType = 'REVENUE' | 'EXPENSE';
+type CashEntry = { id: string; entryType: CashEntryType; entryDate: string; description: string; amountCents: number; paymentId?: string | null; recordedByName?: string | null; createdAt?: string; updatedAt?: string };
+type CashSummary = { revenueCents: number; expenseCents: number; balanceCents: number; total: number };
 type AwardCategory = { code: string; label: string; votingEnabled: boolean; awardType?: AwardType; voteSlots?: number; allowSelfVote?: boolean; badgeIcon?: string; badgeColor?: string };
 type AwardSetting = AwardCategory & { adminOnly: boolean; active: boolean; awardType: AwardType; metricCode?: MetricCode | null; sortDirection: 'ASC' | 'DESC'; winnersCount: number; minGames: number; voteSlots: number; allowSelfVote: boolean; badgeIcon: string; badgeColor: string };
+type AwardPendingSummary = { votingOpen: boolean; seasonName?: string | null; pending: Array<AwardCategory & { answeredSlots: number; completed: boolean }>; completed: Array<AwardCategory & { answeredSlots: number; completed: boolean }> };
 type MyVote = { categoryCode: string; voteSlot: number; votedUserId: string };
 type AwardResult = { categoryCode: string; label: string; voteSlot: number; userId: string; name: string; votes: number };
 type AwardLeaderboard = { code: string; label: string; metricCode: MetricCode; sortDirection: 'ASC' | 'DESC'; winnersCount: number; minGames: number; badgeIcon: string; badgeColor: string; rows: Array<{ userId: string; name: string; value: string | number; gamesPlayed: number; totalPoints: number; position: number }> };
@@ -302,7 +307,6 @@ export function App() {
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
-  const [awardSettingsOpen, setAwardSettingsOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -428,15 +432,14 @@ export function App() {
           </div>
         </div>
         <div className="profile-pill account-area" ref={accountMenuRef}>
-          <button className="profile-trigger" onClick={() => canCoordinate ? setAccountMenuOpen((value) => !value) : setProfileUserId(auth.user.id)} title={canCoordinate ? 'Abrir menu' : 'Abrir perfil'}>
+          <button className="profile-trigger" onClick={() => setAccountMenuOpen((value) => !value)} title="Abrir menu do perfil">
                 {auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}
             <div>
               <strong>{auth.user.name}</strong>
-              <small>{canCoordinate ? `${auth.user.role} • menu` : `${auth.user.role} • perfil`}</small>
+              <small>{auth.user.role} • menu</small>
             </div>
           </button>
-          {!canCoordinate && <button className="ghost" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button>}
-          {canCoordinate && accountMenuOpen && <div className="account-menu"><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button><button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button onClick={() => { setChangePasswordOpen(true); setAccountMenuOpen(false); }}>Trocar senha</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></div>}
+          {accountMenuOpen && <div className="account-menu">{canCoordinate && <><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button onClick={() => { setChangePasswordOpen(true); setAccountMenuOpen(false); }}>Trocar senha</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></div>}
         </div>
       </header>
 
@@ -448,6 +451,7 @@ export function App() {
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
       {!loading && <GlobalConfirmationPrompt api={api} matches={matches} canCoordinate={canCoordinate} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
+      {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
 
       <section className="context-row">
         <select value={activeSeasonId} onChange={(event) => setActiveSeasonId(event.target.value)}>
@@ -458,10 +462,9 @@ export function App() {
       </section>
         {view === 'temporada' && <div className="home-stack season-home"><SeasonPanel standings={standings} rankings={rankings} onOpenProfile={setProfileUserId} /><div className="season-lower"><MatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><SeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} canCoordinate={canCoordinate} onReload={loadData} setSelectedMatch={setSelectedMatch} onOpenSchedule={() => setScheduleDialogOpen(true)} /></div></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
-      {view === 'premios' && <div className="home-stack"><div className="card compact"><div className="card-head"><div><h2>Central de prêmios</h2><p className="muted">Votação, rankings, badges e regras configuráveis do ferino.</p></div>{canCoordinate && <button className="primary small" onClick={() => setAwardSettingsOpen(true)}>Configurar regras e prêmios</button>}</div></div><AwardsPanel api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} /><AwardLeaderboardsPanel api={api} activeSeason={activeSeason} /></div>}
+      {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
       {view === 'usuarios' && canCoordinate && <UsersManagementPanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
       {view === 'admin' && canCoordinate && <AdminPanel api={api} users={users} seasons={seasons} points={points} activeSeasonId={activeSeasonId} onReload={loadData} isAdmin={isAdmin} />}
-      {awardSettingsOpen && <div className="modal profile-modal"><div className="profile-modal-card"><div className="card-head"><h2>Configuração de prêmios</h2><button className="ghost" onClick={() => setAwardSettingsOpen(false)}>Fechar</button></div><AwardSettingsCard api={api} /></div></div>}
     </main>
   );
 }
@@ -563,6 +566,27 @@ function GlobalConfirmationPrompt({ api, matches, canCoordinate, onReload, setSe
   return <div className="modal prompt-modal"><section className="card modal-card confirmation-popup"><div className="card-head"><div><h2>{canCoordinate ? 'Jogo hoje: liberar confirmações?' : 'Confirme sua presença no jogo'}</h2><p className="muted">{match.title} • {matchDateLabel(match)}</p></div><button type="button" className="ghost" onClick={() => setDismissedId(match.id)}>Depois</button></div><p className="muted">{canCoordinate ? 'Abra a confirmação para os atletas responderem de forma fácil antes da súmula.' : 'O jogo foi disponibilizado para confirmação. Responda se vai jogar, só estará presente, janta/churrasco e convidados.'}</p><div className="actions">{canCoordinate ? <button type="button" className="primary" onClick={() => void openConfirmation()}>Disparar confirmação</button> : <button type="button" className="primary" onClick={() => void openMatch()}>Confirmar agora</button>}<button type="button" className="ghost" onClick={() => setDismissedId(match.id)}>Agora não</button></div></section></div>;
 }
 
+function GlobalVotingPrompt({ api, users, activeSeason, isAdmin }: { api: ApiClient; users: User[]; activeSeason: Season; isAdmin: boolean }) {
+  const [summary, setSummary] = useState<AwardPendingSummary | null>(null);
+  const [dismissedSeasonId, setDismissedSeasonId] = useState('');
+  const [open, setOpen] = useState(false);
+
+  async function loadPendingVotes() {
+    setSummary(await api.request<AwardPendingSummary>(`/awards/pending/${activeSeason.id}`));
+  }
+
+  useEffect(() => {
+    setOpen(false);
+    setDismissedSeasonId('');
+    void loadPendingVotes().catch(() => setSummary(null));
+  }, [activeSeason.id]);
+
+  const pendingCount = summary?.pending.length ?? 0;
+  if (!summary?.votingOpen || pendingCount === 0) return null;
+
+  return <>{dismissedSeasonId !== activeSeason.id && !open && <div className="modal prompt-modal"><section className="card modal-card confirmation-popup voting-popup"><div className="card-head"><div><h2>Votação aberta</h2><p className="muted">{summary.seasonName ?? activeSeason.name} • {pendingCount} pendência(s) para você</p></div><button type="button" className="ghost" onClick={() => setDismissedSeasonId(activeSeason.id)}>Depois</button></div><p className="muted">A temporada foi encerrada e alguns prêmios dependem do seu voto. Tudo acontece aqui em modal, sem sair da página principal.</p><div className="chips">{summary.pending.map((item) => <span className="chip trophy" key={item.code}>{item.label}</span>)}</div><div className="actions"><button type="button" className="primary" onClick={() => setOpen(true)}>Votar agora</button><button type="button" className="ghost" onClick={() => setDismissedSeasonId(activeSeason.id)}>Agora não</button></div></section></div>}{open && <div className="modal profile-modal"><div className="profile-modal-card"><div className="card-head"><div><h2>Votação dos prêmios</h2><p className="muted">Votos individuais, sigilosos e controlados por usuário.</p></div><button className="ghost" onClick={() => { setOpen(false); void loadPendingVotes().catch(() => undefined); }}>Fechar</button></div><AwardsPanel api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} onVoted={loadPendingVotes} /></div></div>}</>;
+}
+
 function ChangePasswordDialog({ api, onClose }: { api: ApiClient; onClose: () => void }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -640,7 +664,7 @@ function SeasonOperationsPanel({ api, suspensions, matches, canCoordinate, onRel
     await onReload();
   }
 
-  return <section className="card compact operations-panel"><div className="card-head"><div><h2>Central operacional</h2><p className="muted">Próxima rodada, confirmação e pendências úteis em um só lugar.</p></div><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length} susp.</span></div>{nextMatch ? <article className="next-match-card"><div className="next-match-top"><div><span className="eyebrow">Próximo jogo acionável</span><strong>{nextMatch.title}</strong><small>{matchDateLabel(nextMatch)} • {matchStatusLabel(nextMatch.status)}</small></div><span className={`status ${nextMatch.confirmationOpen ? 'open' : 'danger'}`}>{confirmationLabel}</span></div><div className="stat-grid ops-stats"><span><b>{nextMatch.attendancePlaying ?? 0}</b> vão jogar</span><span><b>{nextMatch.attendancePresentOnly ?? 0}</b> só presença</span><span><b>{nextMatch.attendanceAbsent ?? 0}</b> ausentes</span></div><p className="muted">{canCoordinate ? nextMatch.confirmationOpen ? 'Atletas já conseguem responder. Use a súmula para acompanhar confirmações e montar a escalação.' : `A abertura automática segue a janela configurada${nextMatch.confirmationOpenAt ? ` para ${formatBrasiliaTime(nextMatch.confirmationOpenAt)}` : ''}.` : nextMatch.confirmationOpen ? attendanceStatusLabel(nextMatch.myAttendanceStatus) : `Confirmação abre automaticamente${nextMatch.confirmationOpenAt ? ` em ${formatBrasiliaTime(nextMatch.confirmationOpenAt)}` : ' pela agenda'}.`}</p><div className="actions ops-actions">{canCoordinate && <button type="button" className="ghost" onClick={onOpenSchedule}>Editar agenda</button>}{canCoordinate && nextMatch.status === 'DRAFT' && !nextMatch.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(nextMatch.id)}>Abrir confirmação</button>}{!canCoordinate && nextMatch.confirmationOpen && <button type="button" className="primary small" onClick={() => void openMatch(nextMatch.id)}>{nextMatch.myAttendanceStatus ? 'Alterar confirmação' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(nextMatch.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></article> : <EmptyState title="Sem jogos na temporada" text="Cadastre a agenda para a central mostrar o próximo jogo e as confirmações." />}
+  return <section className="card compact operations-panel"><div className="card-head"><div><h2>Central operacional</h2><p className="muted">Próxima rodada, confirmação, janta e pendências úteis em um só lugar.</p></div><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length} susp.</span></div>{nextMatch ? <article className="next-match-card"><div className="next-match-top"><div><span className="eyebrow">Próximo jogo</span><strong>{nextMatch.title}</strong><small>{matchDateLabel(nextMatch)} • {matchStatusLabel(nextMatch.status)}</small></div><span className={`status ${nextMatch.confirmationOpen ? 'open' : 'danger'}`}>{confirmationLabel}</span></div><div className="stat-grid ops-stats"><span><b>{nextMatch.attendancePlaying ?? 0}</b> vão jogar</span><span><b>{nextMatch.attendancePresentOnly ?? 0}</b> só presença</span><span><b>{nextMatch.attendanceAbsent ?? 0}</b> ausentes</span><span><b>{nextMatch.attendanceDinnerPeople ?? 0}</b> janta</span></div><p className="muted">{canCoordinate ? nextMatch.confirmationOpen ? 'Atletas já conseguem responder. Use a súmula para acompanhar confirmações, janta e escalação.' : `A abertura automática segue a janela configurada${nextMatch.confirmationOpenAt ? ` para ${formatBrasiliaTime(nextMatch.confirmationOpenAt)}` : ''}.` : nextMatch.confirmationOpen ? attendanceStatusLabel(nextMatch.myAttendanceStatus) : `Confirmação abre automaticamente${nextMatch.confirmationOpenAt ? ` em ${formatBrasiliaTime(nextMatch.confirmationOpenAt)}` : ' pela agenda'}.`}</p><div className="actions ops-actions">{canCoordinate && <button type="button" className="ghost" onClick={onOpenSchedule}>Editar agenda</button>}{canCoordinate && nextMatch.status === 'DRAFT' && !nextMatch.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(nextMatch.id)}>Abrir confirmação</button>}{!canCoordinate && nextMatch.confirmationOpen && <button type="button" className="primary small" onClick={() => void openMatch(nextMatch.id)}>{nextMatch.myAttendanceStatus ? 'Alterar confirmação' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(nextMatch.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></article> : <EmptyState title="Sem jogos na temporada" text="Cadastre a agenda para a central mostrar o próximo jogo e as confirmações." />}
     <div className="ops-section"><div className="card-head"><strong>Suspensões</strong><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length}</span></div>{suspensions.length === 0 ? <p className="muted">Sem pendências disciplinares no momento.</p> : <div className="suspension-list compact-suspensions">{suspensions.map((item) => <article className="suspension-row" key={item.id}><strong>{item.userName}</strong><span>{formatCardReason(item.reason)}</span><small>Origem: {item.triggerMatchTitle}</small>{canCoordinate && <select disabled={!confirmedMatches.length} defaultValue="" onChange={(event) => void serveSuspension(item.id, event.target.value)}><option value="">Cumpriu em...</option>{confirmedMatches.map((match) => <option key={match.id} value={match.id}>{match.title} • {match.matchDate?.slice(0, 10)}</option>)}</select>}</article>)}</div>}</div></section>;
 }
 
@@ -715,7 +739,8 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
 
   async function saveAttendance() {
     setMessage('Salvando confirmação...');
-    await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed, guestCount, notes: notes || null }) });
+    const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
+    await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: notes || null }) });
     setMessage('Confirmação salva. A súmula já pode usar esta informação para montar os times.');
     await onSaved();
   }
@@ -738,12 +763,12 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
       </div>
       {openForResponse ? <div className="attendance-form">
         <div className="segmented">
-          <button type="button" className={responseStatus === 'JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('JOGAR')}>Vou jogar</button>
-          <button type="button" className={responseStatus === 'PRESENTE_SEM_JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('PRESENTE_SEM_JOGAR')}>Só presença</button>
-          <button type="button" className={responseStatus === 'AUSENTE' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('AUSENTE')}>Não vou</button>
+          <button type="button" className={responseStatus === 'JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('JOGAR')}>Jogo</button>
+          <button type="button" className={responseStatus === 'PRESENTE_SEM_JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('PRESENTE_SEM_JOGAR')}>Apenas presença</button>
+          <button type="button" className={responseStatus === 'AUSENTE' ? 'primary small' : 'ghost'} onClick={() => { setResponseStatus('AUSENTE'); setDinnerConfirmed(false); setGuestCount(0); }}>Ausência</button>
         </div>
-        <label className="bench"><input type="checkbox" checked={dinnerConfirmed} onChange={(event) => setDinnerConfirmed(event.target.checked)} /> Fico para janta/churrasco</label>
-        <input type="number" min="0" max="20" value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))} disabled={!dinnerConfirmed} placeholder="Convidados para janta" />
+        <label className="bench"><input type="checkbox" checked={dinnerConfirmed} disabled={responseStatus === 'AUSENTE'} onChange={(event) => { setDinnerConfirmed(event.target.checked); if (!event.target.checked) setGuestCount(0); }} /> Fico para janta/churrasco</label>
+        <input type="number" min="0" max="20" value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))} disabled={responseStatus === 'AUSENTE' || !dinnerConfirmed} placeholder="Convidados para janta" />
         <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação rápida: chego atrasado, levo bola, etc." maxLength={300} />
         <button type="button" className="primary" onClick={() => void saveAttendance()}>Salvar minha confirmação</button>
       </div> : <p className="muted">{closedMessage}</p>}
@@ -849,6 +874,7 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
     const playing = match.attendancePlaying ?? 0;
     const presentOnly = match.attendancePresentOnly ?? 0;
     const absent = match.attendanceAbsent ?? 0;
+    const dinnerPeople = match.attendanceDinnerPeople ?? 0;
     const responses = playing + presentOnly + absent;
     const pending = Math.max(activeUserCount - responses, 0);
     const responsePercent = Math.min(100, Math.round((responses / activeUserCount) * 100));
@@ -857,7 +883,7 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
       ? canCoordinate ? 'Atletas já podem responder e a súmula usa esses dados para escalação.' : attendanceStatusLabel(match.myAttendanceStatus)
       : `Abre automaticamente${match.confirmationOpenAt ? ` em ${formatBrasiliaTime(match.confirmationOpenAt)}` : ' pela agenda configurada'}.`;
 
-    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> vão jogar</span><span><b>{presentOnly}</b> só presença</span><span><b>{absent}</b> ausentes</span><span><b>{pending}</b> pendentes</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{!canCoordinate && match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openMatch(match.id)}>{match.myAttendanceStatus ? 'Alterar confirmação' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
+    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> vão jogar</span><span><b>{presentOnly}</b> só presença</span><span><b>{absent}</b> ausentes</span><span><b>{pending}</b> pendentes</span><span><b>{dinnerPeople}</b> janta</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{!canCoordinate && match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openMatch(match.id)}>{match.myAttendanceStatus ? 'Alterar confirmação' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
   }
 
   return (
@@ -1394,9 +1420,16 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
 }
 
 function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: ApiClient; canCoordinate: boolean; users: User[]; activeSeasonId: string }) {
+  const activeAthletes = useMemo(() => users.filter((user) => user.active !== false && user.role === 'ATLETA'), [users]);
   const [userId, setUserId] = useState(users[0]?.id ?? '');
   const [amount, setAmount] = useState('0');
   const [bulkAmount, setBulkAmount] = useState('0');
+  const [paidAmount, setPaidAmount] = useState('0');
+  const [currentPaidCents, setCurrentPaidCents] = useState(0);
+  const [fullPayment, setFullPayment] = useState(true);
+  const [monthCount, setMonthCount] = useState(1);
+  const [generateForAll, setGenerateForAll] = useState(true);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7) + '-01');
   const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
@@ -1404,17 +1437,33 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   const [notes, setNotes] = useState('');
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
+  const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
+  const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
+  const [cashEntryType, setCashEntryType] = useState<CashEntryType>('EXPENSE');
+  const [cashDate, setCashDate] = useState(new Date().toISOString().slice(0, 10));
+  const [cashDescription, setCashDescription] = useState('');
+  const [cashAmount, setCashAmount] = useState('0');
   const [message, setMessage] = useState('');
-  const [paymentModal, setPaymentModal] = useState<'generate' | 'register' | null>(null);
+  const [paymentModal, setPaymentModal] = useState<'generate' | 'register' | 'cash' | null>(null);
 
   useEffect(() => {
-    if (!userId && users[0]?.id) setUserId(users[0].id);
-  }, [users, userId]);
+    if (!userId && activeAthletes[0]?.id) setUserId(activeAthletes[0].id);
+    if (!selectedUserIds.length && activeAthletes[0]?.id) setSelectedUserIds([activeAthletes[0].id]);
+  }, [activeAthletes, selectedUserIds.length, userId]);
 
   async function loadPayments() {
     const path = canCoordinate ? `/payments${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}` : '/payments/me';
     setPayments(await api.request<PaymentRecord[]>(path));
-    if (canCoordinate) setSummary(await api.request<PaymentSummary>(`/payments/summary${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}`));
+    if (canCoordinate) {
+      const [paymentSummary, cashRows, cashTotals] = await Promise.all([
+        api.request<PaymentSummary>(`/payments/summary${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}`),
+        api.request<CashEntry[]>('/cash'),
+        api.request<CashSummary>('/cash/summary')
+      ]);
+      setSummary(paymentSummary);
+      setCashEntries(cashRows);
+      setCashSummary(cashTotals);
+    }
   }
 
   useEffect(() => {
@@ -1422,16 +1471,70 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   }, [activeSeasonId, canCoordinate]);
 
   async function save() {
-    const saved = await api.request<PaymentRecord>('/payments', { method: 'PUT', body: JSON.stringify({ userId, seasonId: activeSeasonId || null, referenceMonth: month, dueDate, amountCents: Math.round(Number(amount) * 100), status, paidAt: status === 'PAID' ? new Date(`${paidAt}T12:00:00`).toISOString() : null, notes: notes || null }) });
-    setMessage(saved.earnsPoint ? 'Pagamento antecipado registrado: +1 ponto na temporada.' : 'Mensalidade registrada sem ponto antecipado.');
+    const amountCents = centsFromInput(amount);
+    const paidAmountCents = status === 'PAID' ? amountCents : status === 'PARTIAL' ? Math.min(amountCents, centsFromInput(paidAmount)) : 0;
+    const resolvedStatus: PaymentStatus = status === 'WAIVED' ? 'WAIVED' : paidAmountCents >= amountCents && amountCents > 0 ? 'PAID' : paidAmountCents > 0 ? 'PARTIAL' : status === 'LATE' ? 'LATE' : 'PENDING';
+    const saved = await api.request<PaymentRecord>('/payments', { method: 'PUT', body: JSON.stringify({ userId, seasonId: activeSeasonId || null, referenceMonth: month, dueDate, amountCents, paidAmountCents, status: resolvedStatus, paidAt: paidAmountCents > 0 ? new Date(`${paidAt}T12:00:00`).toISOString() : null, notes: notes || null }) });
+    setMessage(saved.earnsPoint ? 'Pagamento total antecipado registrado: +1 ponto na temporada.' : saved.status === 'PARTIAL' ? `Pagamento parcial registrado. Saldo: R$ ${((saved.balanceCents ?? 0) / 100).toFixed(2)}.` : 'Mensalidade registrada sem ponto antecipado.');
     await loadPayments();
   }
 
   async function generateMonth() {
-    const result = await api.request<{ generated: number }>('/payments/generate-month', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, referenceMonth: month, dueDate, amountCents: Math.round(Number(bulkAmount || amount) * 100), notes: notes || null }) });
-    setMessage(`${result.generated} cobrança(s) criada(s)/atualizada(s) para atletas ativos. Pagamentos já quitados foram preservados.`);
+    const result = await api.request<{ generated: number }>('/payments/generate-month', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, startMonth: month, months: monthCount, userIds: generateForAll ? undefined : selectedUserIds, dueDate, amountCents: centsFromInput(bulkAmount || amount), notes: notes || null }) });
+    setMessage(`${result.generated} cobrança(s) criada(s)/atualizada(s) em ${monthCount} mês(es). Pagamentos quitados/isentos foram preservados.`);
     await loadPayments();
   }
+
+  async function saveCashEntry() {
+    await api.request<CashEntry>('/cash', { method: 'POST', body: JSON.stringify({ entryType: cashEntryType, entryDate: cashDate, description: cashDescription, amountCents: centsFromInput(cashAmount) }) });
+    setMessage('Lançamento de caixa registrado para prestação de contas.');
+    setCashDescription('');
+    setCashAmount('0');
+    await loadPayments();
+  }
+
+  function money(cents = 0) {
+    return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function centsFromInput(value: string) {
+    const normalized = value.replace(/\./g, '').replace(',', '.').trim();
+    const parsed = Number(normalized || 0);
+    return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
+  }
+
+  function statusLabel(paymentStatus: PaymentStatus) {
+    if (paymentStatus === 'PAID') return 'Pago';
+    if (paymentStatus === 'PARTIAL') return 'Parcial';
+    if (paymentStatus === 'LATE') return 'Atrasado';
+    if (paymentStatus === 'WAIVED') return 'Isento';
+    return 'Pendente';
+  }
+
+  function toggleSelectedUser(id: string) {
+    setSelectedUserIds((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
+  }
+
+  function openRegister(payment?: PaymentRecord) {
+    if (payment) {
+      setUserId(payment.userId ?? activeAthletes[0]?.id ?? '');
+      setMonth(payment.referenceMonth);
+      setDueDate(payment.dueDate?.slice(0, 10) ?? dueDate);
+      setAmount(String((payment.amountCents / 100).toFixed(2)));
+      setPaidAmount('0.00');
+      setCurrentPaidCents(payment.paidAmountCents ?? 0);
+      setStatus((payment.balanceCents ?? 0) > 0 ? 'PARTIAL' : 'PAID');
+      setFullPayment((payment.balanceCents ?? 0) <= 0);
+      setNotes(payment.notes ?? '');
+    } else {
+      setCurrentPaidCents(0);
+    }
+    setPaymentModal('register');
+  }
+
+  const registerAmountCents = centsFromInput(amount || '0');
+  const registerPaidCents = status === 'PAID' ? registerAmountCents : status === 'PARTIAL' ? Math.min(registerAmountCents, currentPaidCents + centsFromInput(paidAmount || '0')) : 0;
+  const registerBalanceCents = Math.max(registerAmountCents - registerPaidCents, 0);
 
   return (
     <section className="card compact payments-panel">
@@ -1440,14 +1543,17 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
           <h2>Mensalidades</h2>
           <p className="muted">Acompanhamento financeiro da temporada com ações operacionais em modal.</p>
         </div>
-        {canCoordinate && <div className="actions panel-actions"><button className="primary small" onClick={() => setPaymentModal('generate')}>Gerar mês</button><button className="ghost" onClick={() => setPaymentModal('register')}>Registrar pagamento</button>{payments.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-mensalidades.csv', payments.map((payment) => ({ atleta: payment.userName ?? 'Minha mensalidade', mes: payment.referenceMonth.slice(0, 7), vencimento: payment.dueDate?.slice(0, 10), pagoEm: payment.paidAt ? payment.paidAt.slice(0, 10) : '', valor: (payment.amountCents / 100).toFixed(2), status: payment.status, pontoAntecipado: payment.earnsPoint, observacao: payment.notes ?? '' })))}>Exportar CSV</button>}</div>}
+        {canCoordinate && <div className="actions panel-actions"><button className="primary small" onClick={() => setPaymentModal('generate')}>Gerar mensalidades</button><button className="ghost" onClick={() => openRegister()}>Registrar pagamento</button><button className="ghost" onClick={() => setPaymentModal('cash')}>Lançar caixa</button>{payments.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-mensalidades.csv', payments.map((payment) => ({ atleta: payment.userName ?? 'Minha mensalidade', mes: payment.referenceMonth.slice(0, 7), vencimento: payment.dueDate?.slice(0, 10), pagoEm: payment.paidAt ? payment.paidAt.slice(0, 10) : '', valor: (payment.amountCents / 100).toFixed(2), pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2), saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2), status: payment.status, pontoAntecipado: payment.earnsPoint, observacao: payment.notes ?? '' })))}>Exportar mensalidades</button>}{cashEntries.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-caixa.csv', cashEntries.map((entry) => ({ data: entry.entryDate?.slice(0, 10), tipo: entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa', descricao: entry.description, valor: (entry.amountCents / 100).toFixed(2), origem: entry.paymentId ? 'Mensalidade' : 'Manual', responsavel: entry.recordedByName ?? '' })))}>Exportar caixa</button>}</div>}
       </div>
       {canCoordinate && summary && <div className="stat-grid"><span><b>R$ {(summary.paidCents / 100).toFixed(2)}</b> recebido</span><span><b>R$ {(summary.openCents / 100).toFixed(2)}</b> aberto</span><span><b>{summary.pending}</b> pendente(s)</span><span><b>{summary.late}</b> atraso(s)</span><span><b>{summary.earlyPoints}</b> ponto(s) antecipados</span></div>}
+      {canCoordinate && cashSummary && <div className="stat-grid cash-summary"><span><b>{money(cashSummary.revenueCents)}</b> receitas</span><span><b>{money(cashSummary.expenseCents)}</b> despesas</span><span><b>{money(cashSummary.balanceCents)}</b> saldo caixa</span></div>}
       {!canCoordinate && <p className="muted">Você visualiza apenas sua mensalidade e se ela gerou ponto por pagamento antecipado.</p>}
       {message && <p className="muted">{message}</p>}
-      <div className="table-cards payment-list">{payments.map((payment) => <article className="row-card" key={`${payment.userId ?? 'me'}-${payment.referenceMonth}`}><strong>{payment.userName ?? 'Minha mensalidade'} • {payment.referenceMonth.slice(0, 7)}</strong><span>{payment.earnsPoint ? '+1 pt' : payment.status}</span><small>Venc. {payment.dueDate?.slice(0, 10)} • Pago {payment.paidAt ? payment.paidAt.slice(0, 10) : 'não informado'} • R$ {(payment.amountCents / 100).toFixed(2)}</small>{payment.notes && <small>{payment.notes}</small>}</article>)}</div>
-      {paymentModal === 'generate' && <div className="modal"><form className="card modal-card payment-card" onSubmit={(event) => { event.preventDefault(); void generateMonth().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao gerar mensalidades.')); }}><div className="card-head"><h2>Gerar mensalidades do mês</h2><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><p className="muted">Cria ou atualiza cobranças dos atletas ativos preservando pagamentos já quitados.</p><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} title="Data de vencimento" /><input value={bulkAmount} onChange={(event) => setBulkAmount(event.target.value)} placeholder="Valor do lote" /><input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação" /><button className="primary">Gerar para atletas ativos</button></form></div>}
-      {paymentModal === 'register' && <div className="modal"><form className="card modal-card payment-card" onSubmit={(event) => { event.preventDefault(); void save().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao registrar pagamento.')); }}><div className="card-head"><h2>Registrar pagamento</h2><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><p className="muted">Pagamento antes do vencimento gera ponto automático na temporada vinculada.</p><select value={userId} onChange={(event) => setUserId(event.target.value)}>{users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select><input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} title="Data de pagamento" /><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Valor individual" /><select value={status} onChange={(event) => setStatus(event.target.value as PaymentRecord['status'])}><option value="PAID">Pago</option><option value="PENDING">Pendente</option><option value="LATE">Atrasado</option><option value="WAIVED">Isento</option></select><input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação" /><button className="primary">Salvar individual</button></form></div>}
+      <div className="table-cards payment-list">{payments.map((payment) => <article className="row-card payment-row" key={`${payment.userId ?? 'me'}-${payment.referenceMonth}`}><strong>{payment.userName ?? 'Minha mensalidade'} • {payment.referenceMonth.slice(0, 7)}</strong><span className={`status ${payment.status === 'PAID' || payment.status === 'WAIVED' ? 'open' : payment.status === 'LATE' ? 'danger' : ''}`}>{payment.earnsPoint ? '+1 pt' : statusLabel(payment.status)}</span><small>Venc. {payment.dueDate?.slice(0, 10)} • Pago em {payment.paidAt ? payment.paidAt.slice(0, 10) : 'não informado'}</small><div className="payment-values"><span><b>{money(payment.amountCents)}</b><small>valor</small></span><span><b>{money(payment.paidAmountCents ?? 0)}</b><small>pago</small></span><span><b>{money(payment.balanceCents ?? 0)}</b><small>saldo</small></span></div>{payment.notes && <small>{payment.notes}</small>}{canCoordinate && <button type="button" className="ghost small" onClick={() => openRegister(payment)}>{(payment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar cobrança'}</button>}</article>)}</div>
+      {canCoordinate && <section className="cash-ledger"><div className="card-head"><div><h2>Caixa do grupo</h2><p className="muted">Prestação de contas simples: receitas e despesas com data, descrição e valor.</p></div><span className="status open">{cashEntries.length} lançamento(s)</span></div><div className="table-cards cash-list">{cashEntries.length === 0 ? <EmptyState title="Caixa sem lançamentos" text="Pagamentos de mensalidade entram automaticamente como receita. Despesas podem ser lançadas manualmente." /> : cashEntries.slice(0, 12).map((entry) => <article className="row-card cash-row" key={entry.id}><strong>{entry.description}</strong><span className={`status ${entry.entryType === 'REVENUE' ? 'open' : 'danger'}`}>{entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa'}</span><small>{entry.entryDate?.slice(0, 10)} • {entry.paymentId ? 'gerado por mensalidade' : 'lançamento manual'}{entry.recordedByName ? ` • ${entry.recordedByName}` : ''}</small><b>{entry.entryType === 'REVENUE' ? '+' : '-'} {money(entry.amountCents)}</b></article>)}</div></section>}
+      {paymentModal === 'generate' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void generateMonth().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao gerar mensalidades.')); }}><div className="card-head"><div><h2>Gerar mensalidades em lote</h2><p className="muted">Crie vários meses para todos os atletas ou para uma seleção específica.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Mês inicial</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Quantidade de meses</span><input type="number" min="1" max="24" value={monthCount} onChange={(event) => setMonthCount(Number(event.target.value))} /></label><label><span>Vencimento inicial</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Valor mensal</span><input value={bulkAmount} onChange={(event) => setBulkAmount(event.target.value)} placeholder="Ex. 120,00" /></label></div><div className="segmented"><button type="button" className={generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(true)}>Todos os atletas</button><button type="button" className={!generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(false)}>Selecionar atletas</button></div>{!generateForAll && <div className="user-select-grid">{activeAthletes.map((user) => <label className="payment-user-option" key={user.id}><input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleSelectedUser(user.id)} /> <span>{user.name}</span></label>)}</div>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação opcional" /><div className="payment-preview"><span><b>{generateForAll ? activeAthletes.length : selectedUserIds.length}</b><small>atleta(s)</small></span><span><b>{monthCount}</b><small>mês(es)</small></span><span><b>{money(centsFromInput(bulkAmount || amount || '0') * monthCount * (generateForAll ? activeAthletes.length : selectedUserIds.length))}</b><small>volume gerado</small></span></div><button className="primary" disabled={!generateForAll && selectedUserIds.length === 0}>Gerar cobranças reais</button></form></div>}
+      {paymentModal === 'register' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void save().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao registrar pagamento.')); }}><div className="card-head"><div><h2>Registrar pagamento</h2><p className="muted">Baixa total ou parcial. Só pagamento total antecipado gera ponto.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Atleta</span><select value={userId} onChange={(event) => setUserId(event.target.value)}>{activeAthletes.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label><label><span>Mês</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Vencimento</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Data da baixa</span><input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} /></label><label><span>Valor da mensalidade</span><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Valor individual" /></label>{status === 'PARTIAL' && <label><span>Valor recebido agora</span><input value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)} placeholder="Valor parcial" /></label>}</div><div className="segmented payment-mode"><button type="button" className={status === 'PAID' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PAID'); setFullPayment(true); }}>Pagamento total</button><button type="button" className={status === 'PARTIAL' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PARTIAL'); setFullPayment(false); }}>Pagamento parcial</button><button type="button" className={status === 'PENDING' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PENDING'); setFullPayment(false); }}>Pendente</button><button type="button" className={status === 'LATE' ? 'primary small' : 'ghost'} onClick={() => { setStatus('LATE'); setFullPayment(false); }}>Atrasado</button><button type="button" className={status === 'WAIVED' ? 'primary small' : 'ghost'} onClick={() => { setStatus('WAIVED'); setFullPayment(false); }}>Isento</button></div><div className="payment-preview"><span><b>{money(registerAmountCents)}</b><small>valor</small></span><span><b>{money(registerPaidCents)}</b><small>pago após baixa</small></span><span><b>{money(registerBalanceCents)}</b><small>saldo restante</small></span></div>{fullPayment && status === 'PAID' && <p className="muted">Se a data da baixa for antes do vencimento, o atleta recebe +1 ponto automaticamente.</p>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação" /><button className="primary">Salvar baixa</button></form></div>}
+      {paymentModal === 'cash' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void saveCashEntry().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao lançar caixa.')); }}><div className="card-head"><div><h2>Lançamento de caixa</h2><p className="muted">Use para despesas e receitas avulsas. Mensalidades pagas entram automaticamente.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="segmented payment-mode"><button type="button" className={cashEntryType === 'REVENUE' ? 'primary small' : 'ghost'} onClick={() => setCashEntryType('REVENUE')}>Receita</button><button type="button" className={cashEntryType === 'EXPENSE' ? 'primary small' : 'ghost'} onClick={() => setCashEntryType('EXPENSE')}>Despesa</button></div><div className="payment-form-grid"><label><span>Data</span><input type="date" value={cashDate} onChange={(event) => setCashDate(event.target.value)} /></label><label><span>Valor</span><input value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} placeholder="Ex. 85,00" /></label></div><input value={cashDescription} onChange={(event) => setCashDescription(event.target.value)} placeholder="Descrição: aluguel da quadra, bola nova, patrocínio, etc." required minLength={3} maxLength={240} /><div className="payment-preview"><span><b>{cashEntryType === 'REVENUE' ? 'Receita' : 'Despesa'}</b><small>tipo</small></span><span><b>{money(centsFromInput(cashAmount))}</b><small>valor</small></span><span><b>{cashDate}</b><small>data</small></span></div><button className="primary" disabled={centsFromInput(cashAmount) <= 0 || cashDescription.trim().length < 3}>Salvar lançamento</button></form></div>}
     </section>
   );
 }
@@ -1513,7 +1619,7 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
   return <section className="card compact rules-center"><div className="card-head"><div><h2>Central de regras, rankings e premiações</h2><p className="muted">Configure pontuação, acompanhamentos individuais, votação e badges sem alterar código.</p></div><button className="primary small" onClick={save}>Salvar central</button></div>{message && <p className="status-line">{message}</p>}<div className="rule-create"><input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Nova regra: Ex. Rei dos cartões" /><select value={newType} onChange={(event) => setNewType(event.target.value as AwardType)}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select>{newType === 'RANKING' && <select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>{metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>}<input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" /><button className="ghost" onClick={addCategory}>Adicionar regra</button></div><div className="table-cards rule-list">{categories.map((item) => <article className="row-card rule-card" key={item.code}><div className="rule-title"><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><div><strong>{item.label}</strong><small>{item.code} • {item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.awardType === 'VOTACAO' ? 'Votação da temporada' : item.awardType === 'SORTEIO' ? 'Sorteio configurável' : 'Premiação manual'}</small></div></div><span className={`status ${item.active ? 'open' : 'danger'}`}>{item.active ? 'ativa' : 'inativa'}</span><div className="rule-grid"><input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} /><select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select>{item.awardType === 'RANKING' ? <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select> : <label className="bench"><input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} /> Entra na votação</label>}<select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select><label className="field-row"><span>Vencedores</span><input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} /></label><label className="field-row"><span>Mín. jogos</span><input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} /></label><label className="field-row"><span>Votos</span><input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} /></label><label className="bench"><input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} /> Permite voto em si</label><input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} /><input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} /><label className="bench"><input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} /> Ativa</label></div><small>{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</small></article>)}</div></section>;
 }
 
-function AwardsPanel({ api, users, activeSeason, isAdmin }: { api: ApiClient; users: User[]; activeSeason?: Season; isAdmin: boolean }) {
+function AwardsPanel({ api, users, activeSeason, isAdmin, onVoted }: { api: ApiClient; users: User[]; activeSeason?: Season; isAdmin: boolean; onVoted?: () => Promise<void> | void }) {
   const [category, setCategory] = useState('CRAQUE_GALERA');
   const [votedUserId, setVotedUserId] = useState(users[0]?.id ?? '');
   const [voteUserIds, setVoteUserIds] = useState<string[]>([users[0]?.id ?? '']);
@@ -1587,6 +1693,7 @@ function AwardsPanel({ api, users, activeSeason, isAdmin }: { api: ApiClient; us
     setMessage('Voto registrado com sigilo. Resultado visível apenas ao ADMIN.');
     await loadMyVotes();
     await loadResults();
+    await onVoted?.();
   }
 
   async function consolidate() {
@@ -1594,6 +1701,7 @@ function AwardsPanel({ api, users, activeSeason, isAdmin }: { api: ApiClient; us
     await api.request(`/awards/consolidate/${activeSeason.id}`, { method: 'POST' });
     setMessage('Vencedores consolidados: prêmios gravados no histórico e badges dos atletas.');
     await loadResults();
+    await onVoted?.();
   }
 
   const groupedResults = results.reduce<Record<string, AwardResult[]>>((acc, item) => {

@@ -174,7 +174,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .match-card-score { display: flex; justify-content: center; align-items: center; gap: 7px; padding: 7px 8px; border-radius: 13px; background: rgba(7,17,31,.34); text-align: center; }
 .match-card-score span { min-width: 0; max-width: min(34%, 180px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d9e8de; font-size: .76rem; font-weight: 850; }
 .match-card-score b { color: #ffe39b; font-size: 1rem; font-variant-numeric: tabular-nums; }
-.match-card-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.match-card-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); gap: 5px; }
 .match-card-metrics span { display: grid; gap: 1px; padding: 7px; border-radius: 12px; background: rgba(255,255,255,.055); color: #a9b9af; font-size: .67rem; }
 .match-card-metrics b { color: #93c5fd; font-size: .98rem; line-height: .9; }
 .match-card-progress { height: 5px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.08); }
@@ -208,7 +208,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .next-match-top div { min-width: 0; display: grid; gap: 3px; }
 .next-match-top strong { font-size: 1rem; }
 .next-match-top small { color: #a9b9af; font-size: .72rem; }
-.ops-stats { grid-template-columns: repeat(3, 1fr); }
+.ops-stats { grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); }
 .ops-actions { flex-wrap: wrap; }
 .ops-section { display: grid; gap: 7px; padding: 8px; border-radius: 14px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
 .compact-suspensions { max-height: 190px; }
@@ -235,6 +235,26 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .schedule-list { max-height: 330px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .password-card { width: min(420px, 100%); }
 .payment-card { width: min(520px, 100%); }
+.payment-card.wide-payment { width: min(760px, 100%); max-height: min(88dvh, 760px); overflow: auto; }
+.payment-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.payment-form-grid label { display: grid; gap: 4px; }
+.payment-form-grid label span { color: #d9e8de; font-size: .72rem; font-weight: 850; }
+.payment-mode { padding: 7px; border-radius: 14px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
+.user-select-grid { max-height: 220px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px; padding: 8px; border-radius: 15px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
+.payment-user-option { display: flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 8px; border-radius: 12px; background: rgba(255,255,255,.055); color: #d9e8de; font-size: .78rem; font-weight: 800; }
+.payment-user-option input { width: auto; min-height: auto; }
+.payment-preview, .payment-values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.payment-preview span, .payment-values span { display: grid; gap: 2px; padding: 8px; border-radius: 13px; background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.16); }
+.payment-preview b, .payment-values b { color: #ffe39b; font-size: .92rem; }
+.payment-preview small, .payment-values small { color: #a9b9af; font-size: .68rem; }
+.payment-row { align-content: start; }
+.payment-row > .ghost { grid-column: 1 / -1; justify-self: start; padding: 6px 9px; font-size: .72rem; }
+.cash-summary { grid-template-columns: repeat(3, 1fr); }
+.cash-ledger { display: grid; gap: 7px; padding: 9px; border-radius: 15px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
+.cash-list { max-height: 260px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.cash-row { align-content: start; }
+.cash-row b { color: #ffe39b; font-size: .88rem; }
+.voting-popup { border-color: rgba(59,130,246,.32); }
 .admin-modal-card { width: min(620px, 100%); }
 .modal-card.wide { width: min(980px, 100%); max-height: min(86dvh, 760px); overflow: auto; }
 .payments-panel { overflow: auto; }
@@ -334,7 +354,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
   .match-ops-grid, .match-list, .match-history-row, .payment-list, .admin-action-grid, .admin-list, .admin-users, .users-summary { grid-template-columns: 1fr; }
   .broadcast-panel { position: static; }
   .inline-form { grid-template-columns: 1fr; }
-  .match-meta, .player-line, .event-form, .team-builder, .team-board, .team-player, .draw-dashboard, .sheet-steps, .draw-meta, .attendance-form { grid-template-columns: 1fr; }
+  .match-meta, .player-line, .event-form, .team-builder, .team-board, .team-player, .draw-dashboard, .sheet-steps, .draw-meta, .attendance-form, .payment-form-grid, .payment-preview, .payment-values, .user-select-grid { grid-template-columns: 1fr; }
   .draw-hero, .draw-action, .draw-footer { align-items: stretch; flex-direction: column; }
   .draw-button, .draw-footer .primary { width: 100%; }
   .team-player.draw-row, .team-player.roster-row { grid-template-columns: 1fr; }

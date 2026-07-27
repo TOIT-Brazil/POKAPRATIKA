@@ -12,7 +12,17 @@ if (!apiUrl) {
   throw new Error('VITE_API_URL precisa estar definida no serviço de frontend da Railway em runtime ou no build do Vite.');
 }
 
-export const API_URL = apiUrl.replace(/\/$/, '');
+const parsedApiUrl = new URL(apiUrl);
+
+if (window.location.protocol === 'https:' && parsedApiUrl.protocol !== 'https:') {
+  throw new Error('VITE_API_URL precisa usar HTTPS quando o frontend estiver em HTTPS.');
+}
+
+if (['localhost', '127.0.0.1', '0.0.0.0'].includes(parsedApiUrl.hostname)) {
+  throw new Error('VITE_API_URL não pode apontar para ambiente local em produção.');
+}
+
+export const API_URL = parsedApiUrl.origin;
 
 export class ApiClient {
   private token: string | null;

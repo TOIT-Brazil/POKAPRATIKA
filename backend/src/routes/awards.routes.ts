@@ -31,6 +31,34 @@ awardsRouter.get('/leaderboards/:seasonId', asyncHandler(async (req, res) => {
   res.json(await getAwardLeaderboards(req.params.seasonId));
 }));
 
+awardsRouter.get('/pending/:seasonId', asyncHandler(async (req: AuthRequest, res) => {
+  const season = await query<{ id: string; name: string; voting_open: boolean }>('SELECT id, name, voting_open FROM seasons WHERE id = $1 AND status = \'CLOSED\'', [req.params.seasonId]);
+  if (!season.rows[0]?.voting_open) {
+    res.json({ votingOpen: false, seasonName: season.rows[0]?.name ?? null, pending: [], completed: [] });
+    return;
+  }
+
+  const result = await query(
+    `SELECT ac.code, ac.label, ac.award_type AS "awardType", ac.vote_slots AS "voteSlots",
+      ac.allow_self_vote AS "allowSelfVote", ac.badge_icon AS "badgeIcon", ac.badge_color AS "badgeColor",
+      count(av.id)::INTEGER AS "answeredSlots",
+      (count(av.id) >= ac.vote_slots) AS completed
+     FROM award_categories ac
+     LEFT JOIN award_votes av ON av.category_code = ac.code AND av.season_id = $1 AND av.voter_user_id = $2
+     WHERE ac.active = TRUE AND ac.voting_enabled = TRUE
+     GROUP BY ac.code, ac.label, ac.award_type, ac.vote_slots, ac.allow_self_vote, ac.badge_icon, ac.badge_color
+     ORDER BY completed ASC, ac.label ASC`,
+    [req.params.seasonId, req.user?.id]
+  );
+
+  res.json({
+    votingOpen: true,
+    seasonName: season.rows[0].name,
+    pending: result.rows.filter((row) => !row.completed),
+    completed: result.rows.filter((row) => row.completed)
+  });
+}));
+
 awardsRouter.post('/vote', asyncHandler(async (req: AuthRequest, res) => {
   const body = validate(voteSchema, req.body);
   if (body.categoryCode === 'SELECAO_ANO') throw httpError(400, 'Seleção do ano exige 1 goleiro e 6 jogadores de linha. Use a votação específica da seleção.');
