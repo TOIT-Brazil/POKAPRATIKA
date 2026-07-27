@@ -287,6 +287,85 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
   res.json(result.rows);
 }));
 
+matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, res) => {
+  const matchColumns = await getMatchColumns();
+  const hasAttendance = await tableExists('match_attendance_responses');
+  const hasSchedule = matchColumns.has('confirmation_open_at') && matchColumns.has('confirmation_opened_at');
+  const seasonId = req.query.seasonId || null;
+  const userId = req.user?.id;
+  const orderStart = matchColumns.has('scheduled_start') ? 'm.scheduled_start' : 'TIME \'20:00\'';
+
+  if (!userId || !hasAttendance) {
+    res.json({ kind: null, match: null });
+    return;
+  }
+
+  const scheduleSelect = [
+    matchColumns.has('scheduled_start') ? 'm.scheduled_start AS "scheduledStart"' : 'TIME \'20:00\' AS "scheduledStart"',
+    matchColumns.has('scheduled_end') ? 'm.scheduled_end AS "scheduledEnd"' : 'TIME \'21:00\' AS "scheduledEnd"',
+    matchColumns.has('confirmation_open_at') ? 'm.confirmation_open_at AS "confirmationOpenAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenAt"',
+    matchColumns.has('confirmation_opens_hours_before') ? 'm.confirmation_opens_hours_before AS "confirmationOpensHoursBefore"' : '48::INTEGER AS "confirmationOpensHoursBefore"',
+    matchColumns.has('confirmation_opened_at') ? 'm.confirmation_opened_at AS "confirmationOpenedAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenedAt"',
+    matchColumns.has('schedule_source') ? 'm.schedule_source AS "scheduleSource"' : '\'MANUAL\' AS "scheduleSource"',
+    hasSchedule ? '(m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now()) AS "confirmationOpen"' : '(m.status = \'DRAFT\') AS "confirmationOpen"'
+  ];
+  const attendanceSelect = 'COALESCE(att.playing, 0) AS "attendancePlaying", COALESCE(att.present_only, 0) AS "attendancePresentOnly", COALESCE(att.absent, 0) AS "attendanceAbsent", COALESCE(att.dinner_people, 0) AS "attendanceDinnerPeople", att.my_status AS "myAttendanceStatus"';
+  const baseSelect = `SELECT m.id, m.season_id AS "seasonId", m.match_date AS "matchDate", m.title, m.referee_name AS "refereeName", m.status,
+      m.team_a_name AS "teamAName", m.team_b_name AS "teamBName", m.team_a_score AS "teamAScore", m.team_b_score AS "teamBScore", m.created_at AS "createdAt",
+      ${scheduleSelect.join(', ')}, ${attendanceSelect}
+     FROM matches m
+     LEFT JOIN LATERAL (
+       SELECT
+        count(*) FILTER (WHERE response_status = 'JOGAR')::INTEGER AS playing,
+        count(*) FILTER (WHERE response_status = 'PRESENTE_SEM_JOGAR')::INTEGER AS present_only,
+        count(*) FILTER (WHERE response_status = 'AUSENTE')::INTEGER AS absent,
+        COALESCE(sum(CASE WHEN dinner_confirmed THEN 1 + guest_count ELSE 0 END), 0)::INTEGER AS dinner_people,
+        max(response_status) FILTER (WHERE user_id = $2::UUID) AS my_status
+       FROM match_attendance_responses
+       WHERE match_id = m.id
+     ) att ON TRUE`;
+  const openCondition = hasSchedule ? '(m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now())' : 'TRUE';
+
+  const responsePrompt = await query(
+    `${baseSelect}
+     WHERE ($1::UUID IS NULL OR m.season_id = $1)
+       AND m.status = 'DRAFT'
+       AND ${openCondition}
+       AND NOT EXISTS (
+         SELECT 1
+         FROM match_attendance_responses mar
+         WHERE mar.match_id = m.id
+           AND mar.user_id = $2::UUID
+       )
+    ORDER BY m.match_date ASC, ${orderStart} ASC NULLS LAST, m.created_at ASC
+     LIMIT 1`,
+    [seasonId, userId]
+  );
+
+  if (responsePrompt.rowCount) {
+    res.json({ kind: 'ATTENDANCE', match: responsePrompt.rows[0] });
+    return;
+  }
+
+  if (req.user?.role !== 'ADMIN' && req.user?.role !== 'COORDENADOR') {
+    res.json({ kind: null, match: null });
+    return;
+  }
+
+  const releasePrompt = await query(
+    `${baseSelect}
+     WHERE ($1::UUID IS NULL OR m.season_id = $1)
+       AND m.status = 'DRAFT'
+       AND NOT ${openCondition}
+       AND m.match_date = (now() AT TIME ZONE 'America/Sao_Paulo')::DATE
+    ORDER BY m.match_date ASC, ${orderStart} ASC NULLS LAST, m.created_at ASC
+     LIMIT 1`,
+    [seasonId, userId]
+  );
+
+  res.json({ kind: releasePrompt.rowCount ? 'RELEASE' : null, match: releasePrompt.rows[0] ?? null });
+}));
+
 matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
   const body = validate(createMatchSchema, req.body);
   const players = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: player.present ?? true }));

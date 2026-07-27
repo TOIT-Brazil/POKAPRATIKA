@@ -43,6 +43,7 @@ type PositionBalanceGroup = 'GO' | 'DEFESA' | 'MEIO' | 'ATAQUE';
 type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
 type ScheduleMode = 'manual' | 'recurring';
+type ConfirmationPromptPayload = { kind: 'ATTENDANCE' | 'RELEASE' | null; match: MatchListItem | null };
 
 type MatchDetail = MatchListItem & {
   scheduledStart?: string | null;
@@ -483,7 +484,7 @@ export function App() {
 
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
-      {!loading && !selectedMatch && <GlobalConfirmationPrompt api={api} matches={matches} attendanceOverrides={localAttendanceStatusByMatchId} canCoordinate={canCoordinate} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
+      {!loading && !selectedMatch && <GlobalConfirmationPrompt api={api} activeSeasonId={activeSeasonId} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
       {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
 
       <section className="context-row">
@@ -575,19 +576,32 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
   );
 }
 
-function GlobalConfirmationPrompt({ api, matches, attendanceOverrides, canCoordinate, onReload, setSelectedMatch }: { api: ApiClient; matches: MatchListItem[]; attendanceOverrides: Record<string, AttendanceStatus>; canCoordinate: boolean; onReload: () => Promise<void>; setSelectedMatch: (match: MatchDetail | null) => void }) {
+function GlobalConfirmationPrompt({ api, activeSeasonId, onReload, setSelectedMatch }: { api: ApiClient; activeSeasonId: string; onReload: () => Promise<void>; setSelectedMatch: (match: MatchDetail | null) => void }) {
   const [dismissedId, setDismissedId] = useState('');
-  const upcoming = [...matches].sort((left, right) => `${left.matchDate}${left.scheduledStart ?? ''}`.localeCompare(`${right.matchDate}${right.scheduledStart ?? ''}`));
-  const responseMatch = upcoming.find((match) => isConfirmationReallyOpen(match) && !(attendanceOverrides[match.id] ?? match.myAttendanceStatus));
-  const coordinatorMatch = canCoordinate && !responseMatch ? upcoming.find((match) => match.status === 'DRAFT' && !match.confirmationOpen && isMatchToday(match)) : undefined;
-  const match = responseMatch ?? coordinatorMatch;
-  const isReleasePrompt = Boolean(coordinatorMatch && match?.id === coordinatorMatch.id);
+  const [prompt, setPrompt] = useState<ConfirmationPromptPayload>({ kind: null, match: null });
+
+  async function loadPrompt() {
+    if (!activeSeasonId) {
+      setPrompt({ kind: null, match: null });
+      return;
+    }
+    setPrompt(await api.request<ConfirmationPromptPayload>(`/matches/confirmation-prompt?seasonId=${activeSeasonId}`));
+  }
+
+  useEffect(() => {
+    setDismissedId('');
+    void loadPrompt().catch(() => setPrompt({ kind: null, match: null }));
+  }, [api, activeSeasonId]);
+
+  const match = prompt.match;
+  const isReleasePrompt = prompt.kind === 'RELEASE';
   if (!match || dismissedId === match.id) return null;
 
   async function openConfirmation() {
     if (!match) return;
     await api.request(`/matches/${match.id}/open-confirmation`, { method: 'POST' });
     await onReload();
+    await loadPrompt();
     setDismissedId(match.id);
   }
 
