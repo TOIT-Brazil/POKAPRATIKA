@@ -736,12 +736,17 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
   const closedMessage = match.status === 'DRAFT'
     ? `Confirmação ainda não aberta. A coordenação pode abrir manualmente ou manter a janela configurada${match.confirmationOpenAt ? ` para ${formatBrasiliaTime(match.confirmationOpenAt)}` : ''}.`
     : 'Confirmação bloqueada porque a súmula já saiu do rascunho.';
+  const attendanceChoiceHelp = responseStatus === 'JOGAR'
+    ? 'Você será contado para o jogo e pode entrar na escalação. Não será contado como apenas presente.'
+    : responseStatus === 'PRESENTE_SEM_JOGAR'
+      ? 'Você será contado como presença no evento, mas fica fora do jogo e da escalação.'
+      : 'Você não será contado para jogo, presença no evento ou janta.';
 
   async function saveAttendance() {
     setMessage('Salvando confirmação...');
     const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
     await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: notes || null }) });
-    setMessage('Confirmação salva. A súmula já pode usar esta informação para montar os times.');
+    setMessage(responseStatus === 'JOGAR' ? 'Confirmação salva: você ficou disponível para o jogo e para a escalação.' : responseStatus === 'PRESENTE_SEM_JOGAR' ? 'Confirmação salva: você ficou apenas presente, fora do jogo e da escalação.' : 'Confirmação salva: ausência registrada para esta rodada.');
     await onSaved();
   }
 
@@ -750,7 +755,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
       <div className="card-head">
         <div>
           <strong>Confirmação da rodada</strong>
-          <p className="muted">Atletas confirmam jogo, presença no evento e janta/churrasco.</p>
+          <p className="muted">Atletas escolhem uma única situação na rodada e, se forem ao evento, informam janta/churrasco.</p>
         </div>
         <span className="status open">{playing.length} jogo • {presentOnly.length} presença • {dinnerPeople} janta</span>
       </div>
@@ -762,11 +767,13 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
         <span><b>{dinnerPeople}</b> pessoas na janta</span>
       </div>
       {openForResponse ? <div className="attendance-form">
-        <div className="segmented">
-          <button type="button" className={responseStatus === 'JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('JOGAR')}>Jogo</button>
-          <button type="button" className={responseStatus === 'PRESENTE_SEM_JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('PRESENTE_SEM_JOGAR')}>Apenas presença</button>
-          <button type="button" className={responseStatus === 'AUSENTE' ? 'primary small' : 'ghost'} onClick={() => { setResponseStatus('AUSENTE'); setDinnerConfirmed(false); setGuestCount(0); }}>Ausência</button>
+        <div className="segmented" role="radiogroup" aria-label="Escolha única de presença na rodada">
+          <small className="muted choice-note">Escolha única: jogo entra na escalação; apenas presença fica fora do jogo.</small>
+          <button type="button" role="radio" aria-checked={responseStatus === 'JOGAR'} className={responseStatus === 'JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('JOGAR')}>Jogo</button>
+          <button type="button" role="radio" aria-checked={responseStatus === 'PRESENTE_SEM_JOGAR'} className={responseStatus === 'PRESENTE_SEM_JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('PRESENTE_SEM_JOGAR')}>Apenas presença</button>
+          <button type="button" role="radio" aria-checked={responseStatus === 'AUSENTE'} className={responseStatus === 'AUSENTE' ? 'primary small' : 'ghost'} onClick={() => { setResponseStatus('AUSENTE'); setDinnerConfirmed(false); setGuestCount(0); }}>Ausência</button>
         </div>
+        <small className="muted attendance-choice-help">{attendanceChoiceHelp}</small>
         <label className="bench"><input type="checkbox" checked={dinnerConfirmed} disabled={responseStatus === 'AUSENTE'} onChange={(event) => { setDinnerConfirmed(event.target.checked); if (!event.target.checked) setGuestCount(0); }} /> Fico para janta/churrasco</label>
         <input type="number" min="0" max="20" value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))} disabled={responseStatus === 'AUSENTE' || !dinnerConfirmed} placeholder="Convidados para janta" />
         <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação rápida: chego atrasado, levo bola, etc." maxLength={300} />
@@ -883,7 +890,7 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
       ? canCoordinate ? 'Atletas já podem responder e a súmula usa esses dados para escalação.' : attendanceStatusLabel(match.myAttendanceStatus)
       : `Abre automaticamente${match.confirmationOpenAt ? ` em ${formatBrasiliaTime(match.confirmationOpenAt)}` : ' pela agenda configurada'}.`;
 
-    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> vão jogar</span><span><b>{presentOnly}</b> só presença</span><span><b>{absent}</b> ausentes</span><span><b>{pending}</b> pendentes</span><span><b>{dinnerPeople}</b> janta</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{!canCoordinate && match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openMatch(match.id)}>{match.myAttendanceStatus ? 'Alterar confirmação' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
+    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> Confirmados</span><span><b>{presentOnly}</b> Só presença</span><span><b>{absent}</b> Ausentes</span><span><b>{pending}</b> Não responderam</span><span><b>{dinnerPeople}</b> Pessoas para a janta</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{!canCoordinate && match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openMatch(match.id)}>{match.myAttendanceStatus ? 'Alterar confirmação' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
   }
 
   return (
