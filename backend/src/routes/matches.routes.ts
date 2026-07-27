@@ -249,6 +249,12 @@ matchesRouter.use(requireAuth);
 matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
   const matchColumns = await getMatchColumns();
   const hasAttendance = await tableExists('match_attendance_responses');
+  const hasSchedule = matchColumns.has('confirmation_open_at') && matchColumns.has('confirmation_opened_at') && matchColumns.has('confirmation_opens_hours_before');
+  const scheduledStartExpression = matchColumns.has('scheduled_start') ? 'm.scheduled_start' : 'TIME \'20:00\'';
+  const confirmationHoursExpression = matchColumns.has('confirmation_opens_hours_before') ? 'COALESCE(m.confirmation_opens_hours_before, 48)' : '48';
+  const matchStartsAtExpression = `((m.match_date + ${scheduledStartExpression}) AT TIME ZONE 'America/Sao_Paulo')`;
+  const operationalWindowCondition = `(${matchStartsAtExpression} BETWEEN now() - interval '12 hours' AND now() + (${confirmationHoursExpression} * interval '1 hour'))`;
+  const confirmationOpenExpression = hasSchedule ? `((m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now()) AND ${operationalWindowCondition})` : `(m.status = 'DRAFT' AND ${operationalWindowCondition})`;
   const scheduleSelect = [
     matchColumns.has('scheduled_start') ? 'm.scheduled_start AS "scheduledStart"' : 'TIME \'20:00\' AS "scheduledStart"',
     matchColumns.has('scheduled_end') ? 'm.scheduled_end AS "scheduledEnd"' : 'TIME \'21:00\' AS "scheduledEnd"',
@@ -256,7 +262,7 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
     matchColumns.has('confirmation_opens_hours_before') ? 'm.confirmation_opens_hours_before AS "confirmationOpensHoursBefore"' : '48::INTEGER AS "confirmationOpensHoursBefore"',
     matchColumns.has('confirmation_opened_at') ? 'm.confirmation_opened_at AS "confirmationOpenedAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenedAt"',
     matchColumns.has('schedule_source') ? 'm.schedule_source AS "scheduleSource"' : '\'MANUAL\' AS "scheduleSource"',
-    matchColumns.has('confirmation_open_at') ? '(m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now()) AS "confirmationOpen"' : '(m.status = \'DRAFT\') AS "confirmationOpen"'
+    `${confirmationOpenExpression} AS "confirmationOpen"`
   ];
   const attendanceJoin = hasAttendance
     ? `LEFT JOIN LATERAL (
@@ -290,10 +296,13 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
 matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, res) => {
   const matchColumns = await getMatchColumns();
   const hasAttendance = await tableExists('match_attendance_responses');
-  const hasSchedule = matchColumns.has('confirmation_open_at') && matchColumns.has('confirmation_opened_at');
+  const hasSchedule = matchColumns.has('confirmation_open_at') && matchColumns.has('confirmation_opened_at') && matchColumns.has('confirmation_opens_hours_before');
   const seasonId = req.query.seasonId || null;
   const userId = req.user?.id;
   const orderStart = matchColumns.has('scheduled_start') ? 'm.scheduled_start' : 'TIME \'20:00\'';
+  const confirmationHoursExpression = matchColumns.has('confirmation_opens_hours_before') ? 'COALESCE(m.confirmation_opens_hours_before, 48)' : '48';
+  const matchStartsAtExpression = `((m.match_date + ${orderStart}) AT TIME ZONE 'America/Sao_Paulo')`;
+  const operationalWindowCondition = `(${matchStartsAtExpression} BETWEEN now() - interval '12 hours' AND now() + (${confirmationHoursExpression} * interval '1 hour'))`;
 
   if (!userId || !hasAttendance) {
     res.json({ kind: null, match: null });
@@ -307,7 +316,7 @@ matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, 
     matchColumns.has('confirmation_opens_hours_before') ? 'm.confirmation_opens_hours_before AS "confirmationOpensHoursBefore"' : '48::INTEGER AS "confirmationOpensHoursBefore"',
     matchColumns.has('confirmation_opened_at') ? 'm.confirmation_opened_at AS "confirmationOpenedAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenedAt"',
     matchColumns.has('schedule_source') ? 'm.schedule_source AS "scheduleSource"' : '\'MANUAL\' AS "scheduleSource"',
-    hasSchedule ? '(m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now()) AS "confirmationOpen"' : '(m.status = \'DRAFT\') AS "confirmationOpen"'
+    hasSchedule ? `((m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now()) AND ${operationalWindowCondition}) AS "confirmationOpen"` : `(m.status = 'DRAFT' AND ${operationalWindowCondition}) AS "confirmationOpen"`
   ];
   const attendanceSelect = 'COALESCE(att.playing, 0) AS "attendancePlaying", COALESCE(att.present_only, 0) AS "attendancePresentOnly", COALESCE(att.absent, 0) AS "attendanceAbsent", COALESCE(att.dinner_people, 0) AS "attendanceDinnerPeople", att.my_status AS "myAttendanceStatus"';
   const baseSelect = `SELECT m.id, m.season_id AS "seasonId", m.match_date AS "matchDate", m.title, m.referee_name AS "refereeName", m.status,
@@ -324,7 +333,7 @@ matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, 
        FROM match_attendance_responses
        WHERE match_id = m.id
      ) att ON TRUE`;
-  const openCondition = hasSchedule ? '(m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now())' : 'TRUE';
+  const openCondition = hasSchedule ? `((m.confirmation_opened_at IS NOT NULL OR m.confirmation_open_at <= now()) AND ${operationalWindowCondition})` : operationalWindowCondition;
 
   const responsePrompt = await query(
     `${baseSelect}
@@ -572,16 +581,23 @@ matchesRouter.post('/:id/open-confirmation', requireRoles('ADMIN', 'COORDENADOR'
          confirmation_open_at = LEAST(COALESCE(confirmation_open_at, now()), now()),
          updated_at = now()
      WHERE id = $1 AND status = 'DRAFT'
+      AND ((match_date + scheduled_start) AT TIME ZONE 'America/Sao_Paulo') BETWEEN now() - interval '12 hours' AND now() + (COALESCE(confirmation_opens_hours_before, 48) * interval '1 hour')
      RETURNING id, confirmation_open_at AS "confirmationOpenAt", confirmation_opened_at AS "confirmationOpenedAt"`,
     [params.id, req.user?.id]
   );
-  if (!result.rowCount) throw httpError(409, 'Somente jogos em rascunho podem abrir confirmação.');
+  if (!result.rowCount) throw httpError(409, 'A confirmação só pode ser aberta dentro da janela operacional configurada para a rodada. Jogos futuros distantes ficam apenas na Agenda.');
   res.json(result.rows[0]);
 }));
 
 matchesRouter.get('/:id', asyncHandler(async (req, res) => {
   const params = validate(idParamSchema, req.params);
   const matchColumns = await getMatchColumns();
+  const hasSchedule = matchColumns.has('confirmation_open_at') && matchColumns.has('confirmation_opened_at') && matchColumns.has('confirmation_opens_hours_before');
+  const scheduledStartExpression = matchColumns.has('scheduled_start') ? 'scheduled_start' : 'TIME \'20:00\'';
+  const confirmationHoursExpression = matchColumns.has('confirmation_opens_hours_before') ? 'COALESCE(confirmation_opens_hours_before, 48)' : '48';
+  const matchStartsAtExpression = `((match_date + ${scheduledStartExpression}) AT TIME ZONE 'America/Sao_Paulo')`;
+  const operationalWindowCondition = `(${matchStartsAtExpression} BETWEEN now() - interval '12 hours' AND now() + (${confirmationHoursExpression} * interval '1 hour'))`;
+  const confirmationOpenExpression = hasSchedule ? `((confirmation_opened_at IS NOT NULL OR confirmation_open_at <= now()) AND ${operationalWindowCondition})` : `(status = 'DRAFT' AND ${operationalWindowCondition})`;
   const draftSelect = [
     matchColumns.has('draft_team_a_score') ? 'draft_team_a_score AS "draftTeamAScore"' : 'team_a_score AS "draftTeamAScore"',
     matchColumns.has('draft_team_b_score') ? 'draft_team_b_score AS "draftTeamBScore"' : 'team_b_score AS "draftTeamBScore"',
@@ -597,7 +613,7 @@ matchesRouter.get('/:id', asyncHandler(async (req, res) => {
     matchColumns.has('confirmation_opens_hours_before') ? 'confirmation_opens_hours_before AS "confirmationOpensHoursBefore"' : '48::INTEGER AS "confirmationOpensHoursBefore"',
     matchColumns.has('confirmation_opened_at') ? 'confirmation_opened_at AS "confirmationOpenedAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenedAt"',
     matchColumns.has('schedule_source') ? 'schedule_source AS "scheduleSource"' : '\'MANUAL\' AS "scheduleSource"',
-    matchColumns.has('confirmation_open_at') ? '(confirmation_opened_at IS NOT NULL OR confirmation_open_at <= now()) AS "confirmationOpen"' : '(status = \'DRAFT\') AS "confirmationOpen"'
+    `${confirmationOpenExpression} AS "confirmationOpen"`
   ];
   const match = await query(
     `SELECT id, season_id AS "seasonId", match_date AS "matchDate", title, referee_name AS "refereeName", status,
@@ -673,10 +689,15 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
   if (!await tableExists('match_attendance_responses')) throw httpError(409, 'Confirmação de presença indisponível: execute migrations/11_confirmacao_presenca_jantar.sql no PostgreSQL da Railway.');
 
   const matchColumns = await getMatchColumns();
+  const hasSchedule = matchColumns.has('confirmation_open_at') && matchColumns.has('confirmation_opened_at') && matchColumns.has('confirmation_opens_hours_before');
+  const confirmationOpenSql = hasSchedule
+    ? `SELECT status,
+        ((confirmation_opened_at IS NOT NULL OR confirmation_open_at <= now())
+          AND ((match_date + scheduled_start) AT TIME ZONE 'America/Sao_Paulo') BETWEEN now() - interval '12 hours' AND now() + (COALESCE(confirmation_opens_hours_before, 48) * interval '1 hour')) AS "confirmationOpen"
+       FROM matches WHERE id = $1`
+    : 'SELECT status, TRUE AS "confirmationOpen" FROM matches WHERE id = $1';
   const match = await query<{ status: string; confirmationOpen: boolean }>(
-    matchColumns.has('confirmation_open_at')
-      ? 'SELECT status, (confirmation_opened_at IS NOT NULL OR confirmation_open_at <= now()) AS "confirmationOpen" FROM matches WHERE id = $1'
-      : 'SELECT status, TRUE AS "confirmationOpen" FROM matches WHERE id = $1',
+    confirmationOpenSql,
     [params.id]
   );
   if (!match.rowCount) throw httpError(404, 'Partida não encontrada.');
