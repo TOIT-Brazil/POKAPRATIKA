@@ -245,6 +245,13 @@ function attendanceStatusLabel(status?: MatchListItem['myAttendanceStatus']): st
   return 'Sua resposta está pendente';
 }
 
+function attendanceActionLabel(status?: MatchListItem['myAttendanceStatus'] | null): string {
+  if (status === 'JOGAR') return 'Confirmado: jogo ✓';
+  if (status === 'PRESENTE_SEM_JOGAR') return 'Confirmado: presença ✓';
+  if (status === 'AUSENTE') return 'Ausência salva ✓';
+  return 'Confirmações';
+}
+
 function matchDateParts(match: MatchListItem): { day: string; month: string; weekday: string; time: string } {
   const date = new Date(`${match.matchDate?.slice(0, 10) || todayInputValue()}T12:00:00-03:00`);
   const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short', weekday: 'short' });
@@ -312,6 +319,7 @@ export function App() {
   const [points, setPoints] = useState<PointSetting[]>([]);
   const [suspensions, setSuspensions] = useState<Suspension[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
+  const [localAttendanceStatusByMatchId, setLocalAttendanceStatusByMatchId] = useState<Record<string, AttendanceStatus>>({});
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -320,6 +328,11 @@ export function App() {
   const canCoordinate = auth?.user.role === 'ADMIN' || auth?.user.role === 'COORDENADOR';
   const isAdmin = auth?.user.role === 'ADMIN';
   const activeSeason = seasons.find((season) => season.id === activeSeasonId) ?? seasons.find((season) => season.status === 'OPEN') ?? seasons[0];
+
+  function markAttendanceSaved(matchId: string, status: AttendanceStatus) {
+    setLocalAttendanceStatusByMatchId((current) => ({ ...current, [matchId]: status }));
+    setMatches((current) => current.map((match) => match.id === matchId ? { ...match, myAttendanceStatus: status } : match));
+  }
 
   async function loadData() {
     if (!auth) return;
@@ -358,6 +371,10 @@ export function App() {
   useEffect(() => {
     void loadData();
   }, [auth?.token]);
+
+  useEffect(() => {
+    setLocalAttendanceStatusByMatchId({});
+  }, [auth?.user.id]);
 
   useEffect(() => {
     if (!auth || !activeSeasonId) return;
@@ -457,7 +474,7 @@ export function App() {
 
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
-      {!loading && <GlobalConfirmationPrompt api={api} matches={matches} canCoordinate={canCoordinate} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
+      {!loading && <GlobalConfirmationPrompt api={api} matches={matches} attendanceOverrides={localAttendanceStatusByMatchId} canCoordinate={canCoordinate} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
       {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
 
       <section className="context-row">
@@ -467,7 +484,7 @@ export function App() {
         <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.status ?? 'sem temporada'}</span>
         {suspensions.length > 0 && <span className="status danger">{suspensions.length} suspensão(ões)</span>}
       </section>
-        {view === 'temporada' && <div className="home-stack season-home"><div className="season-lower"><MatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><SeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} canCoordinate={canCoordinate} onReload={loadData} /></div><SeasonPanel standings={standings} rankings={rankings} onOpenProfile={setProfileUserId} /></div>}
+        {view === 'temporada' && <div className="home-stack season-home"><div className="season-lower"><MatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} attendanceOverrides={localAttendanceStatusByMatchId} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} onAttendanceSaved={markAttendanceSaved} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><SeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} canCoordinate={canCoordinate} onReload={loadData} /></div><SeasonPanel standings={standings} rankings={rankings} onOpenProfile={setProfileUserId} /></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
       {view === 'usuarios' && canCoordinate && <UsersManagementPanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
@@ -549,10 +566,10 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
   );
 }
 
-function GlobalConfirmationPrompt({ api, matches, canCoordinate, onReload, setSelectedMatch }: { api: ApiClient; matches: MatchListItem[]; canCoordinate: boolean; onReload: () => Promise<void>; setSelectedMatch: (match: MatchDetail | null) => void }) {
+function GlobalConfirmationPrompt({ api, matches, attendanceOverrides, canCoordinate, onReload, setSelectedMatch }: { api: ApiClient; matches: MatchListItem[]; attendanceOverrides: Record<string, AttendanceStatus>; canCoordinate: boolean; onReload: () => Promise<void>; setSelectedMatch: (match: MatchDetail | null) => void }) {
   const [dismissedId, setDismissedId] = useState('');
   const upcoming = [...matches].sort((left, right) => `${left.matchDate}${left.scheduledStart ?? ''}`.localeCompare(`${right.matchDate}${right.scheduledStart ?? ''}`));
-  const responseMatch = upcoming.find((match) => isConfirmationReallyOpen(match) && !match.myAttendanceStatus);
+  const responseMatch = upcoming.find((match) => isConfirmationReallyOpen(match) && !(attendanceOverrides[match.id] ?? match.myAttendanceStatus));
   const coordinatorMatch = canCoordinate && !responseMatch ? upcoming.find((match) => match.status === 'DRAFT' && !match.confirmationOpen && isMatchToday(match)) : undefined;
   const match = responseMatch ?? coordinatorMatch;
   const isReleasePrompt = Boolean(coordinatorMatch && match?.id === coordinatorMatch.id);
@@ -706,14 +723,14 @@ function ProfilesPanel({ api, users, currentUserId, initialUserId, onCurrentUser
   return <div className="grid two"><section className="card compact"><div className="card-head"><h2>Perfil do atleta</h2><select value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>{users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div>{message && <p className="muted">{message}</p>}{career && <><div className="career-hero"><div className="profile-pill big">{career.profile.avatarDataUrl ? <img src={career.profile.avatarDataUrl} alt="Avatar" /> : <span>{career.profile.name.slice(0, 1)}</span>}<div><strong>{career.profile.name}</strong><small>{career.profile.role} • {positionLabel(career.profile.position)}</small></div></div><strong>{career.totals.seasonsPlayed} temporada(s)</strong></div>{selectedUserId === currentUserId && <div className="avatar-tools"><label className="ghost"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void saveAvatar(file); }} />Trocar foto</label>{career.profile.avatarDataUrl && <button type="button" className="ghost" onClick={() => void saveAvatar(null)}>Remover foto</button>}</div>}<div className="stat-grid"><span><b>{career.totals.totalPoints}</b> pontos</span><span><b>{career.totals.presences}</b> presenças</span><span><b>{career.totals.goals}</b> gols</span><span><b>{career.totals.assists}</b> assist.</span><span><b>{career.totals.wins}</b> vitórias</span><span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b> cartões</span></div><h2>Títulos e badges</h2><div className="chips">{career.awards.length === 0 ? <span className="muted">Nenhum prêmio registrado ainda.</span> : career.awards.map((award) => <span className="chip trophy" key={award.id}>{award.label} • {award.year}</span>)}</div><div className="chips">{career.badges.map((badge) => <span className="chip" key={badge.id}>{badge.label}</span>)}</div></>}</section><section className="card compact"><h2>Histórico por temporada</h2><div className="table-cards">{career?.seasons.map((season) => <article className="row-card" key={season.seasonId}><strong>{season.seasonName} • {season.year}</strong><span>{season.totalPoints} pts</span><small>Pres. {season.presences} • V {season.wins} • E {season.draws} • D {season.losses} • G {season.goals} • A {season.assists}</small></article>)}</div></section></div>;
 }
 
-function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: () => Promise<void> }) {
+function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: (status: AttendanceStatus) => Promise<void> }) {
   const own = match.attendance.find((item) => item.userId === currentUserId);
   const [responseStatus, setResponseStatus] = useState<AttendanceStatus>(own?.responseStatus ?? 'JOGAR');
   const [dinnerConfirmed, setDinnerConfirmed] = useState(own?.dinnerConfirmed ?? false);
   const [guestCount, setGuestCount] = useState(own?.guestCount ?? 0);
   const [notes, setNotes] = useState(own?.notes ?? '');
   const [message, setMessage] = useState('');
-  const openForResponse = match.status === 'DRAFT' && match.confirmationOpen !== false;
+  const openForResponse = isConfirmationReallyOpen(match);
 
   useEffect(() => {
     setResponseStatus(own?.responseStatus ?? 'JOGAR');
@@ -741,7 +758,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
     const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
     await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: notes || null }) });
     setMessage(responseStatus === 'JOGAR' ? 'Confirmação salva: você ficou disponível para o jogo e para a escalação.' : responseStatus === 'PRESENTE_SEM_JOGAR' ? 'Confirmação salva: você ficou apenas presente, fora do jogo e da escalação.' : 'Confirmação salva: ausência registrada para esta rodada.');
-    await onSaved();
+    await onSaved(responseStatus);
   }
 
   return (
@@ -800,7 +817,7 @@ function MatchDayChecklist({ match }: { match: MatchDetail }) {
   return <section className="match-day-checklist">{checks.map((check) => <span className={`status ${check.ok ? 'open' : 'danger'}`} key={check.label}>{check.ok ? '✓' : '•'} {check.label}</span>)}</section>;
 }
 
-function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
+function MatchesPanel({ api, canCoordinate, users, matches, attendanceOverrides, activeSeasonId, currentUserId, onReload, onAttendanceSaved, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; attendanceOverrides: Record<string, AttendanceStatus>; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; onAttendanceSaved: (matchId: string, status: AttendanceStatus) => void; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
   const [clockRunning, setClockRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -881,11 +898,12 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
     const responsePercent = Math.min(100, Math.round((responses / activeUserCount) * 100));
     const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
     const confirmationReallyOpen = isConfirmationReallyOpen(match);
+    const myAttendanceStatus = attendanceOverrides[match.id] ?? match.myAttendanceStatus ?? null;
     const confirmationDetail = match.confirmationOpen
-      ? confirmationReallyOpen ? attendanceStatusLabel(match.myAttendanceStatus) : 'Confirmação configurada, mas ainda fora da janela operacional.'
+      ? confirmationReallyOpen ? attendanceStatusLabel(myAttendanceStatus) : 'Confirmação configurada, mas ainda fora da janela operacional.'
       : `Abre automaticamente${match.confirmationOpenAt ? ` em ${formatBrasiliaTime(match.confirmationOpenAt)}` : ' pela agenda configurada'}.`;
 
-    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> Confirmados</span><span><b>{presentOnly}</b> Só presença</span><span><b>{absent}</b> Ausentes</span><span><b>{pending}</b> Não responderam</span><span><b>{dinnerPeople}</b> Para o jantar</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className="primary small" onClick={() => void openMatch(match.id)}>Confirmações</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
+    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> Confirmados</span><span><b>{presentOnly}</b> Só presença</span><span><b>{absent}</b> Ausentes</span><span><b>{pending}</b> Não responderam</span><span><b>{dinnerPeople}</b> Para o jantar</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary small ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{attendanceActionLabel(myAttendanceStatus)}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
   }
 
   return (
@@ -907,7 +925,7 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
           </section>
         </div>
       </div>
-      {selectedMatch && <div className="modal match-modal"><section className="match-modal-card"><div className="card-head"><div><h2>{selectedMatch.title}</h2><p className="muted">Súmula operacional • {selectedMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedMatch.status)}</p></div><button className="ghost" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>Fechar</button></div><AttendancePanel api={api} match={selectedMatch} currentUserId={currentUserId} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />{canCoordinate ? <div className="match-ops-grid"><section className="score-editor broadcast-panel"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>{selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)} — horário de Brasília. A quadra encerra às 21:00; tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}<div className="actions"><button className="primary" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setClockRunning((value) => !value)}>{selectedMatch.status === 'RUNNING' ? 'Cronômetro oficial ativo' : clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button><button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>{selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && (cancelConfirm ? <><button className="ghost danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter súmula</button></> : <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar súmula</button>)}</div>{cancelConfirm && <p className="muted">Cancelar tira esta súmula do fluxo operacional e ela não pontua a temporada.</p>}<SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.floor(seconds / 60)} /></section><section className="match-sheet-panel">{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && <ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<div className="chips">{selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>)}</div>{selectedMatch.status !== 'CANCELLED' && <MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section></div> : <section className="score-editor athlete-match-readonly"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.teamAScore} x {selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><p className="muted">Rascunho, cronômetro, escalação e fechamento da súmula são exclusivos da coordenação. Atleta usa este modal para confirmar presença e consultar informações oficiais do jogo.</p><div className="chips">{selectedMatch.events.length ? selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>) : <span className="chip">Sem eventos oficiais lançados.</span>}</div><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section>}</section></div>}
+      {selectedMatch && <div className="modal match-modal"><section className="match-modal-card"><div className="card-head"><div><h2>{selectedMatch.title}</h2><p className="muted">Súmula operacional • {selectedMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedMatch.status)}</p></div><button className="ghost" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>Fechar</button></div><AttendancePanel api={api} match={selectedMatch} currentUserId={currentUserId} onSaved={async (status) => { onAttendanceSaved(selectedMatch.id, status); await openMatch(selectedMatch.id); await onReload(); }} />{canCoordinate ? <div className="match-ops-grid"><section className="score-editor broadcast-panel"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>{selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)} — horário de Brasília. A quadra encerra às 21:00; tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}<div className="actions"><button className="primary" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setClockRunning((value) => !value)}>{selectedMatch.status === 'RUNNING' ? 'Cronômetro oficial ativo' : clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button><button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>{selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && (cancelConfirm ? <><button className="ghost danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter súmula</button></> : <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar súmula</button>)}</div>{cancelConfirm && <p className="muted">Cancelar tira esta súmula do fluxo operacional e ela não pontua a temporada.</p>}<SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.floor(seconds / 60)} /></section><section className="match-sheet-panel">{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && <ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<div className="chips">{selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>)}</div>{selectedMatch.status !== 'CANCELLED' && <MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section></div> : <section className="score-editor athlete-match-readonly"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.teamAScore} x {selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><p className="muted">Rascunho, cronômetro, escalação e fechamento da súmula são exclusivos da coordenação. Atleta usa este modal para confirmar presença e consultar informações oficiais do jogo.</p><div className="chips">{selectedMatch.events.length ? selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>) : <span className="chip">Sem eventos oficiais lançados.</span>}</div><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section>}</section></div>}
     </section>
   );
 }
