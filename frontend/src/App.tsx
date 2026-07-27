@@ -43,7 +43,7 @@ type PositionBalanceGroup = 'GO' | 'DEFESA' | 'MEIO' | 'ATAQUE';
 type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
 type ScheduleMode = 'manual' | 'recurring';
-type ConfirmationPromptPayload = { kind: 'ATTENDANCE' | 'RELEASE' | null; match: MatchListItem | null };
+type ConfirmationPromptPayload = { kind: 'ATTENDANCE' | null; match: MatchListItem | null };
 
 type MatchDetail = MatchListItem & {
   scheduledStart?: string | null;
@@ -282,10 +282,17 @@ function isMatchToday(match: MatchListItem): boolean {
 }
 
 function isConfirmationReallyOpen(match: MatchListItem): boolean {
-  if (match.status !== 'DRAFT' || match.confirmationOpen !== true) return false;
-  if (match.confirmationOpenedAt) return true;
-  if (!match.confirmationOpenAt) return true;
-  return new Date(match.confirmationOpenAt).getTime() <= Date.now();
+  return match.status === 'DRAFT' && match.confirmationOpen === true;
+}
+
+function confirmationWindowHasEnded(match: MatchListItem): boolean {
+  return Boolean(match.confirmationCloseAt && Date.now() >= new Date(match.confirmationCloseAt).getTime());
+}
+
+function confirmationWindowScheduleLabel(match: MatchListItem): string {
+  const opens = match.confirmationOpenAt ? formatBrasiliaTime(match.confirmationOpenAt) : 'abertura não definida';
+  const closes = match.confirmationCloseAt ? formatBrasiliaTime(match.confirmationCloseAt) : 'fechamento não definido';
+  return `abre ${opens} • fecha ${closes}`;
 }
 
 function downloadCsv(filename: string, rows: Array<Record<string, string | number | boolean | null | undefined>>) {
@@ -320,8 +327,6 @@ export function App() {
   const [points, setPoints] = useState<PointSetting[]>([]);
   const [suspensions, setSuspensions] = useState<Suspension[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
-  const [localAttendanceStatusByMatchId, setLocalAttendanceStatusByMatchId] = useState<Record<string, AttendanceStatus>>({});
-  const attendanceOverridesRef = useRef<Record<string, AttendanceStatus>>({});
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -330,18 +335,6 @@ export function App() {
   const canCoordinate = auth?.user.role === 'ADMIN' || auth?.user.role === 'COORDENADOR';
   const isAdmin = auth?.user.role === 'ADMIN';
   const activeSeason = seasons.find((season) => season.id === activeSeasonId) ?? seasons.find((season) => season.status === 'OPEN') ?? seasons[0];
-
-  function withAttendanceOverrides(matchData: MatchListItem[]): MatchListItem[] {
-    const overrides = attendanceOverridesRef.current;
-    return matchData.map((match) => overrides[match.id] ? { ...match, myAttendanceStatus: overrides[match.id] } : match);
-  }
-
-  function markAttendanceSaved(matchId: string, status: AttendanceStatus) {
-    const nextOverrides = { ...attendanceOverridesRef.current, [matchId]: status };
-    attendanceOverridesRef.current = nextOverrides;
-    setLocalAttendanceStatusByMatchId(nextOverrides);
-    setMatches((current) => current.map((match) => match.id === matchId ? { ...match, myAttendanceStatus: status } : match));
-  }
 
   async function loadData() {
     if (!auth) return;
@@ -368,7 +361,7 @@ export function App() {
         ]);
         setStandings(standingData);
         setRankings(rankingData);
-        setMatches(withAttendanceOverrides(matchData));
+        setMatches(matchData);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados.');
@@ -382,11 +375,6 @@ export function App() {
   }, [auth?.token]);
 
   useEffect(() => {
-    attendanceOverridesRef.current = {};
-    setLocalAttendanceStatusByMatchId({});
-  }, [auth?.user.id]);
-
-  useEffect(() => {
     if (!auth || !activeSeasonId) return;
     Promise.all([
       api.request<Standing[]>(`/seasons/${activeSeasonId}/standings`),
@@ -395,7 +383,7 @@ export function App() {
     ]).then(([standingData, rankingData, matchData]) => {
       setStandings(standingData);
       setRankings(rankingData);
-      setMatches(withAttendanceOverrides(matchData));
+      setMatches(matchData);
     }).catch((err) => setError(err instanceof Error ? err.message : 'Falha ao trocar temporada.'));
   }, [activeSeasonId]);
 
@@ -403,7 +391,7 @@ export function App() {
     if (!auth || !activeSeasonId) return;
     const timer = window.setInterval(() => {
       api.request<MatchListItem[]>(`/matches?seasonId=${activeSeasonId}`)
-        .then((matchData) => setMatches(withAttendanceOverrides(matchData)))
+        .then(setMatches)
         .catch(() => undefined);
       if (selectedMatch?.id) {
         api.request<MatchDetail>(`/matches/${selectedMatch.id}`)
@@ -484,7 +472,7 @@ export function App() {
 
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
-      {!loading && !selectedMatch && <GlobalConfirmationPrompt api={api} activeSeasonId={activeSeasonId} onReload={loadData} setSelectedMatch={setSelectedMatch} />}
+      {!loading && !selectedMatch && <GlobalConfirmationPrompt api={api} activeSeasonId={activeSeasonId} setSelectedMatch={setSelectedMatch} />}
       {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
 
       <section className="context-row">
@@ -494,7 +482,7 @@ export function App() {
         <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.status ?? 'sem temporada'}</span>
         {suspensions.length > 0 && <span className="status danger">{suspensions.length} suspensão(ões)</span>}
       </section>
-        {view === 'temporada' && <div className="home-stack season-home"><div className="season-lower"><MatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} attendanceOverrides={localAttendanceStatusByMatchId} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} onAttendanceSaved={markAttendanceSaved} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><SeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} canCoordinate={canCoordinate} onReload={loadData} /></div><SeasonPanel standings={standings} rankings={rankings} onOpenProfile={setProfileUserId} /></div>}
+        {view === 'temporada' && <div className="home-stack season-home"><div className="season-lower"><MatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><SeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} canCoordinate={canCoordinate} onReload={loadData} /></div><SeasonPanel standings={standings} rankings={rankings} onOpenProfile={setProfileUserId} /></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
       {view === 'usuarios' && canCoordinate && <UsersManagementPanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
@@ -576,7 +564,7 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
   );
 }
 
-function GlobalConfirmationPrompt({ api, activeSeasonId, onReload, setSelectedMatch }: { api: ApiClient; activeSeasonId: string; onReload: () => Promise<void>; setSelectedMatch: (match: MatchDetail | null) => void }) {
+function GlobalConfirmationPrompt({ api, activeSeasonId, setSelectedMatch }: { api: ApiClient; activeSeasonId: string; setSelectedMatch: (match: MatchDetail | null) => void }) {
   const [dismissedId, setDismissedId] = useState('');
   const [prompt, setPrompt] = useState<ConfirmationPromptPayload>({ kind: null, match: null });
 
@@ -594,16 +582,7 @@ function GlobalConfirmationPrompt({ api, activeSeasonId, onReload, setSelectedMa
   }, [api, activeSeasonId]);
 
   const match = prompt.match;
-  const isReleasePrompt = prompt.kind === 'RELEASE';
   if (!match || dismissedId === match.id) return null;
-
-  async function openConfirmation() {
-    if (!match) return;
-    await api.request(`/matches/${match.id}/open-confirmation`, { method: 'POST' });
-    await onReload();
-    await loadPrompt();
-    setDismissedId(match.id);
-  }
 
   async function openMatch() {
     if (!match) return;
@@ -611,7 +590,7 @@ function GlobalConfirmationPrompt({ api, activeSeasonId, onReload, setSelectedMa
     setDismissedId(match.id);
   }
 
-  return <div className="modal prompt-modal"><section className="card modal-card confirmation-popup"><div className="card-head"><div><h2>{isReleasePrompt ? 'Jogo hoje: liberar confirmações?' : 'Confirme sua presença no jogo'}</h2><p className="muted">{match.title} • {matchDateLabel(match)}</p></div></div><p className="muted">{isReleasePrompt ? 'Abra a confirmação para o grupo responder de forma fácil antes da súmula.' : 'A confirmação está aberta para você também. Responda se vai jogar, ficará apenas presente, vai à janta/churrasco e levará convidados.'}</p><div className="actions">{isReleasePrompt ? <button type="button" className="primary" onClick={() => void openConfirmation()}>Disparar confirmação</button> : <button type="button" className="primary" onClick={() => void openMatch()}>Confirmar agora</button>}<button type="button" className="ghost" onClick={() => setDismissedId(match.id)}>Agora não</button></div></section></div>;
+  return <div className="modal prompt-modal"><section className="card modal-card confirmation-popup"><div className="card-head"><div><h2>Confirme sua presença no jogo</h2><p className="muted">{match.title} • {matchDateLabel(match)}</p></div></div><p className="muted">A janela de confirmação está aberta no sistema{match.confirmationCloseAt ? ` até ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}. Responda se vai jogar, ficará apenas presente, vai à janta/churrasco e levará convidados.</p><div className="actions"><button type="button" className="primary" onClick={() => void openMatch()}>Confirmar agora</button><button type="button" className="ghost" onClick={() => setDismissedId(match.id)}>Agora não</button></div></section></div>;
 }
 
 function GlobalVotingPrompt({ api, users, activeSeason, isAdmin }: { api: ApiClient; users: User[]; activeSeason: Season; isAdmin: boolean }) {
@@ -746,7 +725,7 @@ function ProfilesPanel({ api, users, currentUserId, initialUserId, onCurrentUser
   return <div className="grid two"><section className="card compact"><div className="card-head"><h2>Perfil do atleta</h2><select value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>{users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div>{message && <p className="muted">{message}</p>}{career && <><div className="career-hero"><div className="profile-pill big">{career.profile.avatarDataUrl ? <img src={career.profile.avatarDataUrl} alt="Avatar" /> : <span>{career.profile.name.slice(0, 1)}</span>}<div><strong>{career.profile.name}</strong><small>{career.profile.role} • {positionLabel(career.profile.position)}</small></div></div><strong>{career.totals.seasonsPlayed} temporada(s)</strong></div>{selectedUserId === currentUserId && <div className="avatar-tools"><label className="ghost"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void saveAvatar(file); }} />Trocar foto</label>{career.profile.avatarDataUrl && <button type="button" className="ghost" onClick={() => void saveAvatar(null)}>Remover foto</button>}</div>}<div className="stat-grid"><span><b>{career.totals.totalPoints}</b> pontos</span><span><b>{career.totals.presences}</b> presenças</span><span><b>{career.totals.goals}</b> gols</span><span><b>{career.totals.assists}</b> assist.</span><span><b>{career.totals.wins}</b> vitórias</span><span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b> cartões</span></div><h2>Títulos e badges</h2><div className="chips">{career.awards.length === 0 ? <span className="muted">Nenhum prêmio registrado ainda.</span> : career.awards.map((award) => <span className="chip trophy" key={award.id}>{award.label} • {award.year}</span>)}</div><div className="chips">{career.badges.map((badge) => <span className="chip" key={badge.id}>{badge.label}</span>)}</div></>}</section><section className="card compact"><h2>Histórico por temporada</h2><div className="table-cards">{career?.seasons.map((season) => <article className="row-card" key={season.seasonId}><strong>{season.seasonName} • {season.year}</strong><span>{season.totalPoints} pts</span><small>Pres. {season.presences} • V {season.wins} • E {season.draws} • D {season.losses} • G {season.goals} • A {season.assists}</small></article>)}</div></section></div>;
 }
 
-function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: (status: AttendanceStatus) => Promise<void> }) {
+function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: () => Promise<void> }) {
   const own = match.attendance.find((item) => item.userId === currentUserId);
   const [responseStatus, setResponseStatus] = useState<AttendanceStatus>(own?.responseStatus ?? 'JOGAR');
   const [dinnerConfirmed, setDinnerConfirmed] = useState(own?.dinnerConfirmed ?? false);
@@ -768,7 +747,9 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
   const absent = match.attendance.filter((item) => item.responseStatus === 'AUSENTE');
   const dinnerPeople = match.attendance.reduce((total, item) => total + (item.dinnerConfirmed ? 1 : 0) + (item.dinnerConfirmed ? item.guestCount : 0), 0);
   const closedMessage = match.status === 'DRAFT'
-    ? `Confirmação ainda não aberta. A coordenação pode abrir manualmente ou manter a janela configurada${match.confirmationOpenAt ? ` para ${formatBrasiliaTime(match.confirmationOpenAt)}` : ''}.`
+    ? confirmationWindowHasEnded(match)
+      ? `Confirmação encerrada pela janela configurada${match.confirmationCloseAt ? ` em ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}.`
+      : `Confirmação ainda não aberta. A coordenação pode abrir manualmente ou manter a janela configurada: ${confirmationWindowScheduleLabel(match)}.`
     : 'Confirmação bloqueada porque a súmula já saiu do rascunho.';
   const attendanceChoiceHelp = responseStatus === 'JOGAR'
     ? 'Você será contado para o jogo e pode entrar na escalação. Não será contado como apenas presente.'
@@ -781,7 +762,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
     const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
     await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: notes || null }) });
     setMessage(responseStatus === 'JOGAR' ? 'Confirmação salva: você ficou disponível para o jogo e para a escalação.' : responseStatus === 'PRESENTE_SEM_JOGAR' ? 'Confirmação salva: você ficou apenas presente, fora do jogo e da escalação.' : 'Confirmação salva: ausência registrada para esta rodada.');
-    await onSaved(responseStatus);
+    await onSaved();
   }
 
   return (
@@ -840,7 +821,7 @@ function MatchDayChecklist({ match }: { match: MatchDetail }) {
   return <section className="match-day-checklist">{checks.map((check) => <span className={`status ${check.ok ? 'open' : 'danger'}`} key={check.label}>{check.ok ? '✓' : '•'} {check.label}</span>)}</section>;
 }
 
-function MatchesPanel({ api, canCoordinate, users, matches, attendanceOverrides, activeSeasonId, currentUserId, onReload, onAttendanceSaved, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; attendanceOverrides: Record<string, AttendanceStatus>; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; onAttendanceSaved: (matchId: string, status: AttendanceStatus) => void; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
+function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
   const [clockRunning, setClockRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -921,12 +902,14 @@ function MatchesPanel({ api, canCoordinate, users, matches, attendanceOverrides,
     const responsePercent = Math.min(100, Math.round((responses / activeUserCount) * 100));
     const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
     const confirmationReallyOpen = isConfirmationReallyOpen(match);
-    const myAttendanceStatus = attendanceOverrides[match.id] ?? match.myAttendanceStatus ?? null;
+    const myAttendanceStatus = match.myAttendanceStatus ?? null;
     const confirmationDetail = match.confirmationOpen
-      ? confirmationReallyOpen ? attendanceStatusLabel(myAttendanceStatus) : 'Confirmação configurada, mas ainda fora da janela operacional.'
-      : `Abre automaticamente${match.confirmationOpenAt ? ` em ${formatBrasiliaTime(match.confirmationOpenAt)}` : ' pela agenda configurada'}.`;
+      ? `${attendanceStatusLabel(myAttendanceStatus)}${match.confirmationCloseAt ? ` • fecha ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}`
+      : confirmationWindowHasEnded(match)
+        ? `Janela encerrada${match.confirmationCloseAt ? ` em ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}.`
+        : `Janela configurada: ${confirmationWindowScheduleLabel(match)}.`;
 
-    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> Confirmados</span><span><b>{presentOnly}</b> Só presença</span><span><b>{absent}</b> Ausentes</span><span><b>{pending}</b> Não responderam</span><span><b>{dinnerPeople}</b> Para o jantar</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary small ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{attendanceActionLabel(myAttendanceStatus)}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
+    return <article className={`match-card ${variant}`} key={match.id}><div className="match-date-badge"><b>{date.day}</b><span>{date.month}</span><em>{date.weekday} • {date.time}</em></div><div className="match-card-body"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><div className="match-card-metrics"><span><b>{playing}</b> Confirmados</span><span><b>{presentOnly}</b> Só presença</span><span><b>{absent}</b> Ausentes</span><span><b>{pending}</b> Não responderam</span><span><b>{dinnerPeople}</b> Para o jantar</span></div><div className="match-card-progress"><i style={{ width: `${responsePercent}%` }} /></div><div className="match-card-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary small ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{attendanceActionLabel(myAttendanceStatus)}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></div></article>;
   }
 
   return (
@@ -948,7 +931,7 @@ function MatchesPanel({ api, canCoordinate, users, matches, attendanceOverrides,
           </section>
         </div>
       </div>
-      {selectedMatch && <div className="modal match-modal"><section className="match-modal-card"><div className="card-head"><div><h2>{selectedMatch.title}</h2><p className="muted">Súmula operacional • {selectedMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedMatch.status)}</p></div><button className="ghost" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>Fechar</button></div><AttendancePanel api={api} match={selectedMatch} currentUserId={currentUserId} onSaved={async (status) => { onAttendanceSaved(selectedMatch.id, status); await openMatch(selectedMatch.id); await onReload(); }} />{canCoordinate ? <div className="match-ops-grid"><section className="score-editor broadcast-panel"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>{selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)} — horário de Brasília. A quadra encerra às 21:00; tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}<div className="actions"><button className="primary" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setClockRunning((value) => !value)}>{selectedMatch.status === 'RUNNING' ? 'Cronômetro oficial ativo' : clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button><button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>{selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && (cancelConfirm ? <><button className="ghost danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter súmula</button></> : <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar súmula</button>)}</div>{cancelConfirm && <p className="muted">Cancelar tira esta súmula do fluxo operacional e ela não pontua a temporada.</p>}<SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.floor(seconds / 60)} /></section><section className="match-sheet-panel">{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && <ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<div className="chips">{selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>)}</div>{selectedMatch.status !== 'CANCELLED' && <MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section></div> : <section className="score-editor athlete-match-readonly"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.teamAScore} x {selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><p className="muted">Rascunho, cronômetro, escalação e fechamento da súmula são exclusivos da coordenação. Atleta usa este modal para confirmar presença e consultar informações oficiais do jogo.</p><div className="chips">{selectedMatch.events.length ? selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>) : <span className="chip">Sem eventos oficiais lançados.</span>}</div><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section>}</section></div>}
+      {selectedMatch && <div className="modal match-modal"><section className="match-modal-card"><div className="card-head"><div><h2>{selectedMatch.title}</h2><p className="muted">Súmula operacional • {selectedMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedMatch.status)}</p></div><button className="ghost" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>Fechar</button></div><AttendancePanel api={api} match={selectedMatch} currentUserId={currentUserId} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />{canCoordinate ? <div className="match-ops-grid"><section className="score-editor broadcast-panel"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>{selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)} — horário de Brasília. A quadra encerra às 21:00; tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}<div className="actions"><button className="primary" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setClockRunning((value) => !value)}>{selectedMatch.status === 'RUNNING' ? 'Cronômetro oficial ativo' : clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button><button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>{selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && (cancelConfirm ? <><button className="ghost danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter súmula</button></> : <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar súmula</button>)}</div>{cancelConfirm && <p className="muted">Cancelar tira esta súmula do fluxo operacional e ela não pontua a temporada.</p>}<SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.floor(seconds / 60)} /></section><section className="match-sheet-panel">{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && <ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<div className="chips">{selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>)}</div>{selectedMatch.status !== 'CANCELLED' && <MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}<CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section></div> : <section className="score-editor athlete-match-readonly"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.teamAScore} x {selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><p className="muted">Rascunho, cronômetro, escalação e fechamento da súmula são exclusivos da coordenação. Atleta usa este modal para confirmar presença e consultar informações oficiais do jogo.</p><div className="chips">{selectedMatch.events.length ? selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>) : <span className="chip">Sem eventos oficiais lançados.</span>}</div><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section>}</section></div>}
     </section>
   );
 }
@@ -1244,6 +1227,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
   const [scheduledStart, setScheduledStart] = useState('20:00');
   const [scheduledEnd, setScheduledEnd] = useState('21:00');
   const [confirmationHours, setConfirmationHours] = useState(48);
+  const [confirmationCloseHours, setConfirmationCloseHours] = useState(2);
   const [teamAName, setTeamAName] = useState('Time A');
   const [teamBName, setTeamBName] = useState('Time B');
   const scheduledMatches = [...matches].filter((match) => match.status === 'DRAFT').sort((left, right) => `${left.matchDate}${left.scheduledStart ?? ''}`.localeCompare(`${right.matchDate}${right.scheduledStart ?? ''}`));
@@ -1258,21 +1242,32 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
     setTeamAName(match.teamAName);
     setTeamBName(match.teamBName);
     setConfirmationHours(match.confirmationOpensHoursBefore ?? 48);
-    setMessage(`Editando ${match.title}. Ajuste a antecedência conforme a regra do grupo e salve para recalcular a janela de confirmação.`);
+    setConfirmationCloseHours(match.confirmationClosesHoursBefore ?? 2);
+    setMessage(`Editando ${match.title}. Ajuste abertura e fechamento conforme a regra do grupo e salve para recalcular a janela de confirmação.`);
+  }
+
+  function updateConfirmationHours(value: number) {
+    const nextOpen = Math.max(1, Math.min(336, value));
+    setConfirmationHours(nextOpen);
+    setConfirmationCloseHours((current) => Math.min(current, nextOpen - 1));
+  }
+
+  function updateConfirmationCloseHours(value: number) {
+    setConfirmationCloseHours(Math.max(0, Math.min(value, confirmationHours - 1)));
   }
 
   async function saveSchedule(event: FormEvent) {
     event.preventDefault();
     setMessage('Salvando agenda...');
     if (editingId) {
-      await api.request(`/matches/${editingId}/schedule`, { method: 'PATCH', body: JSON.stringify({ matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, teamAName, teamBName }) });
+      await api.request(`/matches/${editingId}/schedule`, { method: 'PATCH', body: JSON.stringify({ matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, teamAName, teamBName }) });
       setMessage('Jogo pré-definido atualizado.');
       setEditingId('');
     } else if (mode === 'manual') {
-      await api.request('/matches/schedule/manual', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, teamAName, teamBName }) });
+      await api.request('/matches/schedule/manual', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, teamAName, teamBName }) });
       setMessage('Jogo avulso criado e disponível na lista.');
     } else {
-      const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, weekday, startDate: rangeStart, endDate: rangeEnd, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, teamAName, teamBName }) });
+      const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, weekday, startDate: rangeStart, endDate: rangeEnd, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, teamAName, teamBName }) });
       setMessage(`${result.generated} jogo(s) gerado(s). ${result.skipped} data(s) já existiam e foram preservadas.`);
     }
     await onDone();
@@ -1300,7 +1295,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
           <div className="card-head">
             <div>
               <h2>Agenda e confirmação dos jogos</h2>
-              <p className="muted">Pré-defina recorrência, datas avulsas e a antecedência de abertura conforme a regra do grupo.</p>
+              <p className="muted">Pré-defina recorrência, datas avulsas e a janela de confirmação: quando abre e quando fecha antes do jogo.</p>
             </div>
             <button type="button" className="ghost" onClick={() => setOpen(false)}>Fechar</button>
           </div>
@@ -1319,7 +1314,8 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
             <div className="match-meta">
               <input type="time" value={scheduledStart} onChange={(event) => setScheduledStart(event.target.value)} />
               <input type="time" value={scheduledEnd} onChange={(event) => setScheduledEnd(event.target.value)} />
-              <label className="field-row"><span>Abre antes (h)</span><input type="number" min="1" max="336" value={confirmationHours} onChange={(event) => setConfirmationHours(Number(event.target.value))} aria-label="Horas antes do jogo para abrir confirmação" /></label>
+              <label className="field-row"><span>Abre antes (h)</span><input type="number" min="1" max="336" value={confirmationHours} onChange={(event) => updateConfirmationHours(Number(event.target.value))} aria-label="Horas antes do jogo para abrir confirmação" /></label>
+              <label className="field-row"><span>Fecha antes (h)</span><input type="number" min="0" max={Math.max(0, confirmationHours - 1)} value={confirmationCloseHours} onChange={(event) => updateConfirmationCloseHours(Number(event.target.value))} aria-label="Horas antes do jogo para fechar confirmação" /></label>
               <input value={teamAName} onChange={(event) => setTeamAName(event.target.value)} />
               <input value={teamBName} onChange={(event) => setTeamBName(event.target.value)} />
             </div>
@@ -1329,11 +1325,11 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
             {scheduledMatches.length === 0 ? <EmptyState title="Sem jogos pré-definidos" text="Crie uma recorrência semanal ou uma data específica para liberar confirmação aos atletas." /> : scheduledMatches.map((match) => <article className="row-card" key={match.id}>
               <strong>{match.title}</strong>
               <span className={`status ${match.confirmationOpen ? 'open' : 'draft'}`}>{match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação'}</span>
-              <small>{matchDateLabel(match)} • abre {match.confirmationOpenAt ? formatBrasiliaTime(match.confirmationOpenAt) : 'sem janela'} • antecedência {match.confirmationOpensHoursBefore ?? 48}h</small>
+              <small>{matchDateLabel(match)} • {confirmationWindowScheduleLabel(match)} • janela {match.confirmationOpensHoursBefore ?? 48}h → {match.confirmationClosesHoursBefore ?? 2}h antes</small>
               <small>{match.attendancePlaying ?? 0} jogar • {match.attendancePresentOnly ?? 0} só presença • {match.attendanceAbsent ?? 0} ausente(s)</small>
               <div className="actions">
                 <button type="button" className="ghost" onClick={() => loadForEdit(match)}>Editar</button>
-                {!match.confirmationOpen && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}
+                {!match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}
                 <button type="button" className="ghost" onClick={() => void removeScheduledMatch(match.id)}>Remover</button>
               </div>
             </article>)}

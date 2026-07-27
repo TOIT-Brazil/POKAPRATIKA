@@ -58,6 +58,8 @@ export type MatchListItem = {
   scheduledEnd?: string | null;
   confirmationOpenAt?: string | null;
   confirmationOpensHoursBefore?: number;
+  confirmationCloseAt?: string | null;
+  confirmationClosesHoursBefore?: number;
   confirmationOpenedAt?: string | null;
   confirmationOpen?: boolean;
   scheduleSource?: 'MANUAL' | 'RECURRING';
