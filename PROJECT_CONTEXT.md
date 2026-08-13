@@ -127,6 +127,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O dashboard principal foi expandido para aproveitar mais a largura útil da tela, com colunas superiores/inferiores recalibradas e o `Central dos jogos` escurecido em verde mais fechado, mantendo apenas um campo grande no fundo em vez do efeito visual de múltiplos campos.
 - O topo do dashboard foi refinado novamente para evitar cortes no `Central dos jogos`: a coluna lateral do hero foi alargada para comportar `Fechado para Confirmação`, `% respostas` e os botões completos, enquanto o `Central operacional` ganhou mais largura útil e cards mais altos para impedir sobreposição entre `Suspenses`, `Finance` e `Agenda`.
 - Todos os fechamentos de modal foram padronizados visualmente para botões `X`, substituindo os antigos CTAs textuais `Fechar` nos headers e áreas de topo dos modais.
+- A modal `Súmula Inteligente` de criação de jogo foi redesenhada para o layout claro em wizard da referência, com header compacto, stepper horizontal, card esquerdo de detalhes, coluna direita de busca/sorteio e footer operacional fixo com `Cancelar` e `Salvar súmula final`.
 
 ## Regras importantes consolidadas
 
@@ -174,6 +175,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após ampliar a ocupação horizontal do dashboard e substituir o fundo do hero por um único campo grande em verde escuro; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após remover o `pattern="lines"` do campo da biblioteca, centralizar um único gramado maior no hero e ampliar as áreas laterais do topo para eliminar cortes de status e botões; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após padronizar os botões de fechamento de modal como `X`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após redesenhar a modal `Súmula Inteligente` para o novo layout visual em wizard; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 

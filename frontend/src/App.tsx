@@ -1752,14 +1752,224 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
   }
 
   function TeamList({ team, rows }: { team: 'A' | 'B'; rows: MatchDraftPlayer[] }) {
-    return <div className={`team-list drawn-team team-${team.toLowerCase()}`}><div className="team-title"><strong>{team === 'A' ? teamAName : teamBName}</strong><span>{rows.length} atletas</span></div>{rows.length === 0 ? <small className="muted">O time aparecerá aqui depois do sorteio automático.</small> : rows.map((player, index) => <div className="team-player draw-row" key={player.userId} draggable onDragStart={() => setDraggedUserId(player.userId)} onDragOver={(event) => event.preventDefault()} onDrop={() => movePlayer(draggedUserId, player.userId, team)}><span className="drag-handle">#{index + 1}</span><div className="player-meta"><b>{player.name}</b><small>{positionLabel(player.position)}</small></div><select value={player.roleInMatch} onChange={(event) => updatePlayer(player.userId, { roleInMatch: event.target.value as MatchDraftPlayer['roleInMatch'] })}><option value="LINHA">Linha</option><option value="GOLEIRO">Goleiro</option></select><label className="bench"><input type="checkbox" checked={player.startsOnBench} onChange={(event) => updatePlayer(player.userId, { startsOnBench: event.target.checked })} /> Banco</label><button type="button" className="ghost" onClick={() => removePlayer(player.userId)}>Remover</button></div>)}</div>;
+    return (
+      <div className={`draw-result-card team-${team.toLowerCase()}`}>
+        <div className="draw-result-head">
+          <strong>{team === 'A' ? teamAName.toUpperCase() : teamBName.toUpperCase()}</strong>
+          <span>({rows.length} atleta{rows.length === 1 ? '' : 's'})</span>
+        </div>
+        {rows.length === 0 ? (
+          <p className="muted draw-empty-team">O time aparecerá aqui depois do sorteio automático.</p>
+        ) : (
+          <div className="draw-result-list">
+            {rows.map((player, index) => (
+              <div
+                className="draw-result-player"
+                key={player.userId}
+                draggable
+                onDragStart={() => setDraggedUserId(player.userId)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => movePlayer(draggedUserId, player.userId, team)}
+              >
+                <span className="draw-result-order">{index + 1}</span>
+                <div className="player-meta">
+                  <b>{player.name}</b>
+                  <small>{positionLabel(player.position)}</small>
+                </div>
+                <select
+                  className="draw-inline-select"
+                  value={player.roleInMatch}
+                  onChange={(event) => updatePlayer(player.userId, { roleInMatch: event.target.value as MatchDraftPlayer['roleInMatch'] })}
+                >
+                  <option value="LINHA">Linha</option>
+                  <option value="GOLEIRO">Goleiro</option>
+                </select>
+                <label className="bench draw-inline-bench">
+                  <input
+                    type="checkbox"
+                    checked={player.startsOnBench}
+                    onChange={(event) => updatePlayer(player.userId, { startsOnBench: event.target.checked })}
+                  />
+                  Banco
+                </label>
+                <button type="button" className="ghost draw-inline-remove" onClick={() => removePlayer(player.userId)}>
+                  X
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   const rosterRows = [...players].sort((left, right) => Number(left.drawOrder || 0) - Number(right.drawOrder || 0) || left.name.localeCompare(right.name, 'pt-BR'));
   const positionOverview = ([['GO', 'Goleiros'], ['DEFESA', 'Defesa'], ['MEIO', 'Meio'], ['ATAQUE', 'Ataque']] as const).map(([group, label]) => ({ group, label, count: players.filter((player) => positionBalanceGroup(player.position) === group).length }));
   const drawStatus = players.length < 2 ? 'Adicione pelo menos 2 atletas para liberar o sorteio.' : teamsDrawn ? 'Equipes sorteadas. Você ainda pode sortear novamente ou ajustar sequência/banco.' : 'Elenco pronto para sorteio aleatório por posições.';
+  const drawTitle = teamsDrawn ? 'Sorteio concluído.' : 'Divisão automática obrigatória.';
+  const drawButtonLabel = teamsDrawn ? 'SORTEAR TIMES NOVAMENTE' : 'SORTEAR TIMES AUTOMATICAMENTE';
+  const selectedLabel = rosterRows.length === 0 ? 'Vazios (0)' : `${rosterRows.length} atleta${rosterRows.length === 1 ? '' : 's'}`;
 
+  return (
+    <>
+      <button className="primary small" onClick={() => void openPersistentDraft()}>Criar jogo</button>
+      {open && (
+        <div className="modal">
+          <form className="card modal-card wide draw-modal draw-modal-sheet" onSubmit={submit}>
+            <div className="draw-sheet-head">
+              <div className="draw-sheet-copy">
+                <span className="eyebrow">Súmula Inteligente</span>
+                <h2>Montar Jogo (Presença & Sorteio)</h2>
+                <p className="muted">Inclua somente quem vai participar do jogo. A divisão em {teamAName} e {teamBName} é automática, aleatória e balanceada pelas posições oficiais.</p>
+              </div>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setOpen(false)}>X</button>
+            </div>
+
+            <div className="draw-stepper">
+              <div className="draw-step is-done">
+                <span className="draw-step-number">1</span>
+                <span>Dados</span>
+              </div>
+              <div className={`draw-step ${teamsDrawn ? 'is-done' : 'is-active'}`}>
+                <span className="draw-step-number">2</span>
+                <span>Participantes</span>
+              </div>
+              <div className={`draw-step ${teamsDrawn ? 'is-active' : ''}`}>
+                <span className="draw-step-number">3</span>
+                <span>Sorteio</span>
+              </div>
+            </div>
+
+            {saveStatus && <p className="status-line draw-status-line">{saveStatus}</p>}
+
+            <div className="draw-sheet-grid">
+              <section className="draw-sheet-card draw-details-card">
+                <div className="draw-card-head">
+                  <h3>Detalhes do Jogo</h3>
+                </div>
+
+                <div className="draw-date-row">
+                  <label className="field-shell">
+                    <span>Data</span>
+                    <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                  </label>
+                  <label className="field-shell">
+                    <span>Horário</span>
+                    <input value="20:00" readOnly />
+                  </label>
+                </div>
+
+                <label className="field-shell">
+                  <span>Tipo</span>
+                  <input value={title} onChange={(event) => setTitle(event.target.value)} />
+                </label>
+
+                <label className="field-shell field-shell-textarea">
+                  <span>Arbitragem (Opcional)</span>
+                  <textarea value={refereeName} onChange={(event) => setRefereeName(event.target.value)} placeholder="Árbitro" rows={3} />
+                </label>
+
+                <div className="draw-position-list">
+                  <div className="draw-position-row draw-position-total">
+                    <span>Elenco</span>
+                    <strong>{players.length}</strong>
+                  </div>
+                  {positionOverview.map((item) => (
+                    <div className="draw-position-row" key={item.group}>
+                      <span>{item.label}</span>
+                      <strong>{item.count}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="draw-card-note">Escalação salva no banco.</p>
+              </section>
+
+              <section className="draw-sheet-side">
+                <div className="draw-sheet-card draw-search-card">
+                  <div className="draw-card-head">
+                    <h3>Adicionar Jogadores</h3>
+                  </div>
+
+                  <div className="draw-search-input">
+                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar atleta por nome ou e-mail" />
+                  </div>
+
+                  {query.trim().length > 0 && query.trim().length < 3 && <p className="muted draw-inline-hint">Digite pelo menos 3 caracteres.</p>}
+
+                  {query.trim().length >= 3 && (
+                    <div className="draw-search-results">
+                      {searchResults.length === 0 ? (
+                        <p className="muted draw-inline-hint">Nenhum atleta encontrado para essa busca.</p>
+                      ) : searchResults.map((user) => (
+                        <article key={user.id}>
+                          <div>
+                            <strong>{user.name}</strong>
+                            <small>{user.email} • {positionLabel(user.position)}</small>
+                          </div>
+                          <button type="button" className="primary small" onClick={() => addParticipant(user)}>Adicionar</button>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="draw-action-callout">
+                    <strong>{drawTitle}</strong>
+                    <small>{drawStatus}</small>
+                  </div>
+
+                  <div className="draw-selected-head">
+                    <strong>Elenco Selecionado: {selectedLabel}</strong>
+                  </div>
+
+                  {rosterRows.length > 0 && (
+                    <div className="draw-selected-list">
+                      {rosterRows.map((player) => (
+                        <div className={`draw-selected-player ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
+                          <div className="player-meta">
+                            <b>{player.name}</b>
+                            <small>{positionLabel(player.position)}</small>
+                          </div>
+                          <span className="team-badge">{player.team === 'PRESENTE_SEM_JOGAR' ? 'Aguardando' : player.team === 'A' ? teamAName : teamBName}</span>
+                          <button type="button" className="ghost draw-inline-remove" onClick={() => removePlayer(player.userId)}>X</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button type="button" className="primary draw-button draw-button-full" onClick={balanceTeamsByPosition} disabled={players.length < 2}>{drawButtonLabel}</button>
+                  <small className="draw-action-note">O salvamento final só libera após o sorteio.</small>
+                </div>
+
+                <div className="draw-sheet-card draw-results-card">
+                  <div className="draw-card-head">
+                    <h3>Resultados do Sorteio</h3>
+                  </div>
+
+                  <div className="draw-results-grid">
+                    <TeamList team="A" rows={teamA} />
+                    <TeamList team="B" rows={teamB} />
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="draw-sheet-footer">
+              <button type="button" className="ghost" onClick={() => setOpen(false)}>Cancelar</button>
+              <div className="draw-footer-save">
+                <button className="primary" disabled={!teamsDrawn}>SALVAR SÚMULA FINAL</button>
+                <small>O salvamento final só libera após o sorteio.</small>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
+  );
+
+  /*
   return <><button className="primary small" onClick={() => void openPersistentDraft()}>Criar jogo</button>{open && <div className="modal"><form className="card modal-card wide draw-modal" onSubmit={submit}><div className="draw-hero"><div><span className="eyebrow">Súmula inteligente</span><h2>Montar jogo por presença e sorteio</h2><p className="muted">Inclua somente quem vai participar do jogo. A divisão em {teamAName} e {teamBName} é automática, aleatória e balanceada pelas posições oficiais.</p></div><button type="button" className="ghost" onClick={() => setOpen(false)}>Fechar</button></div><div className="sheet-steps"><span className="step-chip done">1. Dados</span><span className={`step-chip ${players.length ? 'done' : 'active'}`}>2. Participantes</span><span className={`step-chip ${teamsDrawn ? 'done' : players.length >= 2 ? 'active' : ''}`}>3. Sorteio</span></div>{saveStatus && <p className="status-line">{saveStatus}</p>}<div className="match-meta draw-meta"><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Título" /><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /><input value={refereeName} onChange={(event) => setRefereeName(event.target.value)} placeholder="Árbitro" /><input value={teamAName} onChange={(event) => setTeamAName(event.target.value)} /><input value={teamBName} onChange={(event) => setTeamBName(event.target.value)} /></div><div className="draw-dashboard"><article><span>Elenco</span><strong>{players.length}</strong><small>atletas no jogo</small></article>{positionOverview.map((item) => <article key={item.group}><span>{item.label}</span><strong>{item.count}</strong><small>posição base</small></article>)}</div><div className="draw-action"><div><strong>{teamsDrawn ? 'Sorteio concluído' : 'Divisão automática obrigatória'}</strong><small>{drawStatus}</small></div><button type="button" className="primary draw-button" onClick={balanceTeamsByPosition} disabled={players.length < 2}>{teamsDrawn ? 'Sortear novamente' : 'Sortear times'}</button></div><div className="team-builder draw-builder"><section className="draw-pool"><h2>Participantes do jogo</h2><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar atleta por nome ou e-mail" />{query.trim().length > 0 && query.trim().length < 3 && <p className="muted">Digite pelo menos 3 caracteres.</p>}<div className="search-results draw-search">{searchResults.map((user) => <article key={user.id}><strong>{user.name}</strong><small>{user.email} • {positionLabel(user.position)}</small><div className="actions"><button type="button" className="primary small" onClick={() => addParticipant(user)}>Adicionar ao jogo</button></div></article>)}</div><div className="team-list roster-list"><div className="team-title"><strong>Elenco selecionado</strong><span>{pendingPlayers.length ? `${pendingPlayers.length} aguardando` : teamsDrawn ? 'sorteado' : 'vazio'}</span></div>{rosterRows.length === 0 ? <small className="muted">Busque e adicione todos os atletas que jogarão. Quem estiver presente e não jogar será incluído depois, na súmula aberta do jogo.</small> : rosterRows.map((player) => <div className={`team-player roster-row ${player.team === 'PRESENTE_SEM_JOGAR' ? 'pending' : ''}`} key={player.userId}><div className="player-meta"><b>{player.name}</b><small>{positionLabel(player.position)}</small></div><span className="team-badge">{player.team === 'PRESENTE_SEM_JOGAR' ? 'Aguardando' : player.team === 'A' ? teamAName : teamBName}</span><button type="button" className="ghost" onClick={() => removePlayer(player.userId)}>Remover</button></div>)}</div></section><section className="team-board draw-teams"><TeamList team="A" rows={teamA} /><TeamList team="B" rows={teamB} /></section></div><div className="draw-footer"><small>{teamsDrawn ? 'Pronto para salvar: a súmula será criada com times e roteiro de troca já calculados.' : 'O salvamento final só libera após o sorteio para impedir escalação manual incorreta.'}</small><button className="primary" disabled={!teamsDrawn}>Salvar súmula</button></div></form></div>}</>;
+  */
 }
 
 function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: ApiClient; canCoordinate: boolean; users: User[]; activeSeasonId: string }) {
