@@ -1031,6 +1031,7 @@ textarea {
 }
 
 .dashboard-top-grid {
+  grid-template-columns: minmax(0, 1.92fr) minmax(308px, .92fr);
   align-items: start;
   gap: 10px;
 }
@@ -1046,7 +1047,7 @@ textarea {
 .dashboard-ops-card,
 .dashboard-finished-card,
 .dashboard-standings-card {
-  padding: 12px;
+  padding: 10px 12px 12px;
   gap: 10px;
   border-radius: 14px;
 }
@@ -1314,20 +1315,67 @@ textarea {
 }
 
 .dashboard-ops-card .ops-highlight {
-  min-height: 110px;
-  padding: 12px;
+  min-height: 116px;
+  padding: 10px;
   border-radius: 12px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.dashboard-ops-card .ops-highlight-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-ops-card .ops-highlight-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dashboard-ops-card .ops-highlight-label small {
+  font-size: .84rem;
+  font-weight: 800;
+}
+
+.dashboard-ops-card .ops-highlight-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255,255,255,.18);
+  color: #f7fffb;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.dashboard-ops-card .ops-highlight-badge.warning {
+  background: rgba(255, 193, 7, .96);
+  color: #5d4100;
 }
 
 .dashboard-ops-card .ops-highlight .dashboard-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 8px;
 }
 
 .dashboard-ops-card .ops-highlight strong {
-  font-size: 1.9rem;
+  font-size: 2rem;
   line-height: 1;
+}
+
+.dashboard-ops-card .ops-highlight em {
+  display: block;
+  font-size: .72rem;
+  line-height: 1.2;
 }
 
 .dashboard-ops-card .ops-highlight.danger {
@@ -1350,6 +1398,20 @@ textarea {
 .dashboard-ops-card .ops-highlight.gold,
 .dashboard-ops-card .ops-highlight.success {
   background: linear-gradient(180deg, #fbfcfd, #eef3f5);
+}
+
+.dashboard-ops-card .ops-highlight.gold strong,
+.dashboard-ops-card .ops-highlight.success strong {
+  color: #0f473f;
+}
+
+.dashboard-ops-card .ops-highlight.gold em,
+.dashboard-ops-card .ops-highlight.success em,
+.dashboard-ops-card .ops-highlight.gold small,
+.dashboard-ops-card .ops-highlight.success small,
+.dashboard-ops-card .ops-highlight.gold .dashboard-icon,
+.dashboard-ops-card .ops-highlight.success .dashboard-icon {
+  color: #365951;
 }
 
 .dashboard-suspension-section {

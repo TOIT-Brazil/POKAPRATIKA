@@ -731,6 +731,13 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
   const nextScheduledMatch = sortMatchesByOperationalRelevance(matches).find((match) => match.status !== 'CANCELLED' && getMatchStartTime(match) >= Date.now()) ?? null;
   const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
   const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
+  const financeOpenItems = canCoordinate && paymentSummary ? paymentSummary.pending + paymentSummary.late : null;
+  const financeBadge = canCoordinate && paymentSummary ? paymentSummary.late : 0;
+  const financeValue = !canCoordinate || !paymentSummary ? 'N/A' : financeOpenItems ? String(financeOpenItems) : 'N/A';
+  const financeDetail = !canCoordinate || !paymentSummary ? 'Visível apenas para coordenação' : financeOpenItems ? `${paymentSummary.late} atraso(s) • caixa ${formatMoney(cashSummary?.balanceCents ?? 0)}` : `Caixa ${formatMoney(cashSummary?.balanceCents ?? 0)}`;
+  const agendaBadge = nextScheduledMatch ? 1 : 0;
+  const agendaValue = nextScheduledMatch ? 'View' : 'Livre';
+  const agendaDetail = nextScheduledMatch ? `${compactMatchDateLabel(nextScheduledMatch)} • ${nextScheduledMatch.title}` : 'Sem jogo futuro fora do card principal';
 
   useEffect(() => {
     if (!canCoordinate) {
@@ -756,7 +763,64 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
     await onReload();
   }
 
+  return (
+    <section className="card compact operations-panel dashboard-ops-card">
+      <div className="card-head">
+        <div>
+          <h2>Central operacional</h2>
+          <p className="muted">Pendências disciplinares e suspensões ativas da temporada.</p>
+        </div>
+        <span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length} susp.</span>
+      </div>
+      <div className="ops-widget-grid">
+        <article className="ops-highlight danger">
+          <div className="ops-highlight-top">
+            <span className="ops-highlight-label">
+              <span className="dashboard-icon"><DashboardIcon name="shield" /></span>
+              <small>Suspenses</small>
+            </span>
+            <span className="ops-highlight-badge">{suspensions.length}</span>
+          </div>
+          <strong>{suspensions.length}</strong>
+          <em>{suspensions.length ? 'Suspensões ativas exigem baixa imediata.' : 'Sem pendências disciplinares.'}</em>
+        </article>
+        <article className="ops-highlight gold">
+          <div className="ops-highlight-top">
+            <span className="ops-highlight-label">
+              <span className="dashboard-icon"><DashboardIcon name="wallet" /></span>
+              <small>Finance</small>
+            </span>
+            <span className="ops-highlight-badge warning">{financeBadge}</span>
+          </div>
+          <strong>{financeValue}</strong>
+          <em>{financeDetail}</em>
+        </article>
+        <article className="ops-highlight success">
+          <div className="ops-highlight-top">
+            <span className="ops-highlight-label">
+              <span className="dashboard-icon"><DashboardIcon name="calendar" /></span>
+              <small>Agenda</small>
+            </span>
+            <span className="ops-highlight-badge warning">{agendaBadge}</span>
+          </div>
+          <strong>{agendaValue}</strong>
+          <em>{agendaDetail}</em>
+        </article>
+      </div>
+      <div className="ops-section dashboard-suspension-section">
+        <div className="card-head">
+          <strong>Suspensões ativas</strong>
+          <span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length}</span>
+        </div>
+        {suspensions.length === 0 ? <p className="muted">Sem pendências disciplinares no momento.</p> : <div className="suspension-list compact-suspensions">{suspensions.slice(0, 4).map((item) => <article className="suspension-row" key={item.id}><strong>{item.userName}</strong><span>{formatCardReason(item.reason)}</span><small>{item.triggerMatchTitle}</small>{canCoordinate && <select disabled={!confirmedMatches.length} defaultValue="" onChange={(event) => void serveSuspension(item.id, event.target.value)}><option value="">Baixar em...</option>{confirmedMatches.map((match) => <option key={match.id} value={match.id}>{match.title} • {match.matchDate?.slice(0, 10)}</option>)}</select>}</article>)}</div>}
+      </div>
+    </section>
+  );
+
+/*
+
   return <section className="card compact operations-panel dashboard-ops-card"><div className="card-head"><div><h2>Central operacional</h2><p className="muted">Métricas rápidas de disciplina, financeiro e status da quadra.</p></div><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length} pend.</span></div><div className="ops-widget-grid"><article className="ops-highlight danger"><span className="dashboard-icon"><DashboardIcon name="shield" /></span><small>Disciplina</small><strong>{suspensions.length}</strong><em>{suspensions.length ? 'Suspensões ativas exigem baixa' : 'Nenhuma suspensão aberta'}</em></article><article className="ops-highlight gold"><span className="dashboard-icon"><DashboardIcon name="wallet" /></span><small>Financeiro</small><strong>{canCoordinate && paymentSummary ? `${paymentSummary.pending + paymentSummary.late}` : 'Restrito'}</strong><em>{canCoordinate && paymentSummary ? `${paymentSummary.late} atraso(s) • caixa ${formatMoney(cashSummary?.balanceCents ?? 0)}` : 'Visível apenas para coordenação'}</em></article><article className="ops-highlight success"><span className="dashboard-icon"><DashboardIcon name="field" /></span><small>Quadra / reserva</small><strong>{nextScheduledMatch ? 'Reservada' : 'Sem agenda'}</strong><em>{nextScheduledMatch ? `${compactMatchDateLabel(nextScheduledMatch)} • ${nextScheduledMatch.title}` : 'Cadastre o próximo jogo para refletir a reserva'}</em></article></div><div className="ops-section dashboard-suspension-section"><div className="card-head"><strong>Suspensões ativas</strong><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length}</span></div>{suspensions.length === 0 ? <p className="muted">Sem pendências disciplinares no momento.</p> : <div className="suspension-list compact-suspensions">{suspensions.slice(0, 4).map((item) => <article className="suspension-row" key={item.id}><strong>{item.userName}</strong><span>{formatCardReason(item.reason)}</span><small>Origem: {item.triggerMatchTitle}</small>{canCoordinate && <select disabled={!confirmedMatches.length} defaultValue="" onChange={(event) => void serveSuspension(item.id, event.target.value)}><option value="">Cumpriu em...</option>{confirmedMatches.map((match) => <option key={match.id} value={match.id}>{match.title} • {match.matchDate?.slice(0, 10)}</option>)}</select>}</article>)}</div>}</div></section>;
+*/
 }
 
 function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
@@ -842,8 +906,8 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
       { label: 'Confirmados', value: playing, className: 'confirmed' },
       { label: 'Só presença', value: presentOnly, className: 'present-only' },
       { label: 'Ausentes', value: absent, className: 'absent' },
-      { label: 'Pendentes', value: pending, className: 'pending' },
-      { label: 'Jantar', value: dinnerPeople, className: 'dinner' }
+      { label: 'Não responderam', value: pending, className: 'pending' },
+      { label: dinnerPeople > 0 ? 'Jantar' : 'Para ajustar', value: dinnerPeople, className: 'dinner' }
     ];
 
     return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><SoccerLineUp size="fill" color="#16594d" pattern="lines" orientation="horizontal" /></div><div className="next-match-date-badge"><b>{date.day}</b><span>{date.month}</span><small>{date.weekday}</small><em>{date.time}</em></div><div className="next-match-center"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><small className="lineup-status">Sua resposta: {myAttendanceStatus ? attendanceActionLabel(myAttendanceStatus) : 'pendente'}</small></div><div className="match-card-score next-scoreboard"><span className="team-name team-name-home">{match.teamAName}</span><b className="score-pill">{match.teamAScore} x {match.teamBScore}</b><span className="team-name team-name-away">{match.teamBName}</span></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><div className="confirmation-progress-track">{segments.map((segment) => <i key={segment.label} className={segment.className} style={{ width: `${Math.max(segment.value, responses ? (segment.value / Math.max(responses, 1)) * 100 : 0)}%` }} />)}</div><small className="next-match-footnote">{confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><div className="next-match-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{myAttendanceStatus ? 'Confirmações' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></article>;
@@ -855,10 +919,35 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
 function DashboardFinishedMatchesPanel({ matches }: { matches: MatchListItem[] }) {
   const finishedMatches = sortMatchesByOperationalRelevance(matches).filter((match) => match.status === 'CONFIRMED').slice(0, 8);
 
+  return (
+    <section className="card compact dashboard-finished-card">
+      <div className="card-head">
+        <div>
+          <h2>Jogos finalizados</h2>
+          <p className="muted">Quando uma súmula for confirmada, o jogo entra aqui como histórico útil. Jogos futuros além do próximo ficam somente na Agenda.</p>
+        </div>
+        <span className="status">{finishedMatches.length}</span>
+      </div>
+      <div className="finished-vertical-list">{finishedMatches.length === 0 ? <EmptyState title="Sem jogos confirmados" text="Os últimos placares entram aqui quando as súmulas forem fechadas." /> : finishedMatches.map((match) => <article className="finished-list-row" key={match.id}><div className="finished-list-main"><strong>{match.matchDate?.slice(5, 10)} • {match.teamAName}</strong><small>{match.title}</small></div><div className="finished-list-score"><b>{match.teamAScore}</b><span>x</span><b>{match.teamBScore}</b></div><div className="finished-list-side"><strong>{match.teamBName}</strong><span className="finished-badge">MVP</span></div></article>)}</div>
+    </section>
+  );
+
   return <section className="card compact dashboard-finished-card"><div className="card-head"><div><h2>Jogos finalizados</h2><p className="muted">Confrontos recentes em lista compacta.</p></div><span className="status">{finishedMatches.length}</span></div><div className="finished-vertical-list">{finishedMatches.length === 0 ? <EmptyState title="Sem jogos confirmados" text="Os últimos placares entram aqui quando as súmulas forem fechadas." /> : finishedMatches.map((match) => <article className="finished-list-row" key={match.id}><div className="finished-list-main"><strong>{match.matchDate?.slice(5, 10)} • {match.teamAName}</strong><small>{match.title}</small></div><div className="finished-list-score"><b>{match.teamAScore}</b><span>x</span><b>{match.teamBScore}</b></div><div className="finished-list-side"><strong>{match.teamBName}</strong><span className="finished-badge">MVP</span></div></article>)}</div></section>;
 }
 
 function DashboardStandingsPanel({ standings, onOpenProfile }: { standings: Standing[]; onOpenProfile: (userId: string) => void }) {
+  return (
+    <section className="card compact dashboard-standings-card">
+      <div className="card-head championship-head">
+        <div>
+          <h2>Tabela da temporada</h2>
+          <p className="muted">Classificação em largura total, estilo campeonato: clique no atleta para abrir o perfil.</p>
+        </div>
+      </div>
+      {standings.length === 0 ? <EmptyState title="Sem classificação ainda" text="A tabela será preenchida assim que os jogos forem confirmados." /> : <div className="championship-wrap dashboard-standings-wrap"><table className="championship-table dashboard-standings-table"><thead><tr><th>#</th><th>Jogar name</th><th>Goals</th><th>Assists</th><th>% G/A Ratio</th><th>App</th></tr></thead><tbody>{standings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.user_id)}>{row.name}</button></td><td>{row.goals}</td><td>{row.assists}</td><td>{row.assists > 0 ? (row.goals / row.assists).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.goals.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td>{row.games_played + row.presences}</td></tr>)}</tbody></table></div>}
+    </section>
+  );
+
   return <section className="card compact dashboard-standings-card"><div className="card-head championship-head"><div><h2>Tabela da temporada</h2><p className="muted">Classificação e destaque ofensivo dos jogadores.</p></div></div>{standings.length === 0 ? <EmptyState title="Sem classificação ainda" text="A tabela será preenchida assim que os jogos forem confirmados." /> : <div className="championship-wrap dashboard-standings-wrap"><table className="championship-table dashboard-standings-table"><thead><tr><th>#</th><th>Jogar name</th><th>Goals</th><th>Assists</th><th>% G/A Ratio</th><th>App</th></tr></thead><tbody>{standings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.user_id)}>{row.name}</button></td><td>{row.goals}</td><td>{row.assists}</td><td>{row.assists > 0 ? (row.goals / row.assists).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.goals.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td>{row.games_played + row.presences}</td></tr>)}</tbody></table></div>}</section>;
 }
 
