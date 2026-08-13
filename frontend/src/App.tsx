@@ -43,7 +43,7 @@ type PositionBalanceGroup = 'GO' | 'DEFESA' | 'MEIO' | 'ATAQUE';
 type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
 type ScheduleMode = 'manual' | 'recurring';
-type ConfirmationPromptPayload = { kind: 'ATTENDANCE' | null; match: MatchListItem | null };
+type SeasonStatsTab = 'GERAL' | 'ARTILHARIA' | 'ASSISTENCIAS' | 'CARTOES';
 
 type MatchDetail = MatchListItem & {
   scheduledStart?: string | null;
@@ -308,6 +308,46 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
   URL.revokeObjectURL(url);
 }
 
+function formatMoney(cents: number): string {
+  return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function matchCountdownLabel(match?: MatchListItem | null): string {
+  if (!match) return 'Sem agenda';
+  const diffSeconds = Math.floor((getMatchStartTime(match) - Date.now()) / 1000);
+  if (diffSeconds <= 0) return match.status === 'RUNNING' ? 'Em andamento' : '00:00:00';
+  const days = Math.floor(diffSeconds / 86400);
+  const hours = Math.floor((diffSeconds % 86400) / 3600);
+  const minutes = Math.floor((diffSeconds % 3600) / 60);
+  const seconds = diffSeconds % 60;
+  return days > 0
+    ? `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h`
+    : `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function compactMatchDateLabel(match: MatchListItem): string {
+  const date = matchDateParts(match);
+  return `${date.day} ${date.month} • ${date.weekday} ${date.time}`;
+}
+
+function DashboardIcon({ name }: { name: 'calendar' | 'clock' | 'shield' | 'wallet' | 'field' | 'table' | 'goal' | 'assist' | 'cards' | 'trophy' }) {
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {name === 'calendar' && <><rect x="3" y="5" width="18" height="16" rx="3" {...common} /><path d="M16 3v4M8 3v4M3 10h18" {...common} /></>}
+      {name === 'clock' && <><circle cx="12" cy="12" r="9" {...common} /><path d="M12 7v5l3 2" {...common} /></>}
+      {name === 'shield' && <><path d="M12 3l7 3v5c0 4.4-2.8 8.1-7 10-4.2-1.9-7-5.6-7-10V6l7-3z" {...common} /><path d="M9.5 12.3l1.8 1.8 3.5-4" {...common} /></>}
+      {name === 'wallet' && <><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19a2 2 0 0 1 2 2v1H6.5A2.5 2.5 0 0 0 4 10.5v-3z" {...common} /><path d="M4 10.5A2.5 2.5 0 0 1 6.5 8H21v9a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 16.5v-6z" {...common} /><circle cx="16.5" cy="13.5" r="1" fill="currentColor" /></>}
+      {name === 'field' && <><rect x="3" y="4" width="18" height="16" rx="2" {...common} /><path d="M12 4v16M3 12h18M8 12a4 4 0 0 0 0-8M8 12a4 4 0 0 1 0 8M16 12a4 4 0 0 1 0-8M16 12a4 4 0 0 0 0 8" {...common} /><circle cx="12" cy="12" r="1.5" {...common} /></>}
+      {name === 'table' && <><rect x="3" y="5" width="18" height="14" rx="2" {...common} /><path d="M3 10h18M8 5v14M16 5v14" {...common} /></>}
+      {name === 'goal' && <><path d="M5 18V7h14v11" {...common} /><path d="M9 18V9M15 18V9M3 18h18" {...common} /></>}
+      {name === 'assist' && <><path d="M7 12l3 3 7-7" {...common} /><path d="M5 5h4v4M15 15h4v4" {...common} /></>}
+      {name === 'cards' && <><rect x="6" y="4" width="11" height="15" rx="2" {...common} /><path d="M9 8h5M9 12h5M9 16h3" {...common} /><path d="M17 7h1.5A1.5 1.5 0 0 1 20 8.5V17" {...common} /></>}
+      {name === 'trophy' && <><path d="M8 4h8v3a4 4 0 0 1-8 0V4z" {...common} /><path d="M9 17h6M10 14h4v3h-4zM6 6H4a2 2 0 0 0 2 4h2M18 6h2a2 2 0 0 1-2 4h-2" {...common} /></>}
+    </svg>
+  );
+}
+
 export function App() {
   const passwordPath = window.location.pathname === '/ativar-conta' || window.location.pathname === '/resetar-senha' ? window.location.pathname : '';
   const [auth, setAuth] = useState<AuthPayload | null>(() => {
@@ -445,17 +485,29 @@ export function App() {
 
   return (
     <main className="shell">
-      <header className="hero card glass">
-          <div className="brand-lockup">
+      <header className="hero card glass app-header">
+        <div className="brand-lockup">
           <img className="brand-logo" src={logoUrl} alt="Escudo POKA PRÁTIKA" />
-          <div>
+          <div className="brand-copy">
             <p className="eyebrow">Balneário Camboriú • Quarta 20h</p>
             <h1>POKA PRÁTIKA</h1>
           </div>
         </div>
+        <div className="header-center">
+          <label className="header-season-picker">
+            <span className="muted">Temporada ativa</span>
+            <select value={activeSeasonId} onChange={(event) => setActiveSeasonId(event.target.value)}>
+              {seasons.map((season) => <option key={season.id} value={season.id}>{season.name} • {season.status}</option>)}
+            </select>
+          </label>
+          <div className="header-status-group">
+            <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.name ?? 'sem temporada'} • {activeSeason?.status ?? 'N/A'}</span>
+            {suspensions.length > 0 && <span className="status danger">{suspensions.length} suspensão(ões)</span>}
+          </div>
+        </div>
         <div className="profile-pill account-area" ref={accountMenuRef}>
           <button className="profile-trigger" onClick={() => setAccountMenuOpen((value) => !value)} title="Abrir menu do perfil">
-                {auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}
+            {auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}
             <div>
               <strong>{auth.user.name}</strong>
               <small>{auth.user.role} • menu</small>
@@ -472,17 +524,9 @@ export function App() {
 
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
-      {!loading && !selectedMatch && <GlobalConfirmationPrompt api={api} activeSeasonId={activeSeasonId} setSelectedMatch={setSelectedMatch} />}
       {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
 
-      <section className="context-row">
-        <select value={activeSeasonId} onChange={(event) => setActiveSeasonId(event.target.value)}>
-          {seasons.map((season) => <option key={season.id} value={season.id}>{season.name} • {season.status}</option>)}
-        </select>
-        <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.status ?? 'sem temporada'}</span>
-        {suspensions.length > 0 && <span className="status danger">{suspensions.length} suspensão(ões)</span>}
-      </section>
-        {view === 'temporada' && <div className="home-stack season-home"><div className="season-lower"><MatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><SeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} canCoordinate={canCoordinate} onReload={loadData} /></div><SeasonPanel standings={standings} rankings={rankings} onOpenProfile={setProfileUserId} /></div>}
+      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} onReload={loadData} /></div><DashboardSeasonPanel standings={standings} rankings={rankings} matches={matches} onOpenProfile={setProfileUserId} /></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
       {view === 'usuarios' && canCoordinate && <UsersManagementPanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
@@ -564,35 +608,6 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
   );
 }
 
-function GlobalConfirmationPrompt({ api, activeSeasonId, setSelectedMatch }: { api: ApiClient; activeSeasonId: string; setSelectedMatch: (match: MatchDetail | null) => void }) {
-  const [dismissedId, setDismissedId] = useState('');
-  const [prompt, setPrompt] = useState<ConfirmationPromptPayload>({ kind: null, match: null });
-
-  async function loadPrompt() {
-    if (!activeSeasonId) {
-      setPrompt({ kind: null, match: null });
-      return;
-    }
-    setPrompt(await api.request<ConfirmationPromptPayload>(`/matches/confirmation-prompt?seasonId=${activeSeasonId}`));
-  }
-
-  useEffect(() => {
-    setDismissedId('');
-    void loadPrompt().catch(() => setPrompt({ kind: null, match: null }));
-  }, [api, activeSeasonId]);
-
-  const match = prompt.match;
-  if (!match || dismissedId === match.id) return null;
-
-  async function openMatch() {
-    if (!match) return;
-    setSelectedMatch(await api.request<MatchDetail>(`/matches/${match.id}`));
-    setDismissedId(match.id);
-  }
-
-  return <div className="modal prompt-modal"><section className="card modal-card confirmation-popup"><div className="card-head"><div><h2>Confirme sua presença no jogo</h2><p className="muted">{match.title} • {matchDateLabel(match)}</p></div></div><p className="muted">A janela de confirmação está aberta no sistema{match.confirmationCloseAt ? ` até ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}. Responda se vai jogar, ficará apenas presente, vai à janta/churrasco e levará convidados.</p><div className="actions"><button type="button" className="primary" onClick={() => void openMatch()}>Confirmar agora</button><button type="button" className="ghost" onClick={() => setDismissedId(match.id)}>Agora não</button></div></section></div>;
-}
-
 function GlobalVotingPrompt({ api, users, activeSeason, isAdmin }: { api: ApiClient; users: User[]; activeSeason: Season; isAdmin: boolean }) {
   const [summary, setSummary] = useState<AwardPendingSummary | null>(null);
   const [dismissedSeasonId, setDismissedSeasonId] = useState('');
@@ -645,6 +660,193 @@ function ChangePasswordDialog({ api, onClose }: { api: ApiClient; onClose: () =>
   }
 
   return <div className="modal"><form className="card modal-card password-card" onSubmit={submit}><div className="card-head"><h2>Trocar senha</h2><button type="button" className="ghost" onClick={onClose}>Fechar</button></div><p className="muted">Informe sua senha atual e defina uma nova senha com pelo menos 8 caracteres.</p><input value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Senha atual" type="password" autoComplete="current-password" required disabled={saving || saved} /><input value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Nova senha" type="password" autoComplete="new-password" required minLength={8} disabled={saving || saved} /><input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirmar nova senha" type="password" autoComplete="new-password" required minLength={8} disabled={saving || saved} /><button className="primary" disabled={saving || saved}>{saving ? 'Salvando...' : saved ? 'Senha alterada' : 'Salvar nova senha'}</button>{message && <p className="muted">{message}</p>}</form></div>;
+}
+
+function DashboardSeasonPanel({ standings, rankings, matches, onOpenProfile }: { standings: Standing[]; rankings: RankingPayload; matches: MatchListItem[]; onOpenProfile: (userId: string) => void }) {
+  const [tab, setTab] = useState<SeasonStatsTab>('GERAL');
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 8;
+  const finishedMatches = sortMatchesByOperationalRelevance(matches).filter((match) => match.status === 'CONFIRMED').slice(0, 10);
+  const leaderCards = [
+    standings[0] && { key: 'points', icon: 'trophy' as const, label: 'Líder geral', userId: standings[0].user_id, name: standings[0].name, value: `${standings[0].total_points} pts`, detail: `${standings[0].wins} vitórias • ${standings[0].games_played} jogos` },
+    rankings.goals[0] && { key: 'goals', icon: 'goal' as const, label: 'Artilharia', userId: rankings.goals[0].userId, name: rankings.goals[0].name, value: `${rankings.goals[0].goals} gols`, detail: `${rankings.goals[0].netGoals} saldo líquido` },
+    rankings.assists[0] && { key: 'assists', icon: 'assist' as const, label: 'Assistências', userId: rankings.assists[0].userId, name: rankings.assists[0].name, value: `${rankings.assists[0].assists} assist.`, detail: `${rankings.assists[0].gamesPlayed} jogos • média ${formatAverage(rankings.assists[0].average)}` },
+    rankings.presence[0] && { key: 'presence', icon: 'calendar' as const, label: 'Mais presente', userId: rankings.presence[0].userId, name: rankings.presence[0].name, value: `${rankings.presence[0].total} pres.`, detail: `${formatAverage(rankings.presence[0].percentage)}% de presença` }
+  ].filter(Boolean) as Array<{ key: string; icon: 'trophy' | 'goal' | 'assist' | 'calendar'; label: string; userId: string; name: string; value: string; detail: string }>;
+  const tabs: Array<{ value: SeasonStatsTab; label: string; icon: 'table' | 'goal' | 'assist' | 'cards' }> = [
+    { value: 'GERAL', label: 'Geral', icon: 'table' },
+    { value: 'ARTILHARIA', label: 'Artilharia', icon: 'goal' },
+    { value: 'ASSISTENCIAS', label: 'Assistências', icon: 'assist' },
+    { value: 'CARTOES', label: 'Cartões', icon: 'cards' }
+  ];
+
+  const generalRows = standings.map((row) => ({
+    key: row.user_id,
+    userId: row.user_id,
+    position: row.position,
+    name: row.name,
+    cells: [row.total_points, row.games_played, row.wins, row.draws, row.losses, row.goals, row.assists, row.total_cards, formatPercent(row.games_played ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100 : 0)]
+  }));
+  const goalRows = rankings.goals.map((row, index) => ({ key: row.userId, userId: row.userId, position: index + 1, name: row.name, cells: [row.goals, row.ownGoals, row.netGoals, row.gamesPlayed, formatAverage(row.average)] }));
+  const assistRows = rankings.assists.map((row, index) => ({ key: row.userId, userId: row.userId, position: index + 1, name: row.name, cells: [row.assists, row.gamesPlayed, formatAverage(row.average)] }));
+  const cardRows = rankings.cards.map((row, index) => ({ key: row.userId, userId: row.userId, position: index + 1, name: row.name, cells: [row.cardPoints, row.totalCards, row.gamesPlayed, formatAverage(row.average)] }));
+  const currentRows = tab === 'GERAL' ? generalRows : tab === 'ARTILHARIA' ? goalRows : tab === 'ASSISTENCIAS' ? assistRows : cardRows;
+  const totalPages = Math.max(1, Math.ceil(currentRows.length / itemsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = currentRows.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+  const headers = tab === 'GERAL' ? ['PTS', 'J', 'V', 'E', 'D', 'G', 'A', 'CAR', 'APR'] : tab === 'ARTILHARIA' ? ['Gols', 'GC', 'Saldo', 'Jogos', 'Média'] : tab === 'ASSISTENCIAS' ? ['Assist.', 'Jogos', 'Média'] : ['Pts', 'Total', 'Jogos', 'Média'];
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function exportCurrentTab() {
+    if (tab === 'GERAL') {
+      downloadCsv('poka-pratika-classificacao.csv', standings.map((row) => ({ posicao: row.position, atleta: row.name, pontos: row.total_points, jogos: row.games_played, vitorias: row.wins, empates: row.draws, derrotas: row.losses, gols: row.goals, assistencias: row.assists, cartoes: row.total_cards })));
+      return;
+    }
+    if (tab === 'ARTILHARIA') {
+      downloadCsv('poka-pratika-artilharia.csv', rankings.goals.map((row, index) => ({ posicao: index + 1, atleta: row.name, gols: row.goals, golsContra: row.ownGoals, saldoLiquido: row.netGoals, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+      return;
+    }
+    if (tab === 'ASSISTENCIAS') {
+      downloadCsv('poka-pratika-assistencias.csv', rankings.assists.map((row, index) => ({ posicao: index + 1, atleta: row.name, assistencias: row.assists, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+      return;
+    }
+    downloadCsv('poka-pratika-cartoes.csv', rankings.cards.map((row, index) => ({ posicao: index + 1, atleta: row.name, pontosCartao: row.cardPoints, totalCartoes: row.totalCards, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+  }
+
+  return <section className="card compact standings-card season-dashboard-card"><div className="card-head championship-head"><div><h2>Tabela da temporada & estatísticas</h2><p className="muted">Painel limpo com líderes, histórico recente e navegação por ranking da temporada.</p></div>{currentRows.length > 0 && <button className="ghost" onClick={exportCurrentTab}>Exportar {tab.toLowerCase()}</button>}</div><div className="season-summary-grid">{leaderCards.map((item) => <button className="leader-spotlight as-button" key={item.key} onClick={() => onOpenProfile(item.userId)}><span className="dashboard-icon"><DashboardIcon name={item.icon} /></span><small>{item.label}</small><strong>{item.name}</strong><b>{item.value}</b><em>{item.detail}</em></button>)}</div><section className="finished-strip"><div className="card-head"><div><h3>Jogos finalizados</h3><p className="muted">Últimos confrontos em leitura horizontal rápida.</p></div><span className="status">{finishedMatches.length} jogos</span></div><div className="finished-carousel">{finishedMatches.length === 0 ? <EmptyState title="Sem histórico confirmado" text="Os últimos placares entram aqui assim que as súmulas forem confirmadas." /> : finishedMatches.map((match) => <article className="finished-card" key={match.id}><div className="finished-card-top"><span className="finished-date">{compactMatchDateLabel(match)}</span><span className="finished-badge">MVP indisponível</span></div><strong>{match.title}</strong><div className="finished-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><small>{match.teamAScore === match.teamBScore ? 'Empate confirmado' : `Venceu: ${match.teamAScore > match.teamBScore ? match.teamAName : match.teamBName}`}</small></article>)}</div></section><div className="season-table-panel"><div className="season-tabs">{tabs.map((item) => <button key={item.value} type="button" className={tab === item.value ? 'active' : ''} onClick={() => setTab(item.value)}><span className="dashboard-icon small"><DashboardIcon name={item.icon} /></span>{item.label}</button>)}</div>{currentRows.length === 0 ? <EmptyState title="Sem dados para esta aba" text="Confirme jogos e eventos da temporada para preencher este ranking." /> : <div className="championship-wrap season-table-shell"><table className="championship-table season-table"><thead><tr><th>Pos</th><th>Atleta</th>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{pageRows.map((row) => <tr key={row.key}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.userId)}>{row.name}</button></td>{row.cells.map((cell, index) => <td className={tab === 'GERAL' && index === 0 ? 'points-cell' : ''} key={`${row.key}-${index}`}>{cell}</td>)}</tr>)}</tbody></table></div>}<div className="table-pagination"><button type="button" className="ghost" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage === 1}>Anterior</button><span className="status">Página {safePage} de {totalPages}</span><button type="button" className="ghost" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={safePage === totalPages}>Próxima</button></div></div></section>;
+}
+
+function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeasonId, canCoordinate, onReload }: { api: ApiClient; suspensions: Suspension[]; matches: MatchListItem[]; activeSeasonId: string; canCoordinate: boolean; onReload: () => Promise<void> }) {
+  const confirmedMatches = matches.filter((match) => match.status === 'CONFIRMED');
+  const nextScheduledMatch = sortMatchesByOperationalRelevance(matches).find((match) => match.status !== 'CANCELLED' && getMatchStartTime(match) >= Date.now()) ?? null;
+  const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
+  const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
+
+  useEffect(() => {
+    if (!canCoordinate) {
+      setPaymentSummary(null);
+      setCashSummary(null);
+      return;
+    }
+    Promise.all([
+      api.request<PaymentSummary>(`/payments/summary${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}`),
+      api.request<CashSummary>('/cash/summary')
+    ]).then(([paymentsData, cashData]) => {
+      setPaymentSummary(paymentsData);
+      setCashSummary(cashData);
+    }).catch(() => {
+      setPaymentSummary(null);
+      setCashSummary(null);
+    });
+  }, [api, activeSeasonId, canCoordinate]);
+
+  async function serveSuspension(id: string, servedMatchId: string) {
+    if (!servedMatchId) return;
+    await api.request(`/suspensions/${id}/serve`, { method: 'POST', body: JSON.stringify({ servedMatchId }) });
+    await onReload();
+  }
+
+  return <section className="card compact operations-panel dashboard-ops-card"><div className="card-head"><div><h2>Central operacional</h2><p className="muted">Métricas rápidas de disciplina, financeiro e status da quadra.</p></div><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length} pend.</span></div><div className="ops-widget-grid"><article className="ops-highlight danger"><span className="dashboard-icon"><DashboardIcon name="shield" /></span><small>Disciplina</small><strong>{suspensions.length}</strong><em>{suspensions.length ? 'Suspensões ativas exigem baixa' : 'Nenhuma suspensão aberta'}</em></article><article className="ops-highlight gold"><span className="dashboard-icon"><DashboardIcon name="wallet" /></span><small>Financeiro</small><strong>{canCoordinate && paymentSummary ? `${paymentSummary.pending + paymentSummary.late}` : 'Restrito'}</strong><em>{canCoordinate && paymentSummary ? `${paymentSummary.late} atraso(s) • caixa ${formatMoney(cashSummary?.balanceCents ?? 0)}` : 'Visível apenas para coordenação'}</em></article><article className="ops-highlight success"><span className="dashboard-icon"><DashboardIcon name="field" /></span><small>Quadra / reserva</small><strong>{nextScheduledMatch ? 'Reservada' : 'Sem agenda'}</strong><em>{nextScheduledMatch ? `${compactMatchDateLabel(nextScheduledMatch)} • ${nextScheduledMatch.title}` : 'Cadastre o próximo jogo para refletir a reserva'}</em></article></div><div className="ops-section dashboard-suspension-section"><div className="card-head"><strong>Suspensões ativas</strong><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length}</span></div>{suspensions.length === 0 ? <p className="muted">Sem pendências disciplinares no momento.</p> : <div className="suspension-list compact-suspensions">{suspensions.slice(0, 4).map((item) => <article className="suspension-row" key={item.id}><strong>{item.userName}</strong><span>{formatCardReason(item.reason)}</span><small>Origem: {item.triggerMatchTitle}</small>{canCoordinate && <select disabled={!confirmedMatches.length} defaultValue="" onChange={(event) => void serveSuspension(item.id, event.target.value)}><option value="">Cumpriu em...</option>{confirmedMatches.map((match) => <option key={match.id} value={match.id}>{match.title} • {match.matchDate?.slice(0, 10)}</option>)}</select>}</article>)}</div>}</div></section>;
+}
+
+function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
+  const [clockRunning, setClockRunning] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [matchMessage, setMatchMessage] = useState('');
+
+  useEffect(() => {
+    if (!clockRunning || selectedMatch?.status === 'RUNNING') return;
+    const limitSeconds = (selectedMatch?.availableMinutes ?? 60) * 60;
+    const timer = window.setInterval(() => setSeconds((value) => Math.min(value + 1, limitSeconds)), 1000);
+    return () => window.clearInterval(timer);
+  }, [clockRunning, selectedMatch?.status, selectedMatch?.availableMinutes]);
+
+  useEffect(() => {
+    if (!selectedMatch) return;
+    if (selectedMatch.status === 'RUNNING' && selectedMatch.startedAt) {
+      const startedAt = new Date(selectedMatch.startedAt).getTime();
+      const limitSeconds = (selectedMatch.availableMinutes ?? 60) * 60;
+      const syncOfficialClock = () => setSeconds(Math.min(limitSeconds, Math.max(0, Math.floor((Date.now() - startedAt) / 1000))));
+      syncOfficialClock();
+      setClockRunning(true);
+      const timer = window.setInterval(syncOfficialClock, 1000);
+      return () => window.clearInterval(timer);
+    }
+    setClockRunning(selectedMatch.draftClockRunning ?? false);
+    setSeconds(selectedMatch.draftClockSeconds ?? 0);
+  }, [selectedMatch?.id, selectedMatch?.status, selectedMatch?.startedAt, selectedMatch?.availableMinutes, selectedMatch?.draftClockSeconds, selectedMatch?.draftClockRunning]);
+
+  async function openMatch(id: string) {
+    try {
+      setMatchMessage('');
+      setSelectedMatch(await api.request<MatchDetail>(`/matches/${id}`));
+      setSeconds(0);
+      setClockRunning(false);
+      setCancelConfirm(false);
+    } catch (error) {
+      setMatchMessage(error instanceof Error ? error.message : 'Não foi possível abrir a súmula.');
+    }
+  }
+
+  async function startSelectedMatch() {
+    if (!selectedMatch) return;
+    await api.request(`/matches/${selectedMatch.id}/start`, { method: 'POST' });
+    await openMatch(selectedMatch.id);
+    setClockRunning(true);
+    await onReload();
+  }
+
+  async function cancelSelectedMatch() {
+    if (!selectedMatch) return;
+    await api.request(`/matches/${selectedMatch.id}/cancel`, { method: 'POST' });
+    await openMatch(selectedMatch.id);
+    await onReload();
+  }
+
+  async function openConfirmation(matchId: string) {
+    setMatchMessage('Abrindo confirmação para os atletas...');
+    await api.request(`/matches/${matchId}/open-confirmation`, { method: 'POST' });
+    setMatchMessage('Aberto para Confirmação. Atletas já podem responder pelo card do jogo.');
+    await onReload();
+  }
+
+  const sortedMatches = sortMatchesByOperationalRelevance(matches);
+  const activeUserCount = Math.max(1, users.filter((user) => user.active !== false).length);
+  const nextMatch = sortedMatches.filter((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED').find((match) => getMatchStartTime(match) >= Date.now()) ?? sortedMatches.find((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED') ?? null;
+
+  function renderHeroCard(match: MatchListItem) {
+    const date = matchDateParts(match);
+    const playing = match.attendancePlaying ?? 0;
+    const presentOnly = match.attendancePresentOnly ?? 0;
+    const absent = match.attendanceAbsent ?? 0;
+    const dinnerPeople = match.attendanceDinnerPeople ?? 0;
+    const responses = playing + presentOnly + absent;
+    const pending = Math.max(activeUserCount - responses, 0);
+    const responsePercent = Math.min(100, Math.round((responses / activeUserCount) * 100));
+    const confirmationReallyOpen = isConfirmationReallyOpen(match);
+    const myAttendanceStatus = match.myAttendanceStatus ?? null;
+    const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
+    const confirmationDetail = match.confirmationOpen ? `${attendanceStatusLabel(myAttendanceStatus)}${match.confirmationCloseAt ? ` • fecha ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}` : confirmationWindowHasEnded(match) ? `Janela encerrada${match.confirmationCloseAt ? ` em ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}.` : `Janela configurada: ${confirmationWindowScheduleLabel(match)}.`;
+    const segments = [
+      { label: 'Confirmados', value: playing, className: 'confirmed' },
+      { label: 'Só presença', value: presentOnly, className: 'present-only' },
+      { label: 'Ausentes', value: absent, className: 'absent' },
+      { label: 'Pendentes', value: pending, className: 'pending' },
+      { label: 'Jantar', value: dinnerPeople, className: 'dinner' }
+    ];
+
+    return <article className="next-match-hero" key={match.id}><div className="next-match-topbar"><div className="next-match-date"><span className="dashboard-icon"><DashboardIcon name="calendar" /></span><div><b>{date.day} {date.month}</b><small>{date.weekday} • {date.time}</small></div></div><div className="countdown-pill"><span className="dashboard-icon small"><DashboardIcon name="clock" /></span><div><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div></div></div><div className="next-match-content"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><div className="match-card-tags"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span></div></div><div className="match-card-score next-scoreboard"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div></div><div className="confirmation-progress-track">{segments.map((segment) => <i key={segment.label} className={segment.className} style={{ width: `${Math.max(segment.value, responses ? (segment.value / Math.max(responses, 1)) * 100 : 0)}%` }} />)}</div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><div className="match-card-footer next-match-footer"><small>{confirmationDetail}</small><div className="match-card-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{myAttendanceStatus ? 'Alterar confirmação' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></article>;
+  }
+
+  return <section className="card compact matches-report dashboard-next-match-card"><div className="card-head"><div><h2>Central dos jogos</h2><p className="muted">Próxima rodada com foco em confirmação, leitura rápida e acesso direto à súmula.</p></div>{canCoordinate && <OperationalMatchDialog api={api} users={users} activeSeasonId={activeSeasonId} onDone={onReload} />}</div>{matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}{nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}{selectedMatch && <div className="modal match-modal"><section className="match-modal-card"><div className="card-head"><div><h2>{selectedMatch.title}</h2><p className="muted">Súmula operacional • {selectedMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedMatch.status)}</p></div><button className="ghost" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>Fechar</button></div><AttendancePanel api={api} match={selectedMatch} currentUserId={currentUserId} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />{canCoordinate ? <div className="match-ops-grid"><section className="score-editor broadcast-panel"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>{selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)}. Tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}<MatchDayChecklist match={selectedMatch} /><div className="actions">{selectedMatch.status !== 'RUNNING' && <button className="primary" onClick={() => setClockRunning((value) => !value)}>{clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button>}<button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>{selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && !cancelConfirm && <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar jogo</button>}{cancelConfirm && <><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter jogo</button><button className="primary danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button></>}</div><SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.max(0, Math.floor(seconds / 60))} /></section><div className="match-sheet-panel"><ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} /><MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} /><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></div></div> : <section className="score-editor athlete-match-readonly"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.teamAScore} x {selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><MatchDayChecklist match={selectedMatch} /><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section>}</section></div>}</section>;
 }
 
 function SeasonPanel({ standings, rankings, onOpenProfile }: { standings: Standing[]; rankings: RankingPayload; onOpenProfile: (userId: string) => void }) {

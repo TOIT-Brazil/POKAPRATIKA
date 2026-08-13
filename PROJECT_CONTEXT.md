@@ -119,6 +119,8 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O formulário antigo de criação de súmula foi removido; existe apenas o fluxo operacional com busca e drag-and-drop.
 - UI refinada com logo original azul, palavra `PRÁTIKA` abaixo de `POKA` no símbolo, pódios, cards, microcopy cômica, modais roláveis, listas suspensas com opções em fonte preta e layout compacto/mobile-first com line-height global reduzido em 10%.
 - A navegação avançou para o padrão painel principal + modais fumê em todos os módulos principais: jogos/súmulas aparecem como relatório na temporada ativa, operação da partida abre em modal amplo, mensalidades usam modais para geração/registro, prêmios usam modal para configuração administrativa e `config.` usa modais para ações sensíveis.
+- O pop-up global automático de confirmação de presença foi removido; atletas agora confirmam presença apenas pelo botão do card do jogo e pela modal do próprio jogo, sem interrupção recorrente ao abrir a home.
+- O dashboard principal foi redesenhado em tema light/vibrante com header fixo, seletor de temporada no topo, card hero do próximo jogo com textura de gramado e contagem regressiva, widget operacional lateral com disciplina/financeiro/quadra e seção inferior unificada com jogos finalizados horizontais, líderes, abas e paginação de estatísticas.
 
 ## Regras importantes consolidadas
 
@@ -159,6 +161,8 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `backend`: `npm audit --audit-level=moderate` sem vulnerabilidades.
 - `frontend`: `npm audit --audit-level=moderate` sem vulnerabilidades.
 - Checagem do workspace sem erros ativos, sem `.env`, sem ORM operacional e sem `console.log`/`window.confirm`/`alert` operacional.
+- `frontend`: remoção do pop-up global automático de confirmação de presença pendente; o acesso à confirmação ficou restrito ao card/modal do jogo e exige nova validação com `npm run typecheck`.
+- `frontend`: refatoração visual do dashboard validada sem erros no editor em `frontend/src/App.tsx` e `frontend/src/styles.css`; `npm run typecheck` continua indisponível no ambiente atual porque `tsc` não está acessível via terminal do frontend.
 
 ## Próximo passo técnico recomendado
 
