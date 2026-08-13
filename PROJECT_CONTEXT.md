@@ -124,6 +124,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O dashboard principal foi refinado para ficar aderente à referência visual: a temporada voltou para a faixa abaixo do header, o topo ganhou ícones de utilitários, o próximo jogo passou a usar badge de data à esquerda com miolo em gramado e trilha lateral de status/ações, o painel operacional foi compactado em 3 widgets e a base foi reorganizada em duas colunas com jogos finalizados à esquerda e tabela de atletas à direita.
 - O card `Central dos jogos` passou a usar a biblioteca `react-soccer-lineup` como camada real de fundo do campo no hero do próximo jogo, com overlay escuro para preservar legibilidade dos dados operacionais.
 - O dashboard principal recebeu novo refinamento para aderir ainda mais à imagem de referência: painel operacional lateral simplificado em três widgets compactos, rótulos do hero ajustados para `Não responderam`/`Para ajustar` quando aplicável e densidade visual mais próxima da composição alvo.
+- O dashboard principal foi expandido para aproveitar mais a largura útil da tela, com colunas superiores/inferiores recalibradas e o `Central dos jogos` escurecido em verde mais fechado, mantendo apenas um campo grande no fundo em vez do efeito visual de múltiplos campos.
 
 ## Regras importantes consolidadas
 
@@ -168,6 +169,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: refatoração visual do dashboard validada sem erros no editor em `frontend/src/App.tsx` e `frontend/src/styles.css`; `npm run typecheck` continua indisponível no ambiente atual porque `tsc` não está acessível via terminal do frontend.
 - `frontend`: `npm install react-soccer-lineup` executado com sucesso para sustentar o fundo do campo no dashboard; diagnósticos do editor seguem sem erros em `frontend/src/App.tsx` e `frontend/src/styles.css`.
 - `frontend`: `npm run typecheck` e `npm run build` concluídos com sucesso após o refinamento fino do dashboard principal alinhado à imagem de referência; o build ainda reporta um warning pré-existente de `@import` fora do topo em `frontend/src/styles.css`.
+- `frontend`: `npm run build` concluído com sucesso após ampliar a ocupação horizontal do dashboard e substituir o fundo do hero por um único campo grande em verde escuro; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
