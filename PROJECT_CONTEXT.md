@@ -121,6 +121,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - A navegação avançou para o padrão painel principal + modais fumê em todos os módulos principais: jogos/súmulas aparecem como relatório na temporada ativa, operação da partida abre em modal amplo, mensalidades usam modais para geração/registro, prêmios usam modal para configuração administrativa e `config.` usa modais para ações sensíveis.
 - O pop-up global automático de confirmação de presença foi removido; atletas agora confirmam presença apenas pelo botão do card do jogo e pela modal do próprio jogo, sem interrupção recorrente ao abrir a home.
 - O dashboard principal foi redesenhado em tema light/vibrante com header fixo, seletor de temporada no topo, card hero do próximo jogo com textura de gramado e contagem regressiva, widget operacional lateral com disciplina/financeiro/quadra e seção inferior unificada com jogos finalizados horizontais, líderes, abas e paginação de estatísticas.
+- O dashboard principal foi refinado para ficar aderente à referência visual: a temporada voltou para a faixa abaixo do header, o topo ganhou ícones de utilitários, o próximo jogo passou a usar badge de data à esquerda com miolo em gramado e trilha lateral de status/ações, o painel operacional foi compactado em 3 widgets e a base foi reorganizada em duas colunas com jogos finalizados à esquerda e tabela de atletas à direita.
 
 ## Regras importantes consolidadas
 
