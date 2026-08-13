@@ -122,6 +122,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O pop-up global automático de confirmação de presença foi removido; atletas agora confirmam presença apenas pelo botão do card do jogo e pela modal do próprio jogo, sem interrupção recorrente ao abrir a home.
 - O dashboard principal foi redesenhado em tema light/vibrante com header fixo, seletor de temporada no topo, card hero do próximo jogo com textura de gramado e contagem regressiva, widget operacional lateral com disciplina/financeiro/quadra e seção inferior unificada com jogos finalizados horizontais, líderes, abas e paginação de estatísticas.
 - O dashboard principal foi refinado para ficar aderente à referência visual: a temporada voltou para a faixa abaixo do header, o topo ganhou ícones de utilitários, o próximo jogo passou a usar badge de data à esquerda com miolo em gramado e trilha lateral de status/ações, o painel operacional foi compactado em 3 widgets e a base foi reorganizada em duas colunas com jogos finalizados à esquerda e tabela de atletas à direita.
+- O card `Central dos jogos` passou a usar a biblioteca `react-soccer-lineup` como camada real de fundo do campo no hero do próximo jogo, com overlay escuro para preservar legibilidade dos dados operacionais.
 
 ## Regras importantes consolidadas
 
@@ -164,6 +165,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - Checagem do workspace sem erros ativos, sem `.env`, sem ORM operacional e sem `console.log`/`window.confirm`/`alert` operacional.
 - `frontend`: remoção do pop-up global automático de confirmação de presença pendente; o acesso à confirmação ficou restrito ao card/modal do jogo e exige nova validação com `npm run typecheck`.
 - `frontend`: refatoração visual do dashboard validada sem erros no editor em `frontend/src/App.tsx` e `frontend/src/styles.css`; `npm run typecheck` continua indisponível no ambiente atual porque `tsc` não está acessível via terminal do frontend.
+- `frontend`: `npm install react-soccer-lineup` executado com sucesso para sustentar o fundo do campo no dashboard; diagnósticos do editor seguem sem erros em `frontend/src/App.tsx` e `frontend/src/styles.css`.
 
 ## Próximo passo técnico recomendado
 

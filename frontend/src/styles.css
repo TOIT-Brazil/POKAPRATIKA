@@ -424,12 +424,13 @@ h2 { font-size: 1.05rem; }
 h3 { margin: 0; font-size: .98rem; letter-spacing: -.02em; }
 
 .shell {
-  width: min(1560px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  width: min(1720px, calc(100% - 18px));
   min-height: 100dvh;
   height: auto;
-  padding: 14px 0 22px;
-  grid-template-rows: auto 1fr;
-  gap: 14px;
+  padding: 10px 0 16px;
+  gap: 10px;
   overflow: auto;
 }
 
@@ -452,7 +453,7 @@ h3 { margin: 0; font-size: .98rem; letter-spacing: -.02em; }
 
 .app-header {
   position: sticky;
-  top: 10px;
+  top: 6px;
   z-index: 9;
   display: grid;
   grid-template-columns: auto minmax(280px, 1fr) auto;
@@ -1017,7 +1018,7 @@ textarea {
 .dashboard-season-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
 }
 
 .dashboard-season-row select {
@@ -1026,17 +1027,18 @@ textarea {
 }
 
 .dashboard-main {
-  gap: 12px;
+  gap: 8px;
 }
 
 .dashboard-top-grid {
   align-items: start;
+  gap: 10px;
 }
 
 .dashboard-bottom-grid {
   display: grid;
   grid-template-columns: minmax(300px, .78fr) minmax(0, 1.22fr);
-  gap: 12px;
+  gap: 10px;
   min-height: 0;
 }
 
@@ -1057,18 +1059,40 @@ textarea {
 }
 
 .next-match-hero {
+  position: relative;
   grid-template-columns: 84px minmax(0, 1fr) 176px;
   align-items: stretch;
   gap: 10px;
   padding: 10px;
+  overflow: hidden;
   border-radius: 16px;
-  background:
-    radial-gradient(circle at center, rgba(255,255,255,.08) 0 1px, transparent 1px 100%),
-    linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)),
-    linear-gradient(135deg, #185f54, #0f4f45 60%, #164a3f 100%);
-  background-size: 120px 120px, 120px 120px, auto, auto;
   color: #f7fffb;
+}
+
+.next-match-pitch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .34;
+}
+
+.next-match-pitch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(11, 54, 45, .72), rgba(21, 95, 81, .66) 62%, rgba(10, 43, 35, .74));
+}
+
+.next-match-pitch > div {
+  width: 100%;
+  height: 100%;
+}
+
+.next-match-date-badge,
+.next-match-center,
+.next-match-side {
+  position: relative;
+  z-index: 1;
 }
 
 .next-match-date-badge {
@@ -1331,6 +1355,12 @@ textarea {
 @media (max-width: 820px) {
   .app-header {
     grid-template-columns: 1fr auto;
+  }
+
+  .shell {
+    width: min(100%, calc(100% - 12px));
+    padding: 6px 0 12px;
+    gap: 8px;
   }
 
   .header-actions {
