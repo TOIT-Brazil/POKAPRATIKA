@@ -1031,7 +1031,7 @@ textarea {
 }
 
 .dashboard-top-grid {
-  grid-template-columns: minmax(0, 2.22fr) minmax(280px, .72fr);
+  grid-template-columns: minmax(0, 2.06fr) minmax(360px, .94fr);
   align-items: start;
   gap: 10px;
 }
@@ -1061,7 +1061,7 @@ textarea {
 
 .next-match-hero {
   position: relative;
-  grid-template-columns: 84px minmax(0, 1fr) 162px;
+  grid-template-columns: 84px minmax(0, 1fr) 236px;
   align-items: stretch;
   gap: 10px;
   padding: 10px;
@@ -1077,8 +1077,10 @@ textarea {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  display: grid;
+  place-items: center;
   overflow: hidden;
-  opacity: .52;
+  opacity: .4;
 }
 
 .next-match-pitch::after {
@@ -1089,10 +1091,12 @@ textarea {
 }
 
 .next-match-pitch > div {
-  width: 134%;
-  height: 134%;
-  margin-left: -17%;
-  margin-top: -17%;
+  width: 118%;
+  height: 118%;
+  margin-left: 0;
+  margin-top: 0;
+  transform: scale(1.14);
+  transform-origin: center;
 }
 
 .next-match-date-badge,
@@ -1270,11 +1274,18 @@ textarea {
 .next-match-side {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 10px;
 }
 
 .next-match-side .status {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  min-height: 40px;
+  padding: 8px 12px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.15;
   background: rgba(255,255,255,.9);
   color: #15473f;
 }
@@ -1307,7 +1318,10 @@ textarea {
 .next-match-actions .ghost,
 .next-match-actions .primary {
   width: 100%;
+  min-height: 38px;
   justify-content: center;
+  white-space: normal;
+  line-height: 1.15;
   font-size: .75rem;
 }
 
@@ -1317,16 +1331,16 @@ textarea {
 
 .ops-widget-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .dashboard-ops-card .ops-highlight {
-  min-height: 116px;
-  padding: 10px;
+  min-height: 136px;
+  padding: 12px 12px 14px;
   border-radius: 12px;
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 12px;
 }
 
 .dashboard-ops-card .ops-highlight-top {
@@ -1344,8 +1358,9 @@ textarea {
 }
 
 .dashboard-ops-card .ops-highlight-label small {
-  font-size: .84rem;
+  font-size: .8rem;
   font-weight: 800;
+  line-height: 1.1;
 }
 
 .dashboard-ops-card .ops-highlight-badge {
@@ -1374,14 +1389,14 @@ textarea {
 }
 
 .dashboard-ops-card .ops-highlight strong {
-  font-size: 2rem;
+  font-size: 2.15rem;
   line-height: 1;
 }
 
 .dashboard-ops-card .ops-highlight em {
   display: block;
-  font-size: .72rem;
-  line-height: 1.2;
+  font-size: .74rem;
+  line-height: 1.28;
 }
 
 .dashboard-ops-card .ops-highlight.danger {
