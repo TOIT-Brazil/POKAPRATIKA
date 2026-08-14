@@ -1004,6 +1004,7 @@ textarea {
 }
 
 .draw-stepper {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
@@ -1011,31 +1012,59 @@ textarea {
   padding: 10px 16px 10px;
 }
 
+.draw-stepper::before {
+  content: "";
+  position: absolute;
+  top: 23px;
+  left: 56px;
+  right: 56px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2fa55e 0%, #cdb05e 52%, #d7ccb2 100%);
+  z-index: 0;
+}
+
 .draw-step {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  justify-self: center;
   color: #5c5c58;
   font-size: .78rem;
   font-weight: 800;
   text-align: center;
 }
 
+.draw-step-pill {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 132px;
+  min-height: 32px;
+  padding: 0 18px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #fcfcfa;
+  border: 1px solid transparent;
+  box-shadow: 0 0 0 6px #fcfcfa;
+}
+
 .draw-step::after {
   content: "";
   position: absolute;
-  top: 14px;
-  left: calc(50% + 28px);
-  width: calc(100% - 20px);
-  height: 3px;
+  top: 50%;
+  right: -10px;
+  width: 11px;
+  height: 11px;
+  transform: translateY(-50%);
   border-radius: 999px;
-  background: #d4c7a0;
-}
-
-.draw-step:last-child::after {
-  display: none;
+  border: 2px solid #cdb05e;
+  background: #fcfcfa;
 }
 
 .draw-step-number {
@@ -1044,38 +1073,62 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  border: 2px solid #d0c08c;
-  background: #fffdf8;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: transparent;
   color: #78611d;
-  font-size: .78rem;
+  font-size: .8rem;
   font-weight: 900;
 }
 
+.draw-step-number::after {
+  content: ".";
+}
+
+.draw-step-label {
+  position: relative;
+  z-index: 1;
+}
+
 .draw-step.is-done {
-  color: #1c5b2e;
+  color: #fff;
+}
+
+.draw-step.is-done .draw-step-pill {
+  background: linear-gradient(180deg, #36ad61, #249551);
+  border-color: rgba(36,149,81,.42);
+  box-shadow: 0 0 0 6px #fcfcfa, 0 10px 22px rgba(36,149,81,.14);
 }
 
 .draw-step.is-done .draw-step-number {
-  border-color: #2fa55e;
-  background: linear-gradient(180deg, #39b86e, #23854c);
   color: #fff;
 }
 
 .draw-step.is-active {
-  color: #3f3113;
+  color: #4b3811;
+}
+
+.draw-step.is-active .draw-step-pill {
+  background: linear-gradient(180deg, #e8ca68, #cfaa44);
+  border-color: rgba(201,165,59,.5);
+  box-shadow: 0 0 0 6px #fcfcfa, 0 10px 22px rgba(201,165,59,.16);
 }
 
 .draw-step.is-active .draw-step-number {
-  background: linear-gradient(180deg, #e8ca68, #c9a53b);
-  border-color: #c9a53b;
   color: #4f3d10;
 }
 
+.draw-step:last-child::after {
+  display: none;
+}
+
 .draw-step.is-done::after {
-  background: linear-gradient(90deg, #2fa55e, #d4c7a0);
+  border-color: #2fa55e;
+}
+
+.draw-step.is-active::after {
+  border-color: #c9a53b;
 }
 
 .draw-status-line {
@@ -1543,18 +1596,23 @@ textarea {
   }
 
   .draw-step {
-    gap: 6px;
     font-size: .72rem;
   }
 
-  .draw-step::after {
-    left: calc(50% + 18px);
-    width: calc(100% - 8px);
+  .draw-step-pill {
+    gap: 6px;
+    min-width: 108px;
+    padding: 0 12px;
+    box-shadow: 0 0 0 4px #fcfcfa;
+  }
+
+  .draw-stepper::before {
+    left: 38px;
+    right: 38px;
+    top: 21px;
   }
 
   .draw-step-number {
-    width: 24px;
-    height: 24px;
     font-size: .72rem;
   }
 

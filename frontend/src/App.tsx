@@ -1864,16 +1864,22 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
 
             <div className="draw-stepper">
               <div className="draw-step is-done">
-                <span className="draw-step-number">1</span>
-                <span>Dados</span>
+                <span className="draw-step-pill">
+                  <span className="draw-step-number">1</span>
+                  <span className="draw-step-label">Dados</span>
+                </span>
               </div>
               <div className={`draw-step ${teamsDrawn ? 'is-done' : 'is-active'}`}>
-                <span className="draw-step-number">2</span>
-                <span>Participantes</span>
+                <span className="draw-step-pill">
+                  <span className="draw-step-number">2</span>
+                  <span className="draw-step-label">Participantes</span>
+                </span>
               </div>
               <div className={`draw-step ${teamsDrawn ? 'is-active' : ''}`}>
-                <span className="draw-step-number">3</span>
-                <span>Sorteio</span>
+                <span className="draw-step-pill">
+                  <span className="draw-step-number">3</span>
+                  <span className="draw-step-label">Sorteio</span>
+                </span>
               </div>
             </div>
 

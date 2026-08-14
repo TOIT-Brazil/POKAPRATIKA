@@ -130,6 +130,8 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - A modal `Súmula Inteligente` de criação de jogo foi redesenhada para o layout claro em wizard da referência, com header compacto, stepper horizontal, card esquerdo de detalhes, coluna direita de busca/sorteio e footer operacional fixo com `Cancelar` e `Salvar súmula final`.
 - A modal `Súmula Inteligente` recebeu refinamento visual adicional para aderir melhor à referência: ícones semânticos nos títulos/indicadores, botão de sorteio com dois dados, camisas distintas para `Time A` e `Time B` e densidade reduzida para evitar barra de rolagem no container principal do modal.
 - Os ícones da modal `Súmula Inteligente` foram ampliados levemente para melhorar a leitura visual sem reabrir o problema de densidade/rolagem do modal.
+- O stepper da modal `Súmula Inteligente` foi ajustado para o padrão em pílulas conectadas da referência, com trilha ao fundo e sem a linha atravessar visualmente a pílula central.
+- O stepper da modal `Súmula Inteligente` foi refinado novamente para que cada pílula envolva número + texto no mesmo bloco visual, impedindo a trilha de passar sobre o rótulo do passo central.
 
 ## Regras importantes consolidadas
 
@@ -179,6 +181,8 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após padronizar os botões de fechamento de modal como `X`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após redesenhar a modal `Súmula Inteligente` para o novo layout visual em wizard; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após adicionar ícones e comprimir a `Súmula Inteligente` para eliminar a rolagem do modal principal; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após converter o stepper da `Súmula Inteligente` para o visual em pílulas conectadas; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após fazer a pílula do stepper da `Súmula Inteligente` envolver número + rótulo completo; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
