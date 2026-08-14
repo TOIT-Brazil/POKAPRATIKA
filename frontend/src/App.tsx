@@ -1055,24 +1055,12 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
       ? `Confirmação encerrada pela janela configurada${match.confirmationCloseAt ? ` em ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}.`
       : `Confirmação ainda não aberta. A coordenação pode abrir manualmente ou manter a janela configurada: ${confirmationWindowScheduleLabel(match)}.`
     : 'Confirmação bloqueada porque a súmula já saiu do rascunho.';
-  const attendanceChoiceHelp = responseStatus === 'JOGAR'
-    ? 'Você será contado para o jogo e pode entrar na escalação. Não será contado como apenas presente.'
-    : responseStatus === 'PRESENTE_SEM_JOGAR'
-      ? 'Você será contado como presença no evento, mas fica fora do jogo e da escalação.'
-      : 'Você não será contado para jogo, presença no evento ou janta.';
   const recentSavedAt = own?.updatedAt ? new Date(own.updatedAt).toLocaleString('pt-BR') : '';
-  const recentResponseText = own
-    ? own.responseStatus === 'JOGAR'
-      ? 'Sua última resposta marcou disponibilidade para o jogo.'
-      : own.responseStatus === 'PRESENTE_SEM_JOGAR'
-        ? 'Sua última resposta marcou apenas presença no evento.'
-        : 'Sua última resposta marcou ausência na rodada.'
-    : 'Aqui aparecerá sua confirmação mais recente.';
 
   function RoundIcon({ kind, className }: { kind: 'ball' | 'person' | 'meal' | 'status' | 'play' | 'present' | 'absent' | 'check'; className?: string }) {
-    if (kind === 'ball') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="m12 7 3 2-1 3h-4L9 9l3-2Zm-3 5-2 3 2.4 2.4L12 16l2.6 1.4L17 15l-2-3M7 9 5 8m12 1 2-1m-9 10-.8 2m3.6-2 .8 2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    if (kind === 'ball') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.8" /><path d="m12 6.9 3.15 2.15-1.18 3.45h-3.94L8.85 9.05 12 6.9Z" fill="currentColor" /><path d="m8.85 9.05-3.1-.95M15.15 9.05l3.1-.95M8.9 15.05l-1.85 2.9M15.1 15.05l1.85 2.9M10.03 12.5 8.1 15.05l3.9 2.45 3.9-2.45-1.93-2.55" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" /></svg>;
     if (kind === 'person') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M5.5 18.5c1.4-3.5 3.6-5.3 6.5-5.3s5.1 1.8 6.5 5.3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-    if (kind === 'meal') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v7M10 4v7M7 7h3M15 4v8m0 0v8m0-8c2 0 4-1.8 4-4V4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    if (kind === 'meal') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 3.8v7.6M8.7 3.8v7.6M10.6 3.8v7.6M6.8 7.8h3.8M8.7 11.4v8.8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M15.7 4.1c1.9 0 3.4 1.8 3.4 4v1.6c0 1.9-1.2 3.5-2.8 4v5.7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M12.7 14.8c.85-1.1 2.1-1.75 3.5-1.75s2.65.65 3.5 1.75" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><ellipse cx="16.2" cy="16.8" rx="4.7" ry="2.25" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.4" /></svg>;
     if (kind === 'status') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><circle cx="12" cy="12" r="3" fill="currentColor" /></svg>;
     if (kind === 'play') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" fill="currentColor" /><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>;
     if (kind === 'present') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M7 19h10M9.2 15.5h5.6M8.2 18c.4-2.2 1.8-3.8 3.8-3.8s3.4 1.6 3.8 3.8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
@@ -1189,7 +1177,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
             </div>
 
             <button type="button" className="primary attendance-save-button" onClick={() => void saveAttendance()}>Salvar minha confirmação</button>
-            <p className="muted attendance-choice-help">{attendanceChoiceHelp}</p>
+            
           </>
         ) : (
           <p className="muted attendance-closed-note">{closedMessage}</p>
@@ -1210,8 +1198,6 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
           <span><RoundIcon kind="absent" className="attendance-inline-icon" /><b>{absent.length}</b> Ausentes</span>
           <span><RoundIcon kind="meal" className="attendance-inline-icon" /><b>{dinnerPeople}</b> Pessoas na Janta</span>
         </div>
-
-        <p className="attendance-recent-note">{recentResponseText}{own?.notes ? ` Observação: ${own.notes}` : ''}</p>
       </div>
     </section>
   );
