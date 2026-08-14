@@ -955,22 +955,23 @@ textarea {
 .match-attendance-pill { color: var(--primary-deep); }
 
 .draw-modal.draw-modal-sheet {
-  width: min(1040px, calc(100vw - 32px));
-  max-height: min(88dvh, 760px);
+  width: min(980px, calc(100vw - 24px));
+  max-height: none;
   padding: 0;
   gap: 0;
-  overflow: auto;
+  overflow: hidden;
   background: linear-gradient(180deg, #fcfcfa 0%, #f5f3ed 100%);
   border: 1px solid #d8d1c0;
   box-shadow: 0 28px 70px rgba(15, 23, 42, .22);
+  container-type: inline-size;
 }
 
 .draw-sheet-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px 12px;
+  gap: 12px;
+  padding: 14px 16px 10px;
   border-bottom: 1px solid #e8e1d4;
 }
 
@@ -992,21 +993,22 @@ textarea {
 .draw-sheet-copy h2 {
   margin: 0;
   color: #1b1b1b;
-  font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+  font-size: clamp(1.22rem, 2.2vw, 1.66rem);
   line-height: 1.05;
 }
 
 .draw-sheet-copy .muted {
   max-width: 76ch;
   color: #6d6d69;
+  font-size: .78rem;
 }
 
 .draw-stepper {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
   align-items: center;
-  padding: 14px 20px 12px;
+  padding: 10px 16px 10px;
 }
 
 .draw-step {
@@ -1014,9 +1016,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   color: #5c5c58;
-  font-size: .86rem;
+  font-size: .78rem;
   font-weight: 800;
   text-align: center;
 }
@@ -1024,9 +1026,9 @@ textarea {
 .draw-step::after {
   content: "";
   position: absolute;
-  top: 16px;
-  left: calc(50% + 34px);
-  width: calc(100% - 28px);
+  top: 14px;
+  left: calc(50% + 28px);
+  width: calc(100% - 20px);
   height: 3px;
   border-radius: 999px;
   background: #d4c7a0;
@@ -1042,13 +1044,13 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   border: 2px solid #d0c08c;
   background: #fffdf8;
   color: #78611d;
-  font-size: .86rem;
+  font-size: .78rem;
   font-weight: 900;
 }
 
@@ -1077,24 +1079,26 @@ textarea {
 }
 
 .draw-status-line {
-  margin: 0 20px 14px;
+  margin: 0 16px 10px;
   color: #4d5f6a;
   background: #edf5fb;
   border-color: #cfe0ef;
+  font-size: .74rem;
+  padding: 7px 10px;
 }
 
 .draw-sheet-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 1.26fr);
-  gap: 14px;
-  padding: 0 20px 16px;
+  gap: 10px;
+  padding: 0 16px 12px;
 }
 
 .draw-sheet-card {
   display: grid;
   align-content: start;
-  gap: 12px;
-  padding: 14px;
+  gap: 9px;
+  padding: 11px;
   border-radius: 16px;
   background: #fbfaf7;
   border: 1px solid #ddd6c7;
@@ -1103,7 +1107,7 @@ textarea {
 
 .draw-sheet-side {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .draw-card-head {
@@ -1116,23 +1120,54 @@ textarea {
 .draw-card-head h3 {
   margin: 0;
   color: #1d1d1b;
-  font-size: 1rem;
+  font-size: .92rem;
+}
+
+.draw-title-row,
+.draw-team-heading,
+.draw-position-label,
+.draw-selected-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.draw-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: #285a42;
+}
+
+.draw-icon-inline {
+  width: 14px;
+  height: 14px;
+  flex-basis: 14px;
+}
+
+.draw-icon-shirt {
+  width: 17px;
+  height: 17px;
+}
+
+.draw-button-icon {
+  color: #fff;
 }
 
 .draw-date-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 122px;
+  gap: 8px;
 }
 
 .field-shell {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .field-shell > span {
   color: #474742;
-  font-size: .82rem;
+  font-size: .75rem;
   font-weight: 800;
 }
 
@@ -1140,17 +1175,18 @@ textarea {
 .draw-modal-sheet .field-shell textarea,
 .draw-modal-sheet .draw-inline-select {
   width: 100%;
-  min-height: 42px;
-  padding: 10px 12px;
+  min-height: 36px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid #d9d1c3;
   background: #fff;
   color: #1f2937;
   box-shadow: inset 0 1px 2px rgba(15,23,42,.03);
+  font-size: .78rem;
 }
 
 .draw-modal-sheet .field-shell textarea {
-  min-height: 78px;
+  min-height: 60px;
   resize: vertical;
 }
 
@@ -1167,8 +1203,8 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 24px;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
+  gap: 8px;
+  padding: 7px 10px;
   border-bottom: 1px solid #eee8de;
 }
 
@@ -1178,13 +1214,13 @@ textarea {
 
 .draw-position-row span {
   color: #1f2937;
-  font-size: .88rem;
+  font-size: .8rem;
   font-weight: 700;
 }
 
 .draw-position-row strong {
   color: #111827;
-  font-size: .9rem;
+  font-size: .82rem;
   text-align: right;
 }
 
@@ -1195,31 +1231,29 @@ textarea {
 .draw-card-note {
   margin: 0;
   color: #6b7280;
-  font-size: .78rem;
+  font-size: .72rem;
 }
 
 .draw-search-input input {
-  min-height: 42px;
+  min-height: 36px;
 }
 
 .draw-inline-hint {
   margin: -4px 0 0;
-  font-size: .78rem;
+  font-size: .72rem;
 }
 
 .draw-search-results {
   display: grid;
-  gap: 8px;
-  max-height: 144px;
-  overflow: auto;
+  gap: 6px;
 }
 
 .draw-search-results article {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: 12px;
   background: #fff;
   border: 1px solid #e4ddcf;
@@ -1246,40 +1280,39 @@ textarea {
 
 .draw-action-callout {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .draw-action-callout strong {
   color: #1b1b1b;
-  font-size: .88rem;
+  font-size: .8rem;
 }
 
 .draw-action-callout small,
 .draw-action-note,
 .draw-footer-save small {
   color: #6b7280;
-  font-size: .76rem;
+  font-size: .7rem;
 }
 
 .draw-selected-head strong {
   color: #1b1b1b;
-  font-size: .9rem;
+  font-size: .82rem;
 }
 
 .draw-selected-list {
   display: grid;
-  gap: 8px;
-  max-height: 132px;
-  overflow: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .draw-selected-player,
 .draw-result-player {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  padding: 9px 10px;
+  padding: 7px 8px;
   border-radius: 12px;
   background: #fff;
   border: 1px solid #e6dece;
@@ -1292,13 +1325,18 @@ textarea {
 
 .draw-button.draw-button-full,
 .draw-sheet-footer .primary {
-  min-height: 44px;
+  min-height: 40px;
   border-radius: 11px;
   color: #fff;
   background: linear-gradient(180deg, #36ad61, #249551);
   box-shadow: 0 12px 24px rgba(36,149,81,.18);
   font-weight: 900;
   letter-spacing: .02em;
+  font-size: .76rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .draw-button.draw-button-full:disabled,
@@ -1314,101 +1352,158 @@ textarea {
 .draw-results-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .draw-result-card {
   display: grid;
   align-content: start;
-  gap: 10px;
-  min-height: 168px;
-  padding: 12px;
+  gap: 8px;
+  min-height: 136px;
+  padding: 10px;
   border-radius: 14px;
   border: 1px dashed #d9d0be;
   background: #fffdfa;
 }
 
+.team-a.draw-result-card {
+  border-color: rgba(46, 139, 87, .34);
+  background: linear-gradient(180deg, #fbfffc, #f5fbf6);
+}
+
+.team-b.draw-result-card {
+  border-color: rgba(199, 146, 31, .34);
+  background: linear-gradient(180deg, #fffef9, #fffaf0);
+}
+
 .draw-result-head {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 6px;
   color: #1b1b1b;
 }
 
 .draw-result-head strong {
-  font-size: .96rem;
+  font-size: .84rem;
 }
 
 .draw-result-head span {
   color: #6b7280;
-  font-size: .78rem;
+  font-size: .7rem;
   font-weight: 700;
 }
 
 .draw-result-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .draw-result-player {
-  grid-template-columns: 28px minmax(120px, 1fr) 96px 86px 34px;
+  grid-template-columns: 24px minmax(92px, 1fr) 82px 72px 28px;
 }
 
 .draw-result-order {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 9px;
   color: #2f5b3b;
   background: #eef7ef;
-  font-size: .78rem;
+  font-size: .7rem;
   font-weight: 900;
 }
 
 .draw-inline-select {
-  min-height: 34px;
-  padding-right: 28px;
-  font-size: .78rem;
+  min-height: 30px;
+  padding-right: 22px;
+  font-size: .72rem;
 }
 
 .draw-inline-bench {
   justify-content: flex-start;
   color: #475569;
-  font-size: .73rem;
+  font-size: .67rem;
   font-weight: 700;
 }
 
 .draw-inline-remove {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: 8px;
+  font-size: .72rem;
 }
 
 .draw-sheet-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 20px 18px;
+  gap: 12px;
+  padding: 0 16px 14px;
 }
 
 .draw-sheet-footer > .ghost {
-  min-width: 96px;
-  min-height: 40px;
+  min-width: 88px;
+  min-height: 36px;
   border-radius: 10px;
   color: #44403c;
   background: #fff;
   border: 1px solid #dad1c2;
+  font-size: .76rem;
 }
 
 .draw-footer-save {
   display: grid;
   justify-items: end;
   gap: 4px;
+}
+
+@media (max-height: 860px) {
+  .draw-modal.draw-modal-sheet {
+    width: min(940px, calc(100vw - 20px));
+  }
+
+  .draw-sheet-copy h2 {
+    font-size: 1.3rem;
+  }
+
+  .draw-sheet-copy .muted,
+  .draw-position-row span,
+  .draw-position-row strong,
+  .draw-selected-head strong {
+    font-size: .74rem;
+  }
+
+  .draw-sheet-grid,
+  .draw-sheet-side,
+  .draw-results-grid {
+    gap: 8px;
+  }
+
+  .draw-sheet-card {
+    padding: 10px;
+  }
+
+  .draw-modal-sheet .field-shell input,
+  .draw-modal-sheet .field-shell textarea,
+  .draw-modal-sheet .draw-inline-select,
+  .draw-sheet-footer > .ghost,
+  .draw-button.draw-button-full,
+  .draw-sheet-footer .primary {
+    min-height: 34px;
+  }
+
+  .draw-modal-sheet .field-shell textarea {
+    min-height: 52px;
+  }
+
+  .draw-result-card {
+    min-height: 124px;
+  }
 }
 
 @media (max-width: 980px) {
@@ -1453,7 +1548,7 @@ textarea {
   }
 
   .draw-step::after {
-    left: calc(50% + 22px);
+    left: calc(50% + 18px);
     width: calc(100% - 8px);
   }
 
@@ -1467,6 +1562,10 @@ textarea {
   .draw-result-player,
   .draw-selected-player,
   .draw-search-results article {
+    grid-template-columns: 1fr;
+  }
+
+  .draw-selected-list {
     grid-template-columns: 1fr;
   }
 

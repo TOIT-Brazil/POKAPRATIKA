@@ -1751,11 +1751,48 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
     await onDone();
   }
 
+  function DrawIcon({ kind, className, tone = 'neutral' }: { kind: 'pitch' | 'playerPlus' | 'roster' | 'goalkeeper' | 'defense' | 'midfield' | 'attack' | 'results' | 'dice' | 'shirt'; className?: string; tone?: 'neutral' | 'a' | 'b' }) {
+    const stroke = tone === 'a' ? '#2e8b57' : tone === 'b' ? '#c7921f' : 'currentColor';
+    const fill = tone === 'a' ? '#daf3e5' : tone === 'b' ? '#f9ebbf' : 'none';
+
+    if (kind === 'pitch') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 5v14M3 12h18M8.5 12a3.5 3.5 0 1 0 0-.01Zm7 0a3.5 3.5 0 1 0 0-.01Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    }
+    if (kind === 'playerPlus') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M3.5 18.2c1.2-3 3.1-4.6 5.5-4.6s4.3 1.6 5.5 4.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M17.5 7v6M14.5 10h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+    }
+    if (kind === 'roster') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7.2A2.8 2.8 0 1 0 8 7Zm8 0A2.8 2.8 0 1 0 16 7Zm-8.7 10c.5-2 1.9-3.3 3.7-3.3s3.2 1.3 3.7 3.3M13.7 17.2c.5-1.6 1.8-2.7 3.4-2.7 1.5 0 2.7 1 3.3 2.7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>;
+    }
+    if (kind === 'goalkeeper') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 6.5 6v4.7c0 4.2 2.2 7.2 5.5 9 3.3-1.8 5.5-4.8 5.5-9V6L12 3.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M9.5 11.5 11 13l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    }
+    if (kind === 'defense') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 9 7l3 5 3-5 5 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="M6.5 17h11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+    }
+    if (kind === 'midfield') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12M12 6v12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>;
+    }
+    if (kind === 'attack') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="m13 7 5 5-5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    }
+    if (kind === 'results') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20h12M8 17V9M12 17V5M16 17v-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    }
+    if (kind === 'dice') {
+      return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="8" width="8" height="8" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" transform="rotate(-12 7.5 12)" /><rect x="12.5" y="8" width="8" height="8" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" transform="rotate(12 16.5 12)" /><circle cx="7.5" cy="12" r="1" fill="currentColor" /><circle cx="16" cy="10" r="1" fill="currentColor" /><circle cx="18" cy="14" r="1" fill="currentColor" /></svg>;
+    }
+    return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5 12 3l5 2.5 1 7.5-6 7-6-7 1-7.5Z" fill={fill} stroke={stroke} strokeWidth="1.7" strokeLinejoin="round" /><path d="M9 7.5h6M9.5 10.5h5M10 13.5h4" fill="none" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" /></svg>;
+  }
+
   function TeamList({ team, rows }: { team: 'A' | 'B'; rows: MatchDraftPlayer[] }) {
     return (
       <div className={`draw-result-card team-${team.toLowerCase()}`}>
         <div className="draw-result-head">
-          <strong>{team === 'A' ? teamAName.toUpperCase() : teamBName.toUpperCase()}</strong>
+          <div className="draw-team-heading">
+            <DrawIcon kind="shirt" tone={team === 'A' ? 'a' : 'b'} className="draw-icon draw-icon-shirt" />
+            <strong>{team === 'A' ? teamAName.toUpperCase() : teamBName.toUpperCase()}</strong>
+          </div>
           <span>({rows.length} atleta{rows.length === 1 ? '' : 's'})</span>
         </div>
         {rows.length === 0 ? (
@@ -1804,7 +1841,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
   }
 
   const rosterRows = [...players].sort((left, right) => Number(left.drawOrder || 0) - Number(right.drawOrder || 0) || left.name.localeCompare(right.name, 'pt-BR'));
-  const positionOverview = ([['GO', 'Goleiros'], ['DEFESA', 'Defesa'], ['MEIO', 'Meio'], ['ATAQUE', 'Ataque']] as const).map(([group, label]) => ({ group, label, count: players.filter((player) => positionBalanceGroup(player.position) === group).length }));
+  const positionOverview = ([['GO', 'Goleiros', 'goalkeeper'], ['DEFESA', 'Defesa', 'defense'], ['MEIO', 'Meio', 'midfield'], ['ATAQUE', 'Ataque', 'attack']] as const).map(([group, label, icon]) => ({ group, label, icon, count: players.filter((player) => positionBalanceGroup(player.position) === group).length }));
   const drawStatus = players.length < 2 ? 'Adicione pelo menos 2 atletas para liberar o sorteio.' : teamsDrawn ? 'Equipes sorteadas. Você ainda pode sortear novamente ou ajustar sequência/banco.' : 'Elenco pronto para sorteio aleatório por posições.';
   const drawTitle = teamsDrawn ? 'Sorteio concluído.' : 'Divisão automática obrigatória.';
   const drawButtonLabel = teamsDrawn ? 'SORTEAR TIMES NOVAMENTE' : 'SORTEAR TIMES AUTOMATICAMENTE';
@@ -1845,7 +1882,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
             <div className="draw-sheet-grid">
               <section className="draw-sheet-card draw-details-card">
                 <div className="draw-card-head">
-                  <h3>Detalhes do Jogo</h3>
+                  <div className="draw-title-row">
+                    <DrawIcon kind="pitch" className="draw-icon" />
+                    <h3>Detalhes do Jogo</h3>
+                  </div>
                 </div>
 
                 <div className="draw-date-row">
@@ -1871,12 +1911,12 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
 
                 <div className="draw-position-list">
                   <div className="draw-position-row draw-position-total">
-                    <span>Elenco</span>
+                    <span className="draw-position-label"><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Elenco</span>
                     <strong>{players.length}</strong>
                   </div>
                   {positionOverview.map((item) => (
                     <div className="draw-position-row" key={item.group}>
-                      <span>{item.label}</span>
+                      <span className="draw-position-label"><DrawIcon kind={item.icon} className="draw-icon draw-icon-inline" /> {item.label}</span>
                       <strong>{item.count}</strong>
                     </div>
                   ))}
@@ -1888,7 +1928,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
               <section className="draw-sheet-side">
                 <div className="draw-sheet-card draw-search-card">
                   <div className="draw-card-head">
-                    <h3>Adicionar Jogadores</h3>
+                    <div className="draw-title-row">
+                      <DrawIcon kind="playerPlus" className="draw-icon" />
+                      <h3>Adicionar Jogadores</h3>
+                    </div>
                   </div>
 
                   <div className="draw-search-input">
@@ -1919,7 +1962,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                   </div>
 
                   <div className="draw-selected-head">
-                    <strong>Elenco Selecionado: {selectedLabel}</strong>
+                    <strong><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Elenco Selecionado: {selectedLabel}</strong>
                   </div>
 
                   {rosterRows.length > 0 && (
@@ -1937,13 +1980,16 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                     </div>
                   )}
 
-                  <button type="button" className="primary draw-button draw-button-full" onClick={balanceTeamsByPosition} disabled={players.length < 2}>{drawButtonLabel}</button>
+                  <button type="button" className="primary draw-button draw-button-full" onClick={balanceTeamsByPosition} disabled={players.length < 2}><DrawIcon kind="dice" className="draw-icon draw-button-icon" /> {drawButtonLabel}</button>
                   <small className="draw-action-note">O salvamento final só libera após o sorteio.</small>
                 </div>
 
                 <div className="draw-sheet-card draw-results-card">
                   <div className="draw-card-head">
-                    <h3>Resultados do Sorteio</h3>
+                    <div className="draw-title-row">
+                      <DrawIcon kind="results" className="draw-icon" />
+                      <h3>Resultados do Sorteio</h3>
+                    </div>
                   </div>
 
                   <div className="draw-results-grid">
