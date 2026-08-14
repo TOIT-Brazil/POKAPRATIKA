@@ -1772,39 +1772,155 @@ function MatchScoreEditor({ api, match, users, clockSeconds, clockRunning, onSav
     return leftTime - rightTime;
   });
 
-  return (
-    <div className="score-editor">
-      <strong>{match.status === 'CONFIRMED' ? 'Correção auditada da súmula' : 'Fechamento da súmula'}</strong>
-      {match.status !== 'CONFIRMED' && <p className="muted">{autosaveStatus}</p>}
-      <div className="quick-sheet">
-        <strong>Atletas em jogo</strong>
-        <small className="muted">Clique no ícone do evento e confirme. O horário real do clique entra no log da súmula.</small>
-        {(['A', 'B'] as const).map((team) => (
-          <div className="quick-team" key={team}>
-            <b>{team === 'A' ? match.teamAName : match.teamBName}</b>
-            {playablePlayers.filter((player) => player.team === team).length === 0 && <small className="muted">Nenhum atleta escalado neste time.</small>}
-            {playablePlayers.filter((player) => player.team === team).map((player) => (
-              <div className={`quick-player ${pendingQuickEvent?.userId === player.userId ? 'confirming' : ''}`} key={player.userId}>
-                <span>{player.name}</span>
-                <div className="quick-icons">
-                  <button type="button" title="Gol" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'GOL' })}>⚽</button>
-                  <button type="button" title="Assistência" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'ASSISTENCIA' })}>🅰️</button>
-                  <button type="button" title="Cartão amarelo" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'CARTAO_AMARELO' })}>🟨</button>
-                  <button type="button" title="Cartão azul" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'CARTAO_AZUL' })}>🟦</button>
-                  <button type="button" title="Cartão vermelho" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'CARTAO_VERMELHO' })}>🟥</button>
-                </div>
-                {pendingQuickEvent?.userId === player.userId && <div className="quick-confirm"><small>Confirmar {eventLabel(pendingQuickEvent.eventType)} para {player.name}?</small><button type="button" className="primary small" onClick={confirmQuickEvent}>Confirmar</button><button type="button" className="ghost" onClick={() => setPendingQuickEvent(null)}>Cancelar</button></div>}
-              </div>
-            ))}
-          </div>
-        ))}
+  const usersById = new Map(users.map((item) => [item.id, item]));
+  const boardScoreA = match.status === 'CONFIRMED' ? match.teamAScore : teamAScore;
+  const boardScoreB = match.status === 'CONFIRMED' ? match.teamBScore : teamBScore;
+  const clockLabel = `${String(Math.floor(clockSeconds / 60)).padStart(2, '0')}:${String(clockSeconds % 60).padStart(2, '0')}`;
+  const pendingQuickPlayer = pendingQuickEvent ? playablePlayers.find((item) => item.userId === pendingQuickEvent.userId) ?? null : null;
+
+  function playerBoardNumber(player: MatchDetail['players'][number], fallbackIndex: number) {
+    return player.rotationOrder ?? player.drawOrder ?? fallbackIndex + 1;
+  }
+
+  function playersForTeam(team: 'A' | 'B') {
+    return playablePlayers.filter((player) => player.team === team).sort((left, right) => (left.rotationOrder ?? left.drawOrder ?? 999) - (right.rotationOrder ?? right.drawOrder ?? 999));
+  }
+
+  function startersForTeam(team: 'A' | 'B') {
+    return playersForTeam(team).filter((player) => !player.startsOnBench);
+  }
+
+  function reservesForTeam(team: 'A' | 'B') {
+    return playersForTeam(team).filter((player) => player.startsOnBench);
+  }
+
+  function pitchSlots(team: 'A' | 'B') {
+    return team === 'A'
+      ? [
+          { left: 11, top: 50 },
+          { left: 26, top: 22 },
+          { left: 26, top: 50 },
+          { left: 26, top: 78 },
+          { left: 44, top: 35 },
+          { left: 44, top: 65 },
+          { left: 63, top: 50 },
+          { left: 56, top: 18 },
+          { left: 56, top: 82 }
+        ]
+      : [
+          { left: 89, top: 50 },
+          { left: 74, top: 22 },
+          { left: 74, top: 50 },
+          { left: 74, top: 78 },
+          { left: 56, top: 35 },
+          { left: 56, top: 65 },
+          { left: 37, top: 50 },
+          { left: 44, top: 18 },
+          { left: 44, top: 82 }
+        ];
+  }
+
+  function fieldPlayers(team: 'A' | 'B') {
+    const starters = startersForTeam(team);
+    const goalkeeper = starters.find((player) => player.roleInMatch === 'GOLEIRO');
+    const outfield = starters.filter((player) => player.userId !== goalkeeper?.userId);
+    const ordered = goalkeeper ? [goalkeeper, ...outfield] : outfield;
+    return ordered.slice(0, pitchSlots(team).length).map((player, index) => ({ player, slot: pitchSlots(team)[index] }));
+  }
+
+  function rosterRow(player: MatchDetail['players'][number], team: 'A' | 'B', index: number, reserve = false) {
+    const user = usersById.get(player.userId);
+    const label = user?.position ? positionLabel(user.position) : player.roleInMatch === 'GOLEIRO' ? 'GO • Goleiro' : 'MC • Meio campo';
+    return (
+      <div className={`ops-roster-row ${reserve ? 'is-reserve' : ''} ${pendingQuickEvent?.userId === player.userId ? 'is-armed' : ''}`} key={`${team}-${player.userId}`}>
+        <div className="ops-roster-avatar">{user?.avatarDataUrl ? <img src={user.avatarDataUrl} alt={player.name} /> : <span>{player.name.slice(0, 1)}</span>}</div>
+        <div className="ops-roster-copy">
+          <strong>#{playerBoardNumber(player, index)} {player.name}</strong>
+          <small>{label}{player.roleInMatch === 'GOLEIRO' ? ' • Goleiro' : ''}</small>
+        </div>
+        <div className="ops-roster-actions">
+          <button type="button" className="ops-icon-card is-yellow" title="Cartão amarelo" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'CARTAO_AMARELO' })}>🟨</button>
+          <button type="button" className="ops-icon-card is-red" title="Cartão vermelho" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'CARTAO_VERMELHO' })}>🟥</button>
+          <button type="button" className="ops-icon-card is-goal" title="Gol" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'GOL' })}>⚽</button>
+          <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'ASSISTENCIA' })}>⋮</button>
+        </div>
       </div>
-      <div className="event-log"><strong>Log da súmula</strong>{eventLog.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : eventLog.map((item) => <span key={item.key}><b>{formatBrasiliaClock(item.at)}</b><small>{item.label} • {item.detail}</small></span>)}</div>
-      <div className="score-inputs"><input type="number" min="0" value={teamAScore} onChange={(event) => setTeamAScore(Number(event.target.value))} /><span>x</span><input type="number" min="0" value={teamBScore} onChange={(event) => setTeamBScore(Number(event.target.value))} /></div>
-      {match.status === 'CONFIRMED' && <input value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} placeholder="Motivo da correção: gol/assistência/cartão lançado errado" required minLength={5} />}
-      <details className="advanced-score"><summary>Lançamento manual avançado</summary><div className="event-form"><select value={eventType} onChange={(event) => setEventType(event.target.value as MatchEventDraft['eventType'])}><option value="GOL">Gol</option><option value="GOL_CONTRA">Gol contra</option><option value="ASSISTENCIA">Assistência</option><option value="CARTAO_AMARELO">Cartão amarelo</option><option value="CARTAO_VERMELHO">Cartão vermelho</option><option value="CARTAO_AZUL">Cartão azul</option></select><select value={userId} onChange={(event) => { setUserId(event.target.value); setRelatedUserId(''); }}>{playablePlayers.map((player) => <option key={player.userId} value={player.userId}>{player.name} • Time {player.team}</option>)}</select><select value={relatedUserId} onChange={(event) => setRelatedUserId(event.target.value)}><option value="">Sem relacionado</option>{relatedPlayers.map((player) => <option key={player.userId} value={player.userId}>{player.name}</option>)}</select><input type="number" min="0" max="180" value={minute} onChange={(event) => setMinute(Number(event.target.value))} /><span className="status open">Time {selectedEventPlayer?.team ?? '—'}</span><button type="button" className="ghost" onClick={addEvent}>Adicionar</button></div></details>
-      <div className="chips">{events.map((item, index) => <button className="chip" key={`${item.userId}-${item.eventType}-${index}`} onClick={() => setEvents((list) => list.filter((_, itemIndex) => itemIndex !== index))}>{item.minute}' {eventLabel(item.eventType)}</button>)}</div>
-      <div className="actions"><button className="primary" onClick={submit} disabled={match.status === 'CONFIRMED' && correctionReason.trim().length < 5}>{match.status === 'CONFIRMED' ? 'Salvar correção' : 'Submeter'}</button>{match.status === 'SUBMITTED' && <button className="ghost" onClick={confirm}>Confirmar e pontuar</button>}</div>
+    );
+  }
+
+  return (
+    <div className="score-editor match-control-board">
+      <div className="match-control-top">
+        <div className="match-time-card">
+          <span>TEMPO DE JOGO</span>
+          <strong className="match-time-card-clock">{clockLabel}</strong>
+          <div className="match-time-card-score">
+            <div><b>{match.teamAName}</b><small>{boardScoreA}</small></div>
+            <span>-</span>
+            <div><b>{match.teamBName}</b><small>{boardScoreB}</small></div>
+          </div>
+        </div>
+        <div className="match-time-sidecard">
+          <strong>{match.status === 'CONFIRMED' ? 'Correção auditada da súmula' : 'Fechamento da súmula'}</strong>
+          {match.status !== 'CONFIRMED' && <small className="muted">{autosaveStatus}</small>}
+          <small className="muted">Clique nos cartões dos atletas para armar um evento rápido. A confirmação final entra no log da súmula.</small>
+        </div>
+      </div>
+
+      {pendingQuickEvent && pendingQuickPlayer && <div className="match-command-banner"><strong>{eventLabel(pendingQuickEvent.eventType)}</strong><span>{pendingQuickPlayer.name} • Time {pendingQuickPlayer.team}</span><div className="actions"><button type="button" className="primary small" onClick={confirmQuickEvent}>Confirmar</button><button type="button" className="ghost small" onClick={() => setPendingQuickEvent(null)}>Cancelar</button></div></div>}
+
+      <div className="match-ops-arena">
+        <section className="ops-roster-column">
+          <div className="ops-roster-head team-a-head"><strong>{match.teamAName}</strong><span>Titulares</span></div>
+          <div className="ops-roster-list">
+            {startersForTeam('A').length ? startersForTeam('A').map((player, index) => rosterRow(player, 'A', index)) : <small className="muted">Sem titulares definidos.</small>}
+          </div>
+          <div className="ops-roster-head reserve-head"><strong>Banco de reservas</strong><span>{reservesForTeam('A').length}</span></div>
+          <div className="ops-roster-list reserve-list">
+            {reservesForTeam('A').length ? reservesForTeam('A').map((player, index) => rosterRow(player, 'A', index, true)) : <small className="muted">Sem reservas neste time.</small>}
+          </div>
+        </section>
+
+        <section className="ops-pitch-card">
+          <div className="ops-pitch-surface">
+            <div className="ops-pitch-center-circle" />
+            <div className="ops-pitch-midline" />
+            <div className="ops-pitch-box ops-pitch-box-a" />
+            <div className="ops-pitch-box ops-pitch-box-b" />
+            {fieldPlayers('A').map(({ player, slot }, index) => <div className="ops-pitch-player team-a-player" key={`pitch-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+            {fieldPlayers('B').map(({ player, slot }, index) => <div className="ops-pitch-player team-b-player" key={`pitch-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+          </div>
+        </section>
+
+        <section className="ops-roster-column">
+          <div className="ops-roster-head team-b-head"><strong>{match.teamBName}</strong><span>Titulares</span></div>
+          <div className="ops-roster-list">
+            {startersForTeam('B').length ? startersForTeam('B').map((player, index) => rosterRow(player, 'B', index)) : <small className="muted">Sem titulares definidos.</small>}
+          </div>
+          <div className="ops-roster-head reserve-head"><strong>Banco de reservas</strong><span>{reservesForTeam('B').length}</span></div>
+          <div className="ops-roster-list reserve-list">
+            {reservesForTeam('B').length ? reservesForTeam('B').map((player, index) => rosterRow(player, 'B', index, true)) : <small className="muted">Sem reservas neste time.</small>}
+          </div>
+        </section>
+      </div>
+
+      <div className="match-control-bottom">
+        <section className="match-control-feed">
+          <div className="match-control-feed-head">
+            <strong>Fechamento da súmula</strong>
+            <small>{match.status === 'CONFIRMED' ? 'Modo auditoria' : autosaveStatus}</small>
+          </div>
+          <div className="event-log ops-event-log">{eventLog.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : eventLog.map((item) => <span key={item.key}><b>{formatBrasiliaClock(item.at)}</b><small>{item.label} • {item.detail}</small></span>)}</div>
+          <div className="chips">{events.map((item, index) => <button className="chip" key={`${item.userId}-${item.eventType}-${index}`} onClick={() => setEvents((list) => list.filter((_, itemIndex) => itemIndex !== index))}>{item.minute}' {eventLabel(item.eventType)}</button>)}</div>
+        </section>
+
+        <section className="match-control-actions">
+          <div className="score-inputs"><input type="number" min="0" value={teamAScore} onChange={(event) => setTeamAScore(Number(event.target.value))} /><span>x</span><input type="number" min="0" value={teamBScore} onChange={(event) => setTeamBScore(Number(event.target.value))} /></div>
+          {match.status === 'CONFIRMED' && <input value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} placeholder="Motivo da correção: gol/assistência/cartão lançado errado" required minLength={5} />}
+          <div className="actions match-submit-actions"><button className="primary" onClick={submit} disabled={match.status === 'CONFIRMED' && correctionReason.trim().length < 5}>{match.status === 'CONFIRMED' ? 'Salvar correção' : 'Salvar súmula'}</button>{match.status === 'SUBMITTED' && <button className="ghost" onClick={confirm}>Confirmar e pontuar</button>}</div>
+          <details className="advanced-score"><summary>Lançamento manual avançado</summary><div className="event-form"><select value={eventType} onChange={(event) => setEventType(event.target.value as MatchEventDraft['eventType'])}><option value="GOL">Gol</option><option value="GOL_CONTRA">Gol contra</option><option value="ASSISTENCIA">Assistência</option><option value="CARTAO_AMARELO">Cartão amarelo</option><option value="CARTAO_VERMELHO">Cartão vermelho</option><option value="CARTAO_AZUL">Cartão azul</option></select><select value={userId} onChange={(event) => { setUserId(event.target.value); setRelatedUserId(''); }}>{playablePlayers.map((player) => <option key={player.userId} value={player.userId}>{player.name} • Time {player.team}</option>)}</select><select value={relatedUserId} onChange={(event) => setRelatedUserId(event.target.value)}><option value="">Sem relacionado</option>{relatedPlayers.map((player) => <option key={player.userId} value={player.userId}>{player.name}</option>)}</select><input type="number" min="0" max="180" value={minute} onChange={(event) => setMinute(Number(event.target.value))} /><span className="status open">Time {selectedEventPlayer?.team ?? '—'}</span><button type="button" className="ghost" onClick={addEvent}>Adicionar</button></div></details>
+        </section>
+      </div>
     </div>
   );
 }
