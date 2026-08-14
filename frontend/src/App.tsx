@@ -960,7 +960,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
       )}
       {selectedSheetMatch && (
         <div className="modal match-modal">
-          <section className="match-modal-card">
+          <section className="match-modal-card sheet-modal-card">
             <div className="card-head">
               <div>
                 <h2>{selectedSheetMatch.title}</h2>
@@ -968,10 +968,338 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
               </div>
               <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setSelectedSheetMatch(null)}>X</button>
             </div>
+            <OpenMatchSheetBoard
+              api={api}
+              match={selectedSheetMatch}
+              users={users}
+              onSaved={async () => {
+                await openSheet(selectedSheetMatch.id);
+                await onReload();
+              }}
+            />
           </section>
         </div>
       )}
     </section>
+  );
+}
+
+function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; match: MatchDetail; users: User[]; onSaved: () => Promise<void> }) {
+  const initialEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
+  const [players, setPlayers] = useState(match.players.map((player) => ({ ...player })));
+  const [teamAScore, setTeamAScore] = useState(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
+  const [teamBScore, setTeamBScore] = useState(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
+  const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
+  const [clockSeconds, setClockSeconds] = useState(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
+  const [clockRunning, setClockRunning] = useState(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+  const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Monte a súmula operacional neste quadro.');
+  const [swapSelection, setSwapSelection] = useState<string[]>([]);
+  const usersById = new Map(users.map((item) => [item.id, item]));
+
+  useEffect(() => {
+    const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
+    setPlayers(match.players.map((player) => ({ ...player })));
+    setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
+    setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
+    setEvents(recoveredEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
+    setClockSeconds(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
+    setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+    setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Monte a súmula operacional neste quadro.');
+    setSwapSelection([]);
+  }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events]);
+
+  useEffect(() => {
+    const limitSeconds = (match.availableMinutes ?? 60) * 60;
+    if (match.status === 'RUNNING' && match.startedAt) {
+      const syncOfficialClock = () => setClockSeconds(Math.min(limitSeconds, Math.max(0, Math.floor((Date.now() - new Date(match.startedAt as string).getTime()) / 1000))));
+      syncOfficialClock();
+      const timer = window.setInterval(syncOfficialClock, 1000);
+      return () => window.clearInterval(timer);
+    }
+    if (!clockRunning) return;
+    const timer = window.setInterval(() => setClockSeconds((value) => Math.min(limitSeconds, value + 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [clockRunning, match.availableMinutes, match.startedAt, match.status]);
+
+  const playablePlayers = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
+
+  function playerBoardNumber(player: MatchDetail['players'][number], fallbackIndex: number) {
+    return player.rotationOrder ?? player.drawOrder ?? fallbackIndex + 1;
+  }
+
+  function playersForTeam(team: 'A' | 'B') {
+    return playablePlayers.filter((player) => player.team === team).sort((left, right) => (left.rotationOrder ?? left.drawOrder ?? 999) - (right.rotationOrder ?? right.drawOrder ?? 999));
+  }
+
+  function startersForTeam(team: 'A' | 'B') {
+    return playersForTeam(team).filter((player) => !player.startsOnBench).slice(0, 6);
+  }
+
+  function reservesForTeam(team: 'A' | 'B') {
+    return playersForTeam(team).filter((player) => player.startsOnBench).slice(0, 4);
+  }
+
+  function pitchSlots(team: 'A' | 'B') {
+    return team === 'A'
+      ? [
+          { left: 11, top: 50 },
+          { left: 24, top: 20 },
+          { left: 24, top: 42 },
+          { left: 24, top: 64 },
+          { left: 38, top: 30 },
+          { left: 38, top: 55 },
+          { left: 52, top: 18 },
+          { left: 50, top: 66 }
+        ]
+      : [
+          { left: 89, top: 50 },
+          { left: 76, top: 20 },
+          { left: 76, top: 42 },
+          { left: 76, top: 64 },
+          { left: 62, top: 30 },
+          { left: 62, top: 55 },
+          { left: 48, top: 18 },
+          { left: 50, top: 66 }
+        ];
+  }
+
+  function fieldPlayers(team: 'A' | 'B') {
+    const starters = startersForTeam(team);
+    const goalkeeper = starters.find((player) => player.roleInMatch === 'GOLEIRO');
+    const outfield = starters.filter((player) => player.userId !== goalkeeper?.userId);
+    const ordered = goalkeeper ? [goalkeeper, ...outfield] : outfield;
+    return ordered.slice(0, pitchSlots(team).length).map((player, index) => ({ player, slot: pitchSlots(team)[index] }));
+  }
+
+  function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
+    if (eventType === 'GOL') {
+      if (team === 'A') setTeamAScore((value) => value + 1);
+      if (team === 'B') setTeamBScore((value) => value + 1);
+    }
+    if (eventType === 'GOL_CONTRA') {
+      if (team === 'A') setTeamBScore((value) => value + 1);
+      if (team === 'B') setTeamAScore((value) => value + 1);
+    }
+  }
+
+  function addQuickEvent(player: MatchDetail['players'][number], eventType: MatchEventDraft['eventType']) {
+    if (player.team === 'PRESENTE_SEM_JOGAR') return;
+    const eventMinute = Math.max(0, Math.floor(clockSeconds / 60));
+    const eventTeam = player.team === 'A' ? 'A' : 'B';
+    const relatedUserId = eventType === 'GOL' ? startersForTeam(eventTeam).find((candidate) => candidate.userId !== player.userId && candidate.roleInMatch !== 'GOLEIRO')?.userId ?? null : null;
+    setEvents((list) => [...list, { userId: player.userId, relatedUserId, eventType, minute: eventMinute, team: eventTeam, occurredAt: new Date().toISOString() }]);
+    scoreForPreview(eventType, eventTeam);
+    setSheetMessage(`${eventLabel(eventType)} lançado para ${player.name}.`);
+  }
+
+  function toggleSwapCandidate(player: MatchDetail['players'][number]) {
+    setSwapSelection((current) => {
+      if (current.includes(player.userId)) return current.filter((item) => item !== player.userId);
+      if (current.length === 0) return [player.userId];
+      const anchor = players.find((item) => item.userId === current[0]);
+      if (!anchor || anchor.team !== player.team || anchor.startsOnBench === player.startsOnBench) return [player.userId];
+      return [current[0], player.userId];
+    });
+  }
+
+  async function saveBoard() {
+    const teamAPlayers = players.filter((player) => player.team === 'A');
+    const teamBPlayers = players.filter((player) => player.team === 'B');
+    await api.request(`/matches/${match.id}/lineup`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        matchDate: match.matchDate.slice(0, 10),
+        title: match.title,
+        refereeName: match.refereeName ?? null,
+        teamAName: match.teamAName,
+        teamBName: match.teamBName,
+        players: players.map((player, index) => ({
+          userId: player.userId,
+          team: player.team,
+          roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch,
+          drawOrder: player.drawOrder ?? index + 1,
+          rotationOrder: player.team === 'A' ? teamAPlayers.findIndex((item) => item.userId === player.userId) + 1 : player.team === 'B' ? teamBPlayers.findIndex((item) => item.userId === player.userId) + 1 : null,
+          startsOnBench: player.startsOnBench,
+          present: true
+        }))
+      })
+    });
+    const saved = await api.request<{ draftSavedAt: string }>(`/matches/${match.id}/draft`, {
+      method: 'PATCH',
+      body: JSON.stringify({ teamAScore, teamBScore, events, clockSeconds, clockRunning })
+    });
+    setSheetMessage(`Rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.`);
+    await onSaved();
+  }
+
+  async function startReport() {
+    if (match.status === 'RUNNING') {
+      setClockRunning(true);
+      setSheetMessage('Relatório já está em andamento para esta súmula.');
+      return;
+    }
+    await api.request(`/matches/${match.id}/start`, { method: 'POST' });
+    setClockRunning(true);
+    setSheetMessage('Relatório iniciado com cronômetro oficial.');
+    await onSaved();
+  }
+
+  async function finalizeGame() {
+    if (match.status === 'CONFIRMED') {
+      setSheetMessage('Esta súmula já foi confirmada.');
+      return;
+    }
+    await api.request(`/matches/${match.id}/submit`, { method: 'POST', body: JSON.stringify({ teamAScore, teamBScore, events }) });
+    setClockRunning(false);
+    setSheetMessage('Jogo finalizado e enviado para fechamento.');
+    await onSaved();
+  }
+
+  async function generateSheet() {
+    if (match.status !== 'SUBMITTED') {
+      setSheetMessage('Finalize o jogo antes de gerar a súmula.');
+      return;
+    }
+    await api.request(`/matches/${match.id}/confirm`, { method: 'POST' });
+    setSheetMessage('Súmula gerada e confirmada.');
+    await onSaved();
+  }
+
+  function executeSwap() {
+    if (swapSelection.length !== 2) {
+      setSheetMessage('Selecione um titular e um reserva do mesmo time para fazer a troca.');
+      return;
+    }
+    const [firstId, secondId] = swapSelection;
+    const firstPlayer = players.find((player) => player.userId === firstId);
+    const secondPlayer = players.find((player) => player.userId === secondId);
+    if (!firstPlayer || !secondPlayer || firstPlayer.team !== secondPlayer.team || firstPlayer.startsOnBench === secondPlayer.startsOnBench) {
+      setSheetMessage('A troca precisa envolver um titular e um reserva do mesmo time.');
+      return;
+    }
+    setPlayers((list) => list.map((player) => player.userId === firstId ? { ...player, startsOnBench: secondPlayer.startsOnBench } : player.userId === secondId ? { ...player, startsOnBench: firstPlayer.startsOnBench } : player));
+    setSwapSelection([]);
+    setSheetMessage(`Troca armada entre #${playerBoardNumber(firstPlayer, 0)} e #${playerBoardNumber(secondPlayer, 0)}.`);
+  }
+
+  function summaryTime(item: MatchEventDraft) {
+    if (item.occurredAt ?? item.createdAt) return formatBrasiliaClock(item.occurredAt ?? item.createdAt ?? null);
+    return `${String(item.minute).padStart(2, '0')}:00`;
+  }
+
+  function summaryText(item: MatchEventDraft) {
+    const player = players.find((current) => current.userId === item.userId);
+    const related = item.relatedUserId ? players.find((current) => current.userId === item.relatedUserId) : null;
+    const teamLabel = item.team === 'A' ? match.teamAName : match.teamBName;
+    const boardNumber = player ? playerBoardNumber(player, playersForTeam(item.team === 'A' ? 'A' : 'B').findIndex((current) => current.userId === player.userId)) : '?';
+    const relatedNumber = related ? playerBoardNumber(related, playersForTeam(item.team === 'A' ? 'A' : 'B').findIndex((current) => current.userId === related.userId)) : null;
+    const detail = item.eventType === 'GOL' ? `Gol #${boardNumber}${relatedNumber ? ` (Assist #${relatedNumber})` : ''}` : item.eventType === 'ASSISTENCIA' ? `Assistência #${boardNumber}` : item.eventType === 'CARTAO_AMARELO' ? `Cartão Amarelo #${boardNumber}` : item.eventType === 'CARTAO_VERMELHO' ? `Cartão Vermelho #${boardNumber}` : item.eventType === 'CARTAO_AZUL' ? `Cartão Azul #${boardNumber}` : `Gol contra #${boardNumber}`;
+    return `${summaryTime(item)} - ${teamLabel}: ${detail}`;
+  }
+
+  function rosterSubtitle(player: MatchDetail['players'][number]) {
+    const user = usersById.get(player.userId);
+    if (player.roleInMatch === 'GOLEIRO') return '# • Goleiro';
+    return user?.position ?? 'MC';
+  }
+
+  function rosterRow(player: MatchDetail['players'][number], index: number, reserve = false) {
+    const user = usersById.get(player.userId);
+    const selected = swapSelection.includes(player.userId);
+    return (
+      <button type="button" className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${selected ? 'is-selected' : ''}`} key={player.userId} onClick={() => toggleSwapCandidate(player)}>
+        <div className="ops-roster-avatar">{user?.avatarDataUrl ? <img src={user.avatarDataUrl} alt={player.name} /> : <span>{player.name.slice(0, 1)}</span>}</div>
+        <div className="ops-roster-copy">
+          <strong>#{playerBoardNumber(player, index)} {player.name}</strong>
+          <small>{rosterSubtitle(player)}</small>
+        </div>
+        <div className="ops-roster-actions">
+          <button type="button" className="ops-icon-card is-yellow" title="Cartão amarelo" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
+          <button type="button" className="ops-icon-card is-red" title="Cartão vermelho" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>🟥</button>
+          <button type="button" className="ops-icon-card is-goal" title="Gol" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
+          <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>⋮</button>
+        </div>
+      </button>
+    );
+  }
+
+  const clockLabel = `${String(Math.floor(clockSeconds / 60)).padStart(2, '0')}:${String(clockSeconds % 60).padStart(2, '0')}`;
+  const summaryLines = events.slice().sort((left, right) => {
+    const leftTime = left.occurredAt ?? left.createdAt ? new Date(left.occurredAt ?? left.createdAt ?? '').getTime() : left.minute * 60000;
+    const rightTime = right.occurredAt ?? right.createdAt ? new Date(right.occurredAt ?? right.createdAt ?? '').getTime() : right.minute * 60000;
+    return leftTime - rightTime;
+  });
+  const swapLabel = swapSelection.length === 2 ? `Trocar #${playerBoardNumber(players.find((player) => player.userId === swapSelection[0]) ?? players[0], 0)} ↔ #${playerBoardNumber(players.find((player) => player.userId === swapSelection[1]) ?? players[0], 0)}` : 'Trocar #10 ↔ #14';
+
+  return (
+    <div className="sheet-preview-board">
+      <div className="sheet-preview-top">
+        <section className="sheet-top-card is-empty" />
+        <section className="match-time-card sheet-top-clock-card">
+          <span>TEMPO DE JOGO</span>
+          <strong className="match-time-card-clock">{clockLabel}</strong>
+          <div className="match-time-card-score sheet-time-score">
+            <div><b>{match.teamAName}</b><small>{teamAScore}</small></div>
+            <span>-</span>
+            <div><b>{match.teamBName}</b><small>{teamBScore}</small></div>
+          </div>
+        </section>
+        <section className="sheet-top-card sheet-crest-card"><div className="sheet-crest-pair"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div></section>
+      </div>
+
+      <div className="sheet-preview-arena">
+        <section className="ops-roster-column sheet-roster-panel">
+          <div className="ops-roster-head team-a-head"><strong>{match.teamAName}</strong><div className="sheet-crest-pair small"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div></div>
+          <span className="sheet-panel-label">Titulares</span>
+          <div className="ops-roster-list">{startersForTeam('A').length ? startersForTeam('A').map((player, index) => rosterRow(player, index)) : <small className="muted">Sem titulares definidos.</small>}</div>
+          <div className="ops-roster-head reserve-head"><strong>Banco de reservas</strong><span>{reservesForTeam('A').length}</span></div>
+          <div className="ops-roster-list reserve-list">{reservesForTeam('A').length ? reservesForTeam('A').map((player, index) => rosterRow(player, index, true)) : <small className="muted">Sem reservas definidos.</small>}</div>
+        </section>
+
+        <section className="ops-pitch-card sheet-pitch-panel">
+          <div className="ops-pitch-surface sheet-pitch-surface">
+            <div className="ops-pitch-center-circle" />
+            <div className="ops-pitch-midline" />
+            <div className="ops-pitch-box ops-pitch-box-a" />
+            <div className="ops-pitch-box ops-pitch-box-b" />
+            {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span></div>)}
+            {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span></div>)}
+          </div>
+        </section>
+
+        <section className="ops-roster-column sheet-roster-panel">
+          <div className="ops-roster-head team-b-head"><div className="sheet-crest-pair small"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div><strong>{match.teamBName}</strong></div>
+          <span className="sheet-panel-label">Titulares</span>
+          <div className="ops-roster-list">{startersForTeam('B').length ? startersForTeam('B').map((player, index) => rosterRow(player, index)) : <small className="muted">Sem titulares definidos.</small>}</div>
+        </section>
+      </div>
+
+      <div className="sheet-preview-bottom">
+        <section className="sheet-swap-panel">
+          <div className="sheet-swap-actions">
+            <button type="button" className="primary sheet-green-button" onClick={executeSwap}>Troca</button>
+            <button type="button" className="primary sheet-green-button is-alt" onClick={executeSwap}>{swapLabel}</button>
+          </div>
+          <small className="muted">Selecione um titular e um reserva do mesmo time para montar a troca.</small>
+        </section>
+
+        <section className="sheet-closing-panel">
+          <div className="sheet-closing-head">
+            <div>
+              <strong>Fechamento da súmula</strong>
+              <small>{sheetMessage}</small>
+            </div>
+            <div className="sheet-head-actions"><button type="button" className="primary sheet-green-button" onClick={() => void saveBoard()}>Salvar Súmula</button><button type="button" className="primary sheet-green-button is-alt" onClick={() => void startReport()}>Iniciar Relatório</button></div>
+          </div>
+          <div className="sheet-event-summary">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`${item.userId}-${item.eventType}-${index}`}>{summaryText(item)}</span>)}</div>
+          <div className="sheet-log-panel">
+            <div className="match-control-feed-head"><strong>Log da súmula</strong><small>{match.matchDate ? new Date(match.matchDate).toLocaleDateString('pt-BR') : 'Sem data'}</small></div>
+            <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`log-${item.userId}-${item.eventType}-${index}`}><b>{summaryTime(item)}</b><small>{summaryText(item).split(' - ').slice(1).join(' - ')}</small></span>)}</div>
+          </div>
+          <div className="sheet-footer-actions"><button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>FINALIZAR JOGO</button><button type="button" className="primary sheet-green-button" onClick={() => void generateSheet()}>GERAR SÚMULA</button></div>
+        </section>
+      </div>
+    </div>
   );
 }
 
