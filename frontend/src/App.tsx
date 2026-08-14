@@ -1972,7 +1972,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                   </div>
 
                   {rosterRows.length > 0 && (
-                    <div className="draw-selected-list">
+                    <div className={`draw-selected-list ${rosterRows.length > 6 ? 'draw-selected-list-split' : ''}`}>
                       {rosterRows.map((player) => (
                         <div className={`draw-selected-player draw-selected-line ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
                           <span className="draw-selected-name">{player.name}</span>

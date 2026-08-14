@@ -1359,6 +1359,12 @@ textarea {
   gap: 4px;
 }
 
+.draw-selected-list.draw-selected-list-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 6px;
+  row-gap: 4px;
+}
+
 .draw-selected-player,
 .draw-result-player {
   display: grid;
@@ -1660,6 +1666,10 @@ textarea {
   }
 
   .draw-selected-list {
+    grid-template-columns: 1fr;
+  }
+
+  .draw-selected-list.draw-selected-list-split {
     grid-template-columns: 1fr;
   }
 
