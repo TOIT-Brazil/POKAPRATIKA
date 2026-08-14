@@ -143,6 +143,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - Durante esse redesign foi necessário reparar a estrutura do `frontend/src/App.tsx`, removendo uma cópia indevida da `AttendancePanel` dentro do editor de escalação, reconstruindo a cauda funcional do `ExistingLineupEditor` e restaurando o componente `SubstitutionManager` para manter o build íntegro.
 - Os ícones de bola e refeição da `Confirmação da rodada` foram substituídos por novos SVGs customizados mais legíveis e mais próximos do estilo flat desejado, melhorando a presença visual nos botões, anéis e cards de status.
 - Os ícones de bola e refeição da `Confirmação da rodada` deixaram de usar SVG manual e passaram a usar `react-icons`, com `MdSportsSoccer` e `MdOutlineRestaurantMenu`, alinhando a interface à biblioteca visual pedida e melhorando a consistência dos pictogramas.
+- A modal operacional do jogo foi separada em duas etapas para coordenação: primeiro `Confirmação da rodada`; depois `Jogo e escalação`. O avanço agora acontece automaticamente após `Salvar minha confirmação`, mantendo a leitura mais limpa e sem empilhar confirmação e operação na mesma tela de uma vez.
 
 ## Regras importantes consolidadas
 
@@ -202,6 +203,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após redesenhar a `Confirmação da rodada` para o layout da referência e reparar a estrutura interna do `App.tsx`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após substituir os ícones de bola e refeição da `Confirmação da rodada`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm install react-icons` executado e `npm run build` concluído com sucesso após migrar os ícones de bola e refeição da `Confirmação da rodada` para `react-icons`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após separar a modal do jogo em duas etapas para coordenação (`Confirmação da rodada` → `Jogo e escalação`) com avanço automático ao salvar a confirmação; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
