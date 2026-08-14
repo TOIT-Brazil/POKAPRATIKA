@@ -139,6 +139,8 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O resultado do sorteio na modal `Súmula Inteligente` foi compactado para linhas pequenas com primeiro nome + posição; o clique na linha agora alterna se o atleta começa no banco, enquanto a definição fina de função operacional fica para depois.
 - O resultado do sorteio foi removido do corpo principal da modal `Súmula Inteligente`: ao clicar em `Sortear times`, abre uma confirmação rápida separada com `Time A` e `Time B`, onde o clique na linha do atleta alterna banco antes do `Salvar súmula final` no modal principal.
 - A confirmação rápida de `Time A` e `Time B` foi recentralizada verticalmente no meio da tela, deixando de ficar presa visualmente na parte superior do overlay.
+- A `Confirmação da rodada` foi redesenhada para seguir a referência visual clara com ícones de status, dashboard de escolha única, bloco lateral de janta/observação e card de `Sua Resposta Recente`, substituindo a versão antiga mais genérica.
+- Durante esse redesign foi necessário reparar a estrutura do `frontend/src/App.tsx`, removendo uma cópia indevida da `AttendancePanel` dentro do editor de escalação, reconstruindo a cauda funcional do `ExistingLineupEditor` e restaurando o componente `SubstitutionManager` para manter o build íntegro.
 
 ## Regras importantes consolidadas
 
@@ -195,6 +197,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após deixar a lista de atletas selecionados da `Súmula Inteligente` sempre em duas colunas no desktop; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após simplificar o resultado do sorteio da `Súmula Inteligente` para linhas compactas clicáveis que alternam banco; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após mover o resultado do sorteio da `Súmula Inteligente` para um modal rápido de confirmação dos times; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após redesenhar a `Confirmação da rodada` para o layout da referência e reparar a estrutura interna do `App.tsx`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 

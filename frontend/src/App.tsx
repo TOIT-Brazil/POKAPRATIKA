@@ -1060,6 +1060,25 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
     : responseStatus === 'PRESENTE_SEM_JOGAR'
       ? 'Você será contado como presença no evento, mas fica fora do jogo e da escalação.'
       : 'Você não será contado para jogo, presença no evento ou janta.';
+  const recentSavedAt = own?.updatedAt ? new Date(own.updatedAt).toLocaleString('pt-BR') : '';
+  const recentResponseText = own
+    ? own.responseStatus === 'JOGAR'
+      ? 'Sua última resposta marcou disponibilidade para o jogo.'
+      : own.responseStatus === 'PRESENTE_SEM_JOGAR'
+        ? 'Sua última resposta marcou apenas presença no evento.'
+        : 'Sua última resposta marcou ausência na rodada.'
+    : 'Aqui aparecerá sua confirmação mais recente.';
+
+  function RoundIcon({ kind, className }: { kind: 'ball' | 'person' | 'meal' | 'status' | 'play' | 'present' | 'absent' | 'check'; className?: string }) {
+    if (kind === 'ball') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="m12 7 3 2-1 3h-4L9 9l3-2Zm-3 5-2 3 2.4 2.4L12 16l2.6 1.4L17 15l-2-3M7 9 5 8m12 1 2-1m-9 10-.8 2m3.6-2 .8 2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    if (kind === 'person') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M5.5 18.5c1.4-3.5 3.6-5.3 6.5-5.3s5.1 1.8 6.5 5.3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+    if (kind === 'meal') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v7M10 4v7M7 7h3M15 4v8m0 0v8m0-8c2 0 4-1.8 4-4V4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    if (kind === 'status') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><circle cx="12" cy="12" r="3" fill="currentColor" /></svg>;
+    if (kind === 'play') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" fill="currentColor" /><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>;
+    if (kind === 'present') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M7 19h10M9.2 15.5h5.6M8.2 18c.4-2.2 1.8-3.8 3.8-3.8s3.4 1.6 3.8 3.8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+    if (kind === 'absent') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="m8.5 8.5 7 7m0-7-7 7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+    return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.5 9.5 16 18.5 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  }
 
   async function saveAttendance() {
     setMessage('Salvando confirmação...');
@@ -1070,37 +1089,129 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
   }
 
   return (
-    <section className="score-editor attendance-panel">
-      <div className="card-head">
-        <div>
-          <strong>Confirmação da rodada</strong>
-          <p className="muted">Atletas escolhem uma única situação na rodada e, se forem ao evento, informam janta/churrasco.</p>
+    <section className="score-editor attendance-panel attendance-dashboard-panel">
+      <div className="attendance-header-row">
+        <div className="attendance-header-copy">
+          <h2>Confirmação da rodada</h2>
+          <p className="muted">Atletas escolhem uma única situação na rodada e, se forem ao evento, informam jantar/churrasco.</p>
+
+          <div className="attendance-global-strip">
+            <span className="attendance-global-chip attendance-global-chip-label"><RoundIcon kind="status" className="attendance-inline-icon" /> Status Global:</span>
+            <span className={`attendance-global-chip ${match.confirmationOpen ? 'is-open' : 'is-neutral'}`}>{match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação'}</span>
+            <span className="attendance-global-chip is-neutral">{match.status === 'DRAFT' ? 'Aguardando Início Oficial' : matchStatusLabel(match.status)}</span>
+          </div>
         </div>
-        <span className="status open">{playing.length} jogo • {presentOnly.length} presença • {dinnerPeople} janta</span>
-      </div>
-      <MatchDayChecklist match={match} />
-      <div className="stat-grid">
-        <span><b>{playing.length}</b> disponíveis para jogar</span>
-        <span><b>{presentOnly.length}</b> só presentes</span>
-        <span><b>{absent.length}</b> ausentes</span>
-        <span><b>{dinnerPeople}</b> pessoas na janta</span>
-      </div>
-      {openForResponse ? <div className="attendance-form">
-        <div className="segmented" role="radiogroup" aria-label="Escolha única de presença na rodada">
-          <small className="muted choice-note">Escolha única: jogo entra na escalação; apenas presença fica fora do jogo.</small>
-          <button type="button" role="radio" aria-checked={responseStatus === 'JOGAR'} className={responseStatus === 'JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('JOGAR')}>Jogo</button>
-          <button type="button" role="radio" aria-checked={responseStatus === 'PRESENTE_SEM_JOGAR'} className={responseStatus === 'PRESENTE_SEM_JOGAR' ? 'primary small' : 'ghost'} onClick={() => setResponseStatus('PRESENTE_SEM_JOGAR')}>Apenas presença</button>
-          <button type="button" role="radio" aria-checked={responseStatus === 'AUSENTE'} className={responseStatus === 'AUSENTE' ? 'primary small' : 'ghost'} onClick={() => { setResponseStatus('AUSENTE'); setDinnerConfirmed(false); setGuestCount(0); }}>Ausência</button>
+
+        <div className="attendance-hero-statuses">
+          <div className={`attendance-hero-status ${responseStatus === 'JOGAR' ? 'is-on' : ''}`}>
+            <span className="attendance-hero-ring"><RoundIcon kind="ball" className="attendance-ring-icon" /></span>
+            <small>Jogo Confirmado</small>
+          </div>
+          <div className={`attendance-hero-status ${responseStatus === 'PRESENTE_SEM_JOGAR' ? 'is-on' : ''}`}>
+            <span className="attendance-hero-ring"><RoundIcon kind="person" className="attendance-ring-icon" /></span>
+            <small>Presente</small>
+          </div>
+          <div className={`attendance-hero-status ${dinnerConfirmed && responseStatus !== 'AUSENTE' ? 'is-dinner' : ''}`}>
+            <span className="attendance-hero-ring"><RoundIcon kind="meal" className="attendance-ring-icon" /></span>
+            <small>Janta Confirmado</small>
+          </div>
         </div>
-        <small className="muted attendance-choice-help">{attendanceChoiceHelp}</small>
-        <label className="bench"><input type="checkbox" checked={dinnerConfirmed} disabled={responseStatus === 'AUSENTE'} onChange={(event) => { setDinnerConfirmed(event.target.checked); if (!event.target.checked) setGuestCount(0); }} /> Fico para janta/churrasco</label>
-        <input type="number" min="0" max="20" value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))} disabled={responseStatus === 'AUSENTE' || !dinnerConfirmed} placeholder="Convidados para janta" />
-        <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação rápida: chego atrasado, levo bola, etc." maxLength={300} />
-        <button type="button" className="primary" onClick={() => void saveAttendance()}>Salvar minha confirmação</button>
-      </div> : <p className="muted">{closedMessage}</p>}
-      {message && <p className="muted">{message}</p>}
-      <div className="table-cards attendance-list">
-        {match.attendance.length === 0 ? <EmptyState title="Sem confirmações ainda" text="Quando os atletas responderem, a lista vira a base da escalação." /> : match.attendance.map((item) => <article className="row-card" key={item.userId}><strong>{item.name}</strong><span>{item.responseStatus === 'JOGAR' ? 'vai jogar' : item.responseStatus === 'PRESENTE_SEM_JOGAR' ? 'só presença' : 'ausente'}</span><small>{positionLabel(item.position)} • {item.dinnerConfirmed ? `janta + ${item.guestCount} convidado(s)` : 'sem janta'}{item.notes ? ` • ${item.notes}` : ''}</small></article>)}
+      </div>
+
+      <div className="attendance-dashboard-shell">
+        <div className="attendance-dashboard-head">
+          <div>
+            <strong>Confirmation Dashboard</strong>
+            <p className="muted">Escolha única: qual sua situação?</p>
+          </div>
+          <span className="attendance-club-name">Club no: POKA PRÁTIKA</span>
+        </div>
+
+        {openForResponse ? (
+          <>
+            <div className="attendance-dashboard-grid">
+              <div className="attendance-dashboard-main">
+                <div className="attendance-choice-group" role="radiogroup" aria-label="Escolha única de presença na rodada">
+                  <button type="button" role="radio" aria-checked={responseStatus === 'JOGAR'} className={`attendance-choice-button ${responseStatus === 'JOGAR' ? 'is-active is-game' : ''}`} onClick={() => setResponseStatus('JOGAR')}>
+                    <RoundIcon kind="ball" className="attendance-choice-icon" />
+                    <span>Jogo</span>
+                  </button>
+                  <button type="button" role="radio" aria-checked={responseStatus === 'PRESENTE_SEM_JOGAR'} className={`attendance-choice-button ${responseStatus === 'PRESENTE_SEM_JOGAR' ? 'is-active is-present' : ''}`} onClick={() => setResponseStatus('PRESENTE_SEM_JOGAR')}>
+                    <RoundIcon kind="person" className="attendance-choice-icon" />
+                    <span>Apenas Presença</span>
+                  </button>
+                  <button type="button" role="radio" aria-checked={responseStatus === 'AUSENTE'} className={`attendance-choice-button ${responseStatus === 'AUSENTE' ? 'is-active is-absent' : ''}`} onClick={() => { setResponseStatus('AUSENTE'); setDinnerConfirmed(false); setGuestCount(0); }}>
+                    <RoundIcon kind="absent" className="attendance-choice-icon" />
+                    <span>Ausência</span>
+                  </button>
+                </div>
+
+                <small className="attendance-dashboard-note">Escalação salva no banco.</small>
+
+                <div className="attendance-summary-grid">
+                  <article className="attendance-summary-card is-game">
+                    <RoundIcon kind="play" className="attendance-summary-icon" />
+                    <div><strong>{playing.length}</strong><span>Disponíveis para Jogo</span></div>
+                  </article>
+                  <article className="attendance-summary-card is-present">
+                    <RoundIcon kind="present" className="attendance-summary-icon" />
+                    <div><strong>{presentOnly.length}</strong><span>Só Presentes</span></div>
+                  </article>
+                  <article className="attendance-summary-card is-absent">
+                    <RoundIcon kind="absent" className="attendance-summary-icon" />
+                    <div><strong>{absent.length}</strong><span>Ausentes</span></div>
+                  </article>
+                  <article className="attendance-summary-card is-dinner">
+                    <RoundIcon kind="meal" className="attendance-summary-icon" />
+                    <div><strong>{dinnerPeople}</strong><span>Pessoas na Janta</span></div>
+                  </article>
+                </div>
+              </div>
+
+              <div className="attendance-dashboard-side">
+                <label className="attendance-field">
+                  <span>Número de pessoas para Janta/Churrasco:</span>
+                  <input type="number" min="0" max="20" value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))} disabled={responseStatus === 'AUSENTE' || !dinnerConfirmed} placeholder="0" />
+                </label>
+
+                <label className={`attendance-dinner-toggle ${dinnerConfirmed && responseStatus !== 'AUSENTE' ? 'is-active' : ''} ${responseStatus === 'AUSENTE' ? 'is-disabled' : ''}`}>
+                  <input type="checkbox" checked={dinnerConfirmed} disabled={responseStatus === 'AUSENTE'} onChange={(event) => { setDinnerConfirmed(event.target.checked); if (!event.target.checked) setGuestCount(0); }} />
+                  <span className="attendance-dinner-toggle-box"><RoundIcon kind="check" className="attendance-dinner-check" /></span>
+                  <span>Fico para Janta?</span>
+                </label>
+
+                <label className="attendance-field attendance-field-notes">
+                  <span>Observação Rápida:</span>
+                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ex: Chego atrasado, tenho que sair cedo..." maxLength={300} rows={2} />
+                  <small>Observação rápida para a comissão.</small>
+                </label>
+              </div>
+            </div>
+
+            <button type="button" className="primary attendance-save-button" onClick={() => void saveAttendance()}>Salvar minha confirmação</button>
+            <p className="muted attendance-choice-help">{attendanceChoiceHelp}</p>
+          </>
+        ) : (
+          <p className="muted attendance-closed-note">{closedMessage}</p>
+        )}
+
+        {message && <p className="attendance-feedback">{message}</p>}
+      </div>
+
+      <div className="attendance-recent-card">
+        <div className="attendance-recent-head">
+          <strong>Sua Resposta Recente</strong>
+          {recentSavedAt && <span>Salvo no {recentSavedAt}</span>}
+        </div>
+
+        <div className="attendance-recent-stats">
+          <span><RoundIcon kind="ball" className="attendance-inline-icon" /><b>{playing.length}</b> Disponíveis para Jogo</span>
+          <span><RoundIcon kind="person" className="attendance-inline-icon" /><b>{presentOnly.length}</b> Só Presentes</span>
+          <span><RoundIcon kind="absent" className="attendance-inline-icon" /><b>{absent.length}</b> Ausentes</span>
+          <span><RoundIcon kind="meal" className="attendance-inline-icon" /><b>{dinnerPeople}</b> Pessoas na Janta</span>
+        </div>
+
+        <p className="attendance-recent-note">{recentResponseText}{own?.notes ? ` Observação: ${own.notes}` : ''}</p>
       </div>
     </section>
   );
@@ -1340,32 +1451,153 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
     });
   }
 
+  function balanceTeamsByPosition() {
+    setPlayers((list) => drawBalancedTeams(list.map((player) => ({
+      ...player,
+      team: player.team === 'PRESENTE_SEM_JOGAR' ? 'A' : player.team,
+      roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'LINHA' : player.roleInMatch
+    }))));
+    setMessage('Times reequilibrados pelas posições oficiais. Revise banco e goleiros antes de salvar.');
+  }
+
   function removePlayer(userId: string) {
     setPlayers((list) => list.filter((player) => player.userId !== userId));
   }
 
-  function balanceTeamsByPosition() {
-    setPlayers((list) => drawBalancedTeams(list));
-  }
-
   function applyAttendanceLineup() {
-    const attendancePlayers = playersFromAttendance();
-    setPlayers(attendancePlayers);
-    setMessage(`${attendancePlayers.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR').length} atleta(s) disponíveis para jogo e ${attendancePlayers.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} apenas presente(s) carregados das confirmações.`);
+    const next = playersFromAttendance();
+    setPlayers(next);
+    setMessage(`${next.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR').length} atleta(s) para jogo e ${next.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} apenas presente(s) reaplicados das confirmações.`);
   }
 
   async function save() {
-    setMessage('Salvando escalação no banco...');
-    await api.request(`/matches/${match.id}/lineup`, { method: 'PATCH', body: JSON.stringify({ matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: payload() }) });
-    setMessage('Escalação salva e roteiro de trocas recalculado.');
+    await api.request(`/matches/${match.id}/lineup`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        matchDate: date,
+        title,
+        refereeName: refereeName || null,
+        teamAName,
+        teamBName,
+        players: payload()
+      })
+    });
+    setMessage('Escalação salva com sucesso.');
     await onSaved();
   }
 
   function TeamRows({ team, rows }: { team: 'A' | 'B'; rows: MatchDraftPlayer[] }) {
-    return <div className="team-list"><strong>{team === 'A' ? teamAName : teamBName}</strong>{rows.length === 0 ? <small className="muted">Sem atletas no time.</small> : rows.map((player, index) => <div className="team-player compact-line" key={player.userId}><span className="drag-handle">{index + 1}</span><div className="player-meta"><b>{player.name}</b><small>{positionLabel(player.position)}</small></div><select value={player.roleInMatch} onChange={(event) => updatePlayer(player.userId, { roleInMatch: event.target.value as MatchDraftPlayer['roleInMatch'] })}><option value="LINHA">Linha</option><option value="GOLEIRO">Goleiro</option></select><label className="bench"><input type="checkbox" checked={player.startsOnBench} onChange={(event) => updatePlayer(player.userId, { startsOnBench: event.target.checked })} /> Banco</label><button type="button" className="ghost" onClick={() => movePlayer(player.userId, -1)}>↑</button><button type="button" className="ghost" onClick={() => movePlayer(player.userId, 1)}>↓</button><button type="button" className="ghost" onClick={() => updatePlayer(player.userId, { team: team === 'A' ? 'B' : 'A' })}>Mover</button><button type="button" className="ghost" onClick={() => removePlayer(player.userId)}>Remover</button></div>)}</div>;
+    return (
+      <div className={`team-list drawn-team team-${team.toLowerCase()}`}>
+        <div className="team-title">
+          <strong>{team === 'A' ? teamAName : teamBName}</strong>
+          <span>{rows.length} atleta{rows.length === 1 ? '' : 's'}</span>
+        </div>
+        {rows.length === 0 ? (
+          <small className="muted">Nenhum atleta neste time.</small>
+        ) : rows.map((player, index) => (
+          <div className="team-player draw-row" key={player.userId}>
+            <span className="drag-handle">#{index + 1}</span>
+            <div className="player-meta">
+              <b>{player.name}</b>
+              <small>{positionLabel(player.position)}</small>
+            </div>
+            <select value={player.roleInMatch} onChange={(event) => updatePlayer(player.userId, { roleInMatch: event.target.value as MatchDraftPlayer['roleInMatch'] })}>
+              <option value="LINHA">Linha</option>
+              <option value="GOLEIRO">Goleiro</option>
+            </select>
+            <label className="bench">
+              <input type="checkbox" checked={player.startsOnBench} onChange={(event) => updatePlayer(player.userId, { startsOnBench: event.target.checked })} />
+              Banco
+            </label>
+            <div className="actions compact-actions">
+              <button type="button" className="ghost small" onClick={() => movePlayer(player.userId, -1)}>↑</button>
+              <button type="button" className="ghost small" onClick={() => movePlayer(player.userId, 1)}>↓</button>
+              <button type="button" className="ghost small" onClick={() => removePlayer(player.userId)}>X</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
-  return <div className="score-editor"><div className="card-head"><strong>Escalação editável</strong><button className="ghost" onClick={() => setOpen((value) => !value)}>{open ? 'Recolher' : 'Editar escalação'}</button></div>{open && <><p className="muted">Edite antes da confirmação final. Se já houver eventos oficiais, o backend bloqueia remoções incompatíveis.</p><div className="match-meta"><input value={title} onChange={(event) => setTitle(event.target.value)} /><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /><input value={refereeName} onChange={(event) => setRefereeName(event.target.value)} placeholder="Árbitro" /><input value={teamAName} onChange={(event) => setTeamAName(event.target.value)} /><input value={teamBName} onChange={(event) => setTeamBName(event.target.value)} />{match.attendance.some((item) => item.responseStatus !== 'AUSENTE') && <button className="ghost" onClick={applyAttendanceLineup}>Usar confirmações</button>}<button className="primary" onClick={balanceTeamsByPosition}>Rebalancear</button><button className="primary" onClick={() => void save()}>Salvar escalação</button></div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar atleta para adicionar" />{query.trim().length > 0 && query.trim().length < 3 && <small className="muted">Digite pelo menos 3 caracteres.</small>}<div className="search-results">{searchResults.map((user) => <article key={user.id}><strong>{user.name}</strong><small>{user.email} • {positionLabel(user.position)}</small><div className="actions"><button className="primary small" onClick={() => addPlayer(user, 'A')}>Time A</button><button className="primary small" onClick={() => addPlayer(user, 'B')}>Time B</button><button className="ghost" onClick={() => addPlayer(user, 'PRESENTE_SEM_JOGAR')}>Presente</button></div></article>)}</div><div className="team-board"><TeamRows team="A" rows={teamA} /><TeamRows team="B" rows={teamB} /></div><div className="team-list"><strong>Presentes sem jogar</strong>{presentOnly.length === 0 ? <small className="muted">Nenhum atleta marcado apenas como presente.</small> : presentOnly.map((player) => <div className="team-player compact-line" key={player.userId}><div className="player-meta"><b>{player.name}</b><small>{positionLabel(player.position)}</small></div><button className="ghost" onClick={() => updatePlayer(player.userId, { team: 'A', roleInMatch: player.position === 'GO' ? 'GOLEIRO' : 'LINHA' })}>Time A</button><button className="ghost" onClick={() => updatePlayer(player.userId, { team: 'B', roleInMatch: player.position === 'GO' ? 'GOLEIRO' : 'LINHA' })}>Time B</button><button className="ghost" onClick={() => removePlayer(player.userId)}>Remover</button></div>)}</div>{message && <p className="muted">{message}</p>}</>}</div>;
+  return (
+    <>
+      {!open && <button className="ghost small" onClick={() => setOpen(true)}>Editar escalação</button>}
+      {open && (
+        <section className="card team-builder">
+          <div className="card-head">
+            <div>
+              <h2>Editar escalação</h2>
+              <p className="muted">Revise atletas confirmados, rebalanceie os times e ajuste banco/goleiro antes de iniciar.</p>
+            </div>
+            <div className="actions">
+              <button type="button" className="ghost" onClick={() => setOpen(false)}>Fechar</button>
+            </div>
+          </div>
+          {message && <p className="status-line">{message}</p>}
+          <div className="match-meta">
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Título" />
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            <input value={refereeName} onChange={(event) => setRefereeName(event.target.value)} placeholder="Árbitro" />
+            <input value={teamAName} onChange={(event) => setTeamAName(event.target.value)} />
+            <input value={teamBName} onChange={(event) => setTeamBName(event.target.value)} />
+          </div>
+          <div className="draw-action">
+            <div>
+              <strong>Confirmações e escalação</strong>
+              <small>{presentOnly.length} apenas presente(s) e {teamA.length + teamB.length} atleta(s) em jogo.</small>
+            </div>
+            <div className="actions">
+              {match.attendance.some((item) => item.responseStatus !== 'AUSENTE') && <button className="ghost" onClick={applyAttendanceLineup}>Usar confirmações</button>}
+              <button className="primary" onClick={balanceTeamsByPosition}>Rebalancear</button>
+              <button className="primary" onClick={() => void save()}>Salvar escalação</button>
+            </div>
+          </div>
+          <div className="team-builder">
+            <section>
+              <strong>Adicionar atleta</strong>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar atleta por nome ou e-mail" />
+              {query.trim().length > 0 && query.trim().length < 3 && <small className="muted">Digite pelo menos 3 caracteres.</small>}
+              <div className="search-results">
+                {searchResults.map((user) => (
+                  <article key={user.id}>
+                    <strong>{user.name}</strong>
+                    <small>{user.email} • {positionLabel(user.position)}</small>
+                    <div className="actions">
+                      <button type="button" className="primary small" onClick={() => addPlayer(user, 'A')}>Time A</button>
+                      <button type="button" className="ghost small" onClick={() => addPlayer(user, 'B')}>Time B</button>
+                      <button type="button" className="ghost small" onClick={() => addPlayer(user, 'PRESENTE_SEM_JOGAR')}>Só presença</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="team-list roster-list">
+                <div className="team-title">
+                  <strong>Presentes sem jogar</strong>
+                  <span>{presentOnly.length}</span>
+                </div>
+                {presentOnly.length === 0 ? <small className="muted">Sem atletas apenas presentes.</small> : presentOnly.map((player) => (
+                  <div className="team-player roster-row pending" key={player.userId}>
+                    <div className="player-meta">
+                      <b>{player.name}</b>
+                      <small>{positionLabel(player.position)}</small>
+                    </div>
+                    <button type="button" className="ghost small" onClick={() => updatePlayer(player.userId, { team: 'A', roleInMatch: player.position === 'GO' ? 'GOLEIRO' : 'LINHA' })}>Vai pro jogo</button>
+                    <button type="button" className="ghost small" onClick={() => removePlayer(player.userId)}>Remover</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="team-board">
+              <TeamRows team="A" rows={teamA} />
+              <TeamRows team="B" rows={teamB} />
+            </section>
+          </div>
+        </section>
+      )}
+    </>
+  );
 }
 
 function SubstitutionManager({ rotation, currentMinute }: { rotation: MatchDetail['rotation']; currentMinute: number }) {
@@ -2227,7 +2459,109 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
     setMessage('Regra adicionada na tela. Clique em salvar para gravar no banco.');
   }
 
-  return <section className="card compact rules-center"><div className="card-head"><div><h2>Central de regras, rankings e premiações</h2><p className="muted">Configure pontuação, acompanhamentos individuais, votação e badges sem alterar código.</p></div><button className="primary small" onClick={save}>Salvar central</button></div>{message && <p className="status-line">{message}</p>}<div className="rule-create"><input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Nova regra: Ex. Rei dos cartões" /><select value={newType} onChange={(event) => setNewType(event.target.value as AwardType)}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select>{newType === 'RANKING' && <select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>{metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>}<input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" /><button className="ghost" onClick={addCategory}>Adicionar regra</button></div><div className="table-cards rule-list">{categories.map((item) => <article className="row-card rule-card" key={item.code}><div className="rule-title"><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><div><strong>{item.label}</strong><small>{item.code} • {item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.awardType === 'VOTACAO' ? 'Votação da temporada' : item.awardType === 'SORTEIO' ? 'Sorteio configurável' : 'Premiação manual'}</small></div></div><span className={`status ${item.active ? 'open' : 'danger'}`}>{item.active ? 'ativa' : 'inativa'}</span><div className="rule-grid"><input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} /><select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select>{item.awardType === 'RANKING' ? <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select> : <label className="bench"><input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} /> Entra na votação</label>}<select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select><label className="field-row"><span>Vencedores</span><input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} /></label><label className="field-row"><span>Mín. jogos</span><input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} /></label><label className="field-row"><span>Votos</span><input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} /></label><label className="bench"><input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} /> Permite voto em si</label><input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} /><input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} /><label className="bench"><input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} /> Ativa</label></div><small>{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</small></article>)}</div></section>;
+  return (
+    <section className="card compact rules-center">
+      <div className="card-head">
+        <div>
+          <h2>Central de regras, rankings e premiações</h2>
+          <p className="muted">Configure pontuação, acompanhamentos individuais, votação e badges sem alterar código.</p>
+        </div>
+        <button className="primary small" onClick={save}>Salvar central</button>
+      </div>
+
+      {message && <p className="status-line">{message}</p>}
+
+      <div className="rule-create">
+        <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Nova regra: Ex. Rei dos cartões" />
+        <select value={newType} onChange={(event) => setNewType(event.target.value as AwardType)}>
+          <option value="RANKING">Ranking automático</option>
+          <option value="VOTACAO">Votação</option>
+          <option value="SORTEIO">Sorteio/manual</option>
+          <option value="MANUAL">Premiação manual</option>
+        </select>
+        {newType === 'RANKING' && (
+          <select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>
+            {metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        )}
+        <input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" />
+        <button className="ghost" onClick={addCategory}>Adicionar regra</button>
+      </div>
+
+      <div className="table-cards rule-list">
+        {categories.map((item) => (
+          <article className="row-card rule-card" key={item.code}>
+            <div className="rule-title">
+              <span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span>
+              <div>
+                <strong>{item.label}</strong>
+                <small>{item.code} • {item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.awardType === 'VOTACAO' ? 'Votação da temporada' : item.awardType === 'SORTEIO' ? 'Sorteio configurável' : 'Premiação manual'}</small>
+              </div>
+            </div>
+
+            <span className={`status ${item.active ? 'open' : 'danger'}`}>{item.active ? 'ativa' : 'inativa'}</span>
+
+            <div className="rule-grid">
+              <input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} />
+
+              <select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}>
+                <option value="RANKING">Ranking automático</option>
+                <option value="VOTACAO">Votação</option>
+                <option value="SORTEIO">Sorteio/manual</option>
+                <option value="MANUAL">Premiação manual</option>
+              </select>
+
+              {item.awardType === 'RANKING' ? (
+                <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>
+                  {metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}
+                </select>
+              ) : (
+                <label className="bench">
+                  <input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} />
+                  Entra na votação
+                </label>
+              )}
+
+              <select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}>
+                <option value="DESC">Maior vence</option>
+                <option value="ASC">Menor vence</option>
+              </select>
+
+              <label className="field-row">
+                <span>Vencedores</span>
+                <input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} />
+              </label>
+
+              <label className="field-row">
+                <span>Mín. jogos</span>
+                <input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} />
+              </label>
+
+              <label className="field-row">
+                <span>Votos</span>
+                <input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} />
+              </label>
+
+              <label className="bench">
+                <input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} />
+                Permite voto em si
+              </label>
+
+              <input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} />
+              <input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} />
+
+              <label className="bench">
+                <input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} />
+                Ativa
+              </label>
+            </div>
+
+            <small>{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function AwardsPanel({ api, users, activeSeason, isAdmin, onVoted }: { api: ApiClient; users: User[]; activeSeason?: Season; isAdmin: boolean; onVoted?: () => Promise<void> | void }) {
