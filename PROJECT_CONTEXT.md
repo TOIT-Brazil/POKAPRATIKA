@@ -153,6 +153,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - A decisão seguinte separou novamente os conceitos: a modal ativa do `DashboardMatchesPanel` voltou a mostrar apenas `Confirmação da rodada`, sem board operacional, sem `Abrir súmula` embutida e sem misturar confirmação com jogo/escalação. O hero com gramado e paleta anterior foi preservado.
 - Na sequência, o card do próximo jogo passou a separar os gatilhos: `Confirmações` continua abrindo a modal de `Confirmação da rodada`, enquanto `Abrir súmula` abre uma segunda modal independente para coordenação, deixada vazia por enquanto para reconstrução posterior sem contaminar o fluxo de presença.
 - Depois disso, a nova modal de `Abrir súmula` ganhou um board próprio no `DashboardMatchesPanel`, separado das confirmações: topo claro com cronômetro/placar central, colunas de titulares e banco, campo tático verde ao centro, área de troca à esquerda e bloco de fechamento/log/ações à direita. Os botões `Salvar Súmula`, `Iniciar Relatório`, `FINALIZAR JOGO` e `GERAR SÚMULA` foram ligados ao fluxo real de rascunho, início, submissão e confirmação.
+- A modal `Abrir súmula` foi ampliada e compactada para aproveitar mais a viewport e reduzir barras de rolagem. Quando a escalação ainda não existe no banco, o board agora semeia automaticamente os atletas a partir das confirmações salvas, distribui os confirmados entre `TIME A` e `TIME B` com o balanceador existente e já mostra esses nomes nas listas laterais correspondentes.
 
 ## Regras importantes consolidadas
 
@@ -222,6 +223,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após remover novamente o board de `Abrir súmula` da modal ativa e voltar o fluxo para `Confirmação da rodada` apenas; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após separar os cliques de `Confirmações` e `Abrir súmula` em modais diferentes no `DashboardMatchesPanel`; a modal nova da súmula ficou vazia por enquanto e o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após implementar o board visual dedicado da nova modal `Abrir súmula`, com cronômetro/placar, elencos laterais, campo tático, trocas e fechamento funcional; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após ampliar a modal `Abrir súmula`, compactar o board e semear automaticamente os times a partir das confirmações quando não houver escalação salva; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 

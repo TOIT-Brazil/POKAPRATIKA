@@ -986,7 +986,45 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
 
 function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; match: MatchDetail; users: User[]; onSaved: () => Promise<void> }) {
   const initialEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
-  const [players, setPlayers] = useState(match.players.map((player) => ({ ...player })));
+  function seededPlayers(): MatchDetail['players'] {
+    if (match.players.length) return match.players.map((player) => ({ ...player }));
+
+    const attendancePlayers: MatchDraftPlayer[] = match.attendance
+      .filter((item) => item.responseStatus !== 'AUSENTE')
+      .map((item, index) => {
+        const user = users.find((current) => current.id === item.userId);
+        const position = user?.position ?? item.position ?? 'MC';
+        const presentOnly = item.responseStatus === 'PRESENTE_SEM_JOGAR';
+        return {
+          userId: item.userId,
+          name: item.name,
+          email: user?.email ?? '',
+          position,
+          team: presentOnly ? 'PRESENTE_SEM_JOGAR' as const : 'A' as const,
+          roleInMatch: presentOnly ? 'PRESENTE_SEM_JOGAR' as const : position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const,
+          drawOrder: String(index + 1),
+          startsOnBench: false
+        };
+      });
+
+    const balanced = drawBalancedTeams(attendancePlayers);
+    const teamOrders = { A: 0, B: 0 };
+
+    return balanced.map((player, index) => {
+      const rotationOrder = player.team === 'A' || player.team === 'B' ? ++teamOrders[player.team] : null;
+      return {
+        userId: player.userId,
+        name: player.name,
+        team: player.team,
+        roleInMatch: player.roleInMatch,
+        drawOrder: Number(player.drawOrder ?? index + 1),
+        rotationOrder,
+        startsOnBench: player.startsOnBench
+      };
+    });
+  }
+
+  const [players, setPlayers] = useState(seededPlayers);
   const [teamAScore, setTeamAScore] = useState(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
   const [teamBScore, setTeamBScore] = useState(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
   const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
@@ -998,7 +1036,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   useEffect(() => {
     const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
-    setPlayers(match.players.map((player) => ({ ...player })));
+    setPlayers(seededPlayers());
     setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
     setEvents(recoveredEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
@@ -1006,7 +1044,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
     setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Monte a súmula operacional neste quadro.');
     setSwapSelection([]);
-  }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events]);
+  }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users]);
 
   useEffect(() => {
     const limitSeconds = (match.availableMinutes ?? 60) * 60;
@@ -1229,7 +1267,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const rightTime = right.occurredAt ?? right.createdAt ? new Date(right.occurredAt ?? right.createdAt ?? '').getTime() : right.minute * 60000;
     return leftTime - rightTime;
   });
-  const swapLabel = swapSelection.length === 2 ? `Trocar #${playerBoardNumber(players.find((player) => player.userId === swapSelection[0]) ?? players[0], 0)} ↔ #${playerBoardNumber(players.find((player) => player.userId === swapSelection[1]) ?? players[0], 0)}` : 'Trocar #10 ↔ #14';
+  const swapFirstPlayer = swapSelection.length >= 1 ? players.find((player) => player.userId === swapSelection[0]) ?? null : null;
+  const swapSecondPlayer = swapSelection.length >= 2 ? players.find((player) => player.userId === swapSelection[1]) ?? null : null;
+  const swapLabel = swapFirstPlayer && swapSecondPlayer ? `Trocar #${playerBoardNumber(swapFirstPlayer, 0)} ↔ #${playerBoardNumber(swapSecondPlayer, 0)}` : 'Trocar titular ↔ reserva';
 
   return (
     <div className="sheet-preview-board">
