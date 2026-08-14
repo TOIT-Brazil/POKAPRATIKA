@@ -1030,7 +1030,7 @@ function ProfilesPanel({ api, users, currentUserId, initialUserId, onCurrentUser
   return <div className="grid two"><section className="card compact"><div className="card-head"><h2>Perfil do atleta</h2><select value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>{users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div>{message && <p className="muted">{message}</p>}{career && <><div className="career-hero"><div className="profile-pill big">{career.profile.avatarDataUrl ? <img src={career.profile.avatarDataUrl} alt="Avatar" /> : <span>{career.profile.name.slice(0, 1)}</span>}<div><strong>{career.profile.name}</strong><small>{career.profile.role} • {positionLabel(career.profile.position)}</small></div></div><strong>{career.totals.seasonsPlayed} temporada(s)</strong></div>{selectedUserId === currentUserId && <div className="avatar-tools"><label className="ghost"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void saveAvatar(file); }} />Trocar foto</label>{career.profile.avatarDataUrl && <button type="button" className="ghost" onClick={() => void saveAvatar(null)}>Remover foto</button>}</div>}<div className="stat-grid"><span><b>{career.totals.totalPoints}</b> pontos</span><span><b>{career.totals.presences}</b> presenças</span><span><b>{career.totals.goals}</b> gols</span><span><b>{career.totals.assists}</b> assist.</span><span><b>{career.totals.wins}</b> vitórias</span><span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b> cartões</span></div><h2>Títulos e badges</h2><div className="chips">{career.awards.length === 0 ? <span className="muted">Nenhum prêmio registrado ainda.</span> : career.awards.map((award) => <span className="chip trophy" key={award.id}>{award.label} • {award.year}</span>)}</div><div className="chips">{career.badges.map((badge) => <span className="chip" key={badge.id}>{badge.label}</span>)}</div></>}</section><section className="card compact"><h2>Histórico por temporada</h2><div className="table-cards">{career?.seasons.map((season) => <article className="row-card" key={season.seasonId}><strong>{season.seasonName} • {season.year}</strong><span>{season.totalPoints} pts</span><small>Pres. {season.presences} • V {season.wins} • E {season.draws} • D {season.losses} • G {season.goals} • A {season.assists}</small></article>)}</div></section></div>;
 }
 
-function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: () => Promise<void> }) {
+function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = true }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: () => Promise<void>; showRecentCard?: boolean }) {
   const own = match.attendance.find((item) => item.userId === currentUserId);
   const [responseStatus, setResponseStatus] = useState<AttendanceStatus>(own?.responseStatus ?? 'JOGAR');
   const [dinnerConfirmed, setDinnerConfirmed] = useState(own?.dinnerConfirmed ?? false);
@@ -1187,7 +1187,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
         {message && <p className="attendance-feedback">{message}</p>}
       </div>
 
-      <div className="attendance-recent-card">
+      {showRecentCard && <div className="attendance-recent-card">
         <div className="attendance-recent-head">
           <strong>Sua Resposta Recente</strong>
           {recentSavedAt && <span>Salvo no {recentSavedAt}</span>}
@@ -1199,7 +1199,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
           <span><RoundIcon kind="absent" className="attendance-inline-icon" /><b>{absent.length}</b> Ausentes</span>
           <span><RoundIcon kind="meal" className="attendance-inline-icon" /><b>{dinnerPeople}</b> Pessoas na Janta</span>
         </div>
-      </div>
+      </div>}
     </section>
   );
 }
@@ -1361,6 +1361,7 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
                 api={api}
                 match={selectedMatch}
                 currentUserId={currentUserId}
+                showRecentCard={!canCoordinate}
                 onSaved={async () => {
                   await openMatch(selectedMatch.id);
                   await onReload();

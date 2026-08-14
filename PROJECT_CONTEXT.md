@@ -144,6 +144,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - Os ícones de bola e refeição da `Confirmação da rodada` foram substituídos por novos SVGs customizados mais legíveis e mais próximos do estilo flat desejado, melhorando a presença visual nos botões, anéis e cards de status.
 - Os ícones de bola e refeição da `Confirmação da rodada` deixaram de usar SVG manual e passaram a usar `react-icons`, com `MdSportsSoccer` e `MdOutlineRestaurantMenu`, alinhando a interface à biblioteca visual pedida e melhorando a consistência dos pictogramas.
 - A modal operacional do jogo foi separada em duas etapas para coordenação: primeiro `Confirmação da rodada`; depois `Jogo e escalação`. O avanço agora acontece automaticamente após `Salvar minha confirmação`, mantendo a leitura mais limpa e sem empilhar confirmação e operação na mesma tela de uma vez.
+- Na etapa inicial `Confirmação da rodada` da coordenação, o bloco `Sua Resposta Recente` foi ocultado; a área inferior de leitura extra não aparece mais antes do salvamento, deixando a primeira tela focada apenas na confirmação. A parte de placar/tempo/escalação continua aparecendo somente após salvar.
 
 ## Regras importantes consolidadas
 
@@ -204,6 +205,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após substituir os ícones de bola e refeição da `Confirmação da rodada`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm install react-icons` executado e `npm run build` concluído com sucesso após migrar os ícones de bola e refeição da `Confirmação da rodada` para `react-icons`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após separar a modal do jogo em duas etapas para coordenação (`Confirmação da rodada` → `Jogo e escalação`) com avanço automático ao salvar a confirmação; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após ocultar `Sua Resposta Recente` na etapa inicial de confirmação da coordenação, mantendo o avanço para `Jogo e escalação` somente depois do salvamento; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
