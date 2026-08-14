@@ -829,6 +829,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
   const [seconds, setSeconds] = useState(0);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
+  const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
 
   useEffect(() => {
     if (!clockRunning || selectedMatch?.status === 'RUNNING') return;
@@ -859,6 +860,15 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
       setSeconds(0);
       setClockRunning(false);
       setCancelConfirm(false);
+    } catch (error) {
+      setMatchMessage(error instanceof Error ? error.message : 'Não foi possível abrir a súmula.');
+    }
+  }
+
+  async function openSheet(id: string) {
+    try {
+      setMatchMessage('');
+      setSelectedSheetMatch(await api.request<MatchDetail>(`/matches/${id}`));
     } catch (error) {
       setMatchMessage(error instanceof Error ? error.message : 'Não foi possível abrir a súmula.');
     }
@@ -911,7 +921,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
       { label: dinnerPeople > 0 ? 'Jantar' : 'Para ajustar', value: dinnerPeople, className: 'dinner' }
     ];
 
-    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><SoccerLineUp size="fill" color="#0b4c3d" orientation="horizontal" /></div><div className="next-match-date-badge"><b>{date.day}</b><span>{date.month}</span><small>{date.weekday}</small><em>{date.time}</em></div><div className="next-match-center"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><small className="lineup-status">Sua resposta: {myAttendanceStatus ? attendanceActionLabel(myAttendanceStatus) : 'pendente'}</small></div><div className="match-card-score next-scoreboard"><span className="team-name team-name-home">{match.teamAName}</span><b className="score-pill">{match.teamAScore} x {match.teamBScore}</b><span className="team-name team-name-away">{match.teamBName}</span></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><div className="confirmation-progress-track">{segments.map((segment) => <i key={segment.label} className={segment.className} style={{ width: `${Math.max(segment.value, responses ? (segment.value / Math.max(responses, 1)) * 100 : 0)}%` }} />)}</div><small className="next-match-footnote">{confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><div className="next-match-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{myAttendanceStatus ? 'Confirmações' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></article>;
+    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><SoccerLineUp size="fill" color="#0b4c3d" orientation="horizontal" /></div><div className="next-match-date-badge"><b>{date.day}</b><span>{date.month}</span><small>{date.weekday}</small><em>{date.time}</em></div><div className="next-match-center"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><small className="lineup-status">Sua resposta: {myAttendanceStatus ? attendanceActionLabel(myAttendanceStatus) : 'pendente'}</small></div><div className="match-card-score next-scoreboard"><span className="team-name team-name-home">{match.teamAName}</span><b className="score-pill">{match.teamAScore} x {match.teamBScore}</b><span className="team-name team-name-away">{match.teamBName}</span></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><div className="confirmation-progress-track">{segments.map((segment) => <i key={segment.label} className={segment.className} style={{ width: `${Math.max(segment.value, responses ? (segment.value / Math.max(responses, 1)) * 100 : 0)}%` }} />)}</div><small className="next-match-footnote">{confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><div className="next-match-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{myAttendanceStatus ? 'Confirmações' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => canCoordinate ? void openSheet(match.id) : void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></article>;
   }
 
   return (
@@ -945,6 +955,19 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
                 await onReload();
               }}
             />
+          </section>
+        </div>
+      )}
+      {selectedSheetMatch && (
+        <div className="modal match-modal">
+          <section className="match-modal-card">
+            <div className="card-head">
+              <div>
+                <h2>{selectedSheetMatch.title}</h2>
+                <p className="muted">Abrir súmula • {selectedSheetMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedSheetMatch.status)}</p>
+              </div>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setSelectedSheetMatch(null)}>X</button>
+            </div>
           </section>
         </div>
       )}

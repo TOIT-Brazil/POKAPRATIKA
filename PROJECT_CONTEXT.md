@@ -151,6 +151,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - Em seguida foi necessário voltar o topo da temporada para o `DashboardMatchesPanel`, porque a troca para `MatchesPanel` removeu a paleta visual anterior e o gramado ao fundo do hero. O `DashboardMatchesPanel` foi mantido, mas sua modal foi limpa para exibir apenas a `Confirmação da rodada`, sem reativar a parte operacional antiga.
 - Depois disso, a modal `Abrir súmula` do coordenador foi reativada como board operacional dentro do `DashboardMatchesPanel`, combinando novamente placar/tempo, checklist, trocas, editor de escalação já expandido, campo central e fechamento da súmula. O hero da temporada com gramado e paleta anterior foi preservado.
 - A decisão seguinte separou novamente os conceitos: a modal ativa do `DashboardMatchesPanel` voltou a mostrar apenas `Confirmação da rodada`, sem board operacional, sem `Abrir súmula` embutida e sem misturar confirmação com jogo/escalação. O hero com gramado e paleta anterior foi preservado.
+- Na sequência, o card do próximo jogo passou a separar os gatilhos: `Confirmações` continua abrindo a modal de `Confirmação da rodada`, enquanto `Abrir súmula` abre uma segunda modal independente para coordenação, deixada vazia por enquanto para reconstrução posterior sem contaminar o fluxo de presença.
 
 ## Regras importantes consolidadas
 
@@ -218,6 +219,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após restaurar o hero visual de `DashboardMatchesPanel` (cores e gramado ao fundo) e manter sua modal limitada à `Confirmação da rodada`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após restaurar a modal `Abrir súmula` do coordenador como board operacional e manter o hero visual de `DashboardMatchesPanel`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após remover novamente o board de `Abrir súmula` da modal ativa e voltar o fluxo para `Confirmação da rodada` apenas; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após separar os cliques de `Confirmações` e `Abrir súmula` em modais diferentes no `DashboardMatchesPanel`; a modal nova da súmula ficou vazia por enquanto e o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
