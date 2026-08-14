@@ -1646,6 +1646,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
 
 function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: ApiClient; users: User[]; activeSeasonId: string; onDone: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
+  const [confirmDrawOpen, setConfirmDrawOpen] = useState(false);
   const [draftMatchId, setDraftMatchId] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [title, setTitle] = useState('Futebol de quarta');
@@ -1687,6 +1688,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
   async function openPersistentDraft() {
     const created = await api.request<{ id: string }>('/matches', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: [] }) });
     setDraftMatchId(created.id);
+    setConfirmDrawOpen(false);
     setSaveStatus('Rascunho da súmula criado e salvo no banco.');
     setOpen(true);
     await onDone();
@@ -1715,6 +1717,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
 
   function balanceTeamsByPosition() {
     setPlayers((list) => drawBalancedTeams(list.map((player) => ({ ...player, team: player.team === 'PRESENTE_SEM_JOGAR' ? 'A' : player.team, roleInMatch: player.roleInMatch === 'PRESENTE_SEM_JOGAR' ? 'LINHA' : player.roleInMatch }))));
+    setConfirmDrawOpen(true);
   }
 
   function updatePlayer(userId: string, patch: Partial<MatchDraftPlayer>) {
@@ -1746,6 +1749,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
     }
     await saveLineup();
     setOpen(false);
+    setConfirmDrawOpen(false);
     setDraftMatchId('');
     setPlayers([]);
     await onDone();
@@ -1824,18 +1828,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                   <b>{player.name.trim().split(/\s+/)[0] ?? player.name}</b>
                   <small>{positionLabel(player.position)}</small>
                 </div>
-                <button
-                  type="button"
-                  className="ghost draw-inline-remove"
-                  aria-label={`Remover ${player.name}`}
-                  title="Remover"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    removePlayer(player.userId);
-                  }}
-                >
-                  X
-                </button>
+                <span className={`draw-bench-chip ${player.startsOnBench ? 'is-visible' : ''}`}>{player.startsOnBench ? 'Banco' : ''}</span>
               </div>
             ))}
           </div>
@@ -1863,7 +1856,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                 <h2>Montar Jogo (Presença & Sorteio)</h2>
                 <p className="muted">Inclua somente quem vai participar do jogo. A divisão em {teamAName} e {teamBName} é automática, aleatória e balanceada pelas posições oficiais.</p>
               </div>
-              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setOpen(false)}>X</button>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }}>X</button>
             </div>
 
             <div className="draw-stepper">
@@ -1988,33 +1981,45 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                   )}
 
                   <button type="button" className="primary draw-button draw-button-full" onClick={balanceTeamsByPosition} disabled={players.length < 2}><DrawIcon kind="dice" className="draw-icon draw-button-icon" /> {drawButtonLabel}</button>
-                  <small className="draw-action-note">O salvamento final só libera após o sorteio.</small>
-                </div>
-
-                <div className="draw-sheet-card draw-results-card">
-                  <div className="draw-card-head">
-                    <div className="draw-title-row">
-                      <DrawIcon kind="results" className="draw-icon" />
-                      <h3>Resultados do Sorteio</h3>
-                    </div>
-                  </div>
-
-                  <div className="draw-results-grid">
-                    <TeamList team="A" rows={teamA} />
-                    <TeamList team="B" rows={teamB} />
-                  </div>
+                  <small className="draw-action-note">Depois do sorteio abre uma confirmação rápida para revisar Time A e Time B antes do salvamento final.</small>
+                  {teamsDrawn && <button type="button" className="ghost draw-review-button" onClick={() => setConfirmDrawOpen(true)}><DrawIcon kind="results" className="draw-icon draw-icon-inline" /> Revisar times sorteados</button>}
                 </div>
               </section>
             </div>
 
             <div className="draw-sheet-footer">
-              <button type="button" className="ghost" onClick={() => setOpen(false)}>Cancelar</button>
+              <button type="button" className="ghost" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }}>Cancelar</button>
               <div className="draw-footer-save">
                 <button className="primary" disabled={!teamsDrawn}>SALVAR SÚMULA FINAL</button>
                 <small>O salvamento final só libera após o sorteio.</small>
               </div>
             </div>
           </form>
+
+          {confirmDrawOpen && (
+            <div className="modal prompt-modal draw-confirm-modal">
+              <div className="card modal-card confirmation-popup draw-confirm-card">
+                <div className="draw-confirm-head">
+                  <div>
+                    <span className="eyebrow">Confirmação rápida</span>
+                    <h3>Revise Time A e Time B</h3>
+                    <p className="muted">Clique em um atleta para marcar ou tirar do banco. A definição de posição detalhada fica para a próxima etapa.</p>
+                  </div>
+                  <button type="button" className="ghost modal-close-button" aria-label="Fechar confirmação" title="Fechar" onClick={() => setConfirmDrawOpen(false)}>X</button>
+                </div>
+
+                <div className="draw-results-grid draw-results-grid-confirm">
+                  <TeamList team="A" rows={teamA} />
+                  <TeamList team="B" rows={teamB} />
+                </div>
+
+                <div className="draw-confirm-footer">
+                  <small>Quando terminar a revisão, feche esta confirmação e use SALVAR SÚMULA FINAL no modal principal.</small>
+                  <button type="button" className="primary" onClick={() => setConfirmDrawOpen(false)}>Confirmar Times</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

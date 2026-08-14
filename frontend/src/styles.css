@@ -1439,6 +1439,16 @@ textarea {
   text-align: center;
 }
 
+.draw-review-button {
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: .72rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .draw-results-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1494,7 +1504,7 @@ textarea {
 }
 
 .draw-result-line {
-  grid-template-columns: 22px minmax(0, 1fr) 24px;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   gap: 7px;
   min-height: 28px;
   padding: 4px 8px;
@@ -1549,6 +1559,73 @@ textarea {
 .draw-result-line.is-bench .draw-result-order {
   color: #21643e;
   background: #dff1e5;
+}
+
+.draw-bench-chip {
+  min-width: 44px;
+  text-align: right;
+  color: transparent;
+  font-size: .62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.draw-bench-chip.is-visible {
+  color: #21643e;
+}
+
+.draw-confirm-modal {
+  padding-top: 70px;
+}
+
+.draw-confirm-card {
+  width: min(760px, calc(100vw - 24px));
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fcfcfa 0%, #f5f3ed 100%);
+  border: 1px solid #d8d1c0;
+}
+
+.draw-confirm-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.draw-confirm-head h3 {
+  margin: 4px 0 0;
+  color: #1b1b1b;
+  font-size: 1.04rem;
+}
+
+.draw-confirm-head .muted {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: .75rem;
+}
+
+.draw-results-grid.draw-results-grid-confirm {
+  gap: 12px;
+}
+
+.draw-confirm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.draw-confirm-footer small {
+  color: #6b7280;
+  font-size: .72rem;
+}
+
+.draw-confirm-footer .primary {
+  min-height: 38px;
+  border-radius: 10px;
 }
 
 .draw-inline-select {
@@ -1647,6 +1724,11 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .draw-results-grid.draw-results-grid-confirm,
+  .draw-confirm-footer {
+    grid-template-columns: 1fr;
+  }
+
   .draw-sheet-footer {
     align-items: stretch;
     flex-direction: column-reverse;
@@ -1654,9 +1736,15 @@ textarea {
 
   .draw-footer-save,
   .draw-footer-save .primary,
-  .draw-sheet-footer > .ghost {
+  .draw-sheet-footer > .ghost,
+  .draw-confirm-footer .primary {
     width: 100%;
     justify-items: stretch;
+  }
+
+  .draw-confirm-footer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

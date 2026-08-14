@@ -137,6 +137,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - A lista de atletas selecionados na modal `Súmula Inteligente` foi simplificada novamente para permanecer sempre em duas colunas no desktop, mantendo a altura mais controlada desde poucos até muitos participantes.
 - A lista de atletas selecionados na modal `Súmula Inteligente` passou a exibir apenas o primeiro nome de cada atleta, reduzindo ainda mais a largura das linhas compactas em duas colunas.
 - O resultado do sorteio na modal `Súmula Inteligente` foi compactado para linhas pequenas com primeiro nome + posição; o clique na linha agora alterna se o atleta começa no banco, enquanto a definição fina de função operacional fica para depois.
+- O resultado do sorteio foi removido do corpo principal da modal `Súmula Inteligente`: ao clicar em `Sortear times`, abre uma confirmação rápida separada com `Time A` e `Time B`, onde o clique na linha do atleta alterna banco antes do `Salvar súmula final` no modal principal.
 
 ## Regras importantes consolidadas
 
@@ -192,6 +193,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após dividir a lista de atletas selecionados da `Súmula Inteligente` em duas colunas quando houver mais de 6 nomes; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após deixar a lista de atletas selecionados da `Súmula Inteligente` sempre em duas colunas no desktop; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após simplificar o resultado do sorteio da `Súmula Inteligente` para linhas compactas clicáveis que alternam banco; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após mover o resultado do sorteio da `Súmula Inteligente` para um modal rápido de confirmação dos times; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
