@@ -1133,21 +1133,21 @@ textarea {
 }
 
 .draw-icon {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
   color: #285a42;
 }
 
 .draw-icon-inline {
-  width: 14px;
-  height: 14px;
-  flex-basis: 14px;
+  width: 16px;
+  height: 16px;
+  flex-basis: 16px;
 }
 
 .draw-icon-shirt {
-  width: 17px;
-  height: 17px;
+  width: 19px;
+  height: 19px;
 }
 
 .draw-button-icon {

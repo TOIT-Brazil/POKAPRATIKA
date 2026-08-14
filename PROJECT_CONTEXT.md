@@ -129,6 +129,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - Todos os fechamentos de modal foram padronizados visualmente para botões `X`, substituindo os antigos CTAs textuais `Fechar` nos headers e áreas de topo dos modais.
 - A modal `Súmula Inteligente` de criação de jogo foi redesenhada para o layout claro em wizard da referência, com header compacto, stepper horizontal, card esquerdo de detalhes, coluna direita de busca/sorteio e footer operacional fixo com `Cancelar` e `Salvar súmula final`.
 - A modal `Súmula Inteligente` recebeu refinamento visual adicional para aderir melhor à referência: ícones semânticos nos títulos/indicadores, botão de sorteio com dois dados, camisas distintas para `Time A` e `Time B` e densidade reduzida para evitar barra de rolagem no container principal do modal.
+- Os ícones da modal `Súmula Inteligente` foram ampliados levemente para melhorar a leitura visual sem reabrir o problema de densidade/rolagem do modal.
 
 ## Regras importantes consolidadas
 
