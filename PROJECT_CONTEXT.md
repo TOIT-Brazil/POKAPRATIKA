@@ -148,6 +148,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - A etapa `Jogo e escalação` da modal operacional foi redesenhada para um board visual mais próximo da referência: card de tempo/placar no topo, laterais com titulares e reservas de cada time, gramado central com posicionamento dos atletas e rodapé separado entre log de eventos e ações de fechamento da súmula.
 - A solicitação seguinte removeu toda a parte inferior da modal operacional novamente: ao abrir a súmula, a interface agora exibe somente a `Confirmação da rodada`, sem renderizar mais o bloco abaixo dela. A reconstrução da área de jogo/escalação ficará para uma próxima iteração partindo do zero.
 - Depois disso foi identificado um segundo caminho legado no dashboard (`DashboardMatchesPanel`) que ainda mostrava a área operacional antiga da súmula. A home da temporada passou a usar o `MatchesPanel` já limpo, apagando essa parte antiga do site na origem sem depender de novos escondes locais.
+- Em seguida foi necessário voltar o topo da temporada para o `DashboardMatchesPanel`, porque a troca para `MatchesPanel` removeu a paleta visual anterior e o gramado ao fundo do hero. O `DashboardMatchesPanel` foi mantido, mas sua modal foi limpa para exibir apenas a `Confirmação da rodada`, sem reativar a parte operacional antiga.
 
 ## Regras importantes consolidadas
 
@@ -212,6 +213,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após redesenhar a etapa `Jogo e escalação` em formato de board operacional com gramado central e laterais de elenco; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após remover novamente toda a parte inferior da modal operacional e deixar apenas a `Confirmação da rodada`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após trocar a home da temporada de `DashboardMatchesPanel` para `MatchesPanel`, removendo do site o caminho legado que ainda renderizava a antiga área operacional da súmula; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após restaurar o hero visual de `DashboardMatchesPanel` (cores e gramado ao fundo) e manter sua modal limitada à `Confirmação da rodada`; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 

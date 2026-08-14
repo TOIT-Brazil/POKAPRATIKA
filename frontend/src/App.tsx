@@ -530,7 +530,7 @@ export function App() {
         <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.status ?? 'sem temporada'}</span>
       </section>
 
-      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><MatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} onReload={loadData} /></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
+      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} onReload={loadData} /></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
       {view === 'usuarios' && canCoordinate && <UsersManagementPanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
@@ -914,7 +914,42 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
     return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><SoccerLineUp size="fill" color="#0b4c3d" orientation="horizontal" /></div><div className="next-match-date-badge"><b>{date.day}</b><span>{date.month}</span><small>{date.weekday}</small><em>{date.time}</em></div><div className="next-match-center"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><small className="lineup-status">Sua resposta: {myAttendanceStatus ? attendanceActionLabel(myAttendanceStatus) : 'pendente'}</small></div><div className="match-card-score next-scoreboard"><span className="team-name team-name-home">{match.teamAName}</span><b className="score-pill">{match.teamAScore} x {match.teamBScore}</b><span className="team-name team-name-away">{match.teamBName}</span></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><div className="confirmation-progress-track">{segments.map((segment) => <i key={segment.label} className={segment.className} style={{ width: `${Math.max(segment.value, responses ? (segment.value / Math.max(responses, 1)) * 100 : 0)}%` }} />)}</div><small className="next-match-footnote">{confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><div className="next-match-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}{confirmationReallyOpen && <button type="button" className={`primary ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.'} onClick={() => void openMatch(match.id)}>{myAttendanceStatus ? 'Confirmações' : 'Confirmar presença'}</button>}<button type="button" className="ghost" onClick={() => void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></article>;
   }
 
-  return <section className="card compact matches-report dashboard-next-match-card"><div className="card-head"><div><h2>Central dos jogos</h2><p className="muted">Próximo jogo e partidas já finalizadas. Agenda anual fica no menu Agenda.</p></div>{canCoordinate && <OperationalMatchDialog api={api} users={users} activeSeasonId={activeSeasonId} onDone={onReload} />}</div>{matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}{nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}{selectedMatch && <div className="modal match-modal"><section className="match-modal-card"><div className="card-head"><div><h2>{selectedMatch.title}</h2><p className="muted">Súmula operacional • {selectedMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedMatch.status)}</p></div><button className="ghost" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>Fechar</button></div><AttendancePanel api={api} match={selectedMatch} currentUserId={currentUserId} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />{canCoordinate ? <div className="match-ops-grid"><section className="score-editor broadcast-panel"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>{selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)}. Tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}<MatchDayChecklist match={selectedMatch} /><div className="actions">{selectedMatch.status !== 'RUNNING' && <button className="primary" onClick={() => setClockRunning((value) => !value)}>{clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button>}<button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>{selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}{['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && !cancelConfirm && <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar jogo</button>}{cancelConfirm && <><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter jogo</button><button className="primary danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button></>}</div><SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.max(0, Math.floor(seconds / 60))} /></section><div className="match-sheet-panel"><ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} /><MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} /><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></div></div> : <section className="score-editor athlete-match-readonly"><div className="scoreboard"><b>{selectedMatch.teamAName}</b><strong>{selectedMatch.teamAScore} x {selectedMatch.teamBScore}</strong><b>{selectedMatch.teamBName}</b></div><MatchDayChecklist match={selectedMatch} /><CorrectionHistory corrections={selectedMatch.corrections ?? []} /></section>}</section></div>}</section>;
+  return (
+    <section className="card compact matches-report dashboard-next-match-card">
+      <div className="card-head">
+        <div>
+          <h2>Central dos jogos</h2>
+          <p className="muted">Próximo jogo e partidas já finalizadas. Agenda anual fica no menu Agenda.</p>
+        </div>
+        {canCoordinate && <OperationalMatchDialog api={api} users={users} activeSeasonId={activeSeasonId} onDone={onReload} />}
+      </div>
+      {matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}
+      {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
+      {selectedMatch && (
+        <div className="modal match-modal">
+          <section className="match-modal-card">
+            <div className="card-head">
+              <div>
+                <h2>{selectedMatch.title}</h2>
+                <p className="muted">Súmula operacional • {selectedMatch.matchDate?.slice(0, 10)} • {matchStatusLabel(selectedMatch.status)}</p>
+              </div>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>X</button>
+            </div>
+            <AttendancePanel
+              api={api}
+              match={selectedMatch}
+              currentUserId={currentUserId}
+              showRecentCard={!canCoordinate}
+              onSaved={async () => {
+                await openMatch(selectedMatch.id);
+                await onReload();
+              }}
+            />
+          </section>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function DashboardFinishedMatchesPanel({ matches }: { matches: MatchListItem[] }) {
