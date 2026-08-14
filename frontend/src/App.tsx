@@ -1204,10 +1204,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function executeSwap() {
-    if (swapSelection.length !== 2) {
-      setSheetMessage('Selecione um titular e um reserva do mesmo time para fazer a troca.');
-      return;
-    }
     const [firstId, secondId] = swapSelection;
     const firstPlayer = players.find((player) => player.userId === firstId);
     const secondPlayer = players.find((player) => player.userId === secondId);
