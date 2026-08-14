@@ -1228,11 +1228,6 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
   const [seconds, setSeconds] = useState(0);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
-  const [selectedMatchStage, setSelectedMatchStage] = useState<'attendance' | 'game'>('attendance');
-
-  useEffect(() => {
-    setSelectedMatchStage('attendance');
-  }, [selectedMatch?.id]);
 
   useEffect(() => {
     if (!clockRunning || selectedMatch?.status === 'RUNNING') return;
@@ -1349,67 +1344,16 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
               <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>X</button>
             </div>
 
-            {canCoordinate && (
-              <div className="actions">
-                <button type="button" className={selectedMatchStage === 'attendance' ? 'primary small' : 'ghost small'} onClick={() => setSelectedMatchStage('attendance')}>1. Confirmação da rodada</button>
-                <button type="button" className={selectedMatchStage === 'game' ? 'primary small' : 'ghost small'} onClick={() => setSelectedMatchStage('game')}>2. Jogo e escalação</button>
-              </div>
-            )}
-
-            {(!canCoordinate || selectedMatchStage === 'attendance') && (
-              <AttendancePanel
-                api={api}
-                match={selectedMatch}
-                currentUserId={currentUserId}
-                showRecentCard={!canCoordinate}
-                onSaved={async () => {
-                  await openMatch(selectedMatch.id);
-                  await onReload();
-                  if (canCoordinate) setSelectedMatchStage('game');
-                }}
-              />
-            )}
-
-            {canCoordinate ? (
-              selectedMatchStage === 'game' ? (
-                <div className="match-ops-grid">
-                  <section className="score-editor broadcast-panel">
-                    <div className="scoreboard">
-                      <b>{selectedMatch.teamAName}</b>
-                      <strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong>
-                      <b>{selectedMatch.teamBName}</b>
-                    </div>
-                    <div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>
-                    {selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)} — horário de Brasília. A quadra encerra às 21:00; tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}
-                    <div className="actions">
-                      <button className="primary" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setClockRunning((value) => !value)}>{selectedMatch.status === 'RUNNING' ? 'Cronômetro oficial ativo' : clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button>
-                      <button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>
-                      {selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}
-                      {['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && (cancelConfirm ? <><button className="ghost danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter súmula</button></> : <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar súmula</button>)}
-                    </div>
-                    {cancelConfirm && <p className="muted">Cancelar tira esta súmula do fluxo operacional e ela não pontua a temporada.</p>}
-                    <SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.floor(seconds / 60)} />
-                  </section>
-                  <section className="match-sheet-panel">
-                    {['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && <ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}
-                    <div className="chips">{selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>)}</div>
-                    {selectedMatch.status !== 'CANCELLED' && <MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />}
-                    <CorrectionHistory corrections={selectedMatch.corrections ?? []} />
-                  </section>
-                </div>
-              ) : null
-            ) : (
-              <section className="score-editor athlete-match-readonly">
-                <div className="scoreboard">
-                  <b>{selectedMatch.teamAName}</b>
-                  <strong>{selectedMatch.teamAScore} x {selectedMatch.teamBScore}</strong>
-                  <b>{selectedMatch.teamBName}</b>
-                </div>
-                <p className="muted">Rascunho, cronômetro, escalação e fechamento da súmula são exclusivos da coordenação. Atleta usa este modal para confirmar presença e consultar informações oficiais do jogo.</p>
-                <div className="chips">{selectedMatch.events.length ? selectedMatch.events.map((event, index) => <span className="chip" key={index}>{event.minute}' {eventLabel(event.eventType)}</span>) : <span className="chip">Sem eventos oficiais lançados.</span>}</div>
-                <CorrectionHistory corrections={selectedMatch.corrections ?? []} />
-              </section>
-            )}
+            <AttendancePanel
+              api={api}
+              match={selectedMatch}
+              currentUserId={currentUserId}
+              showRecentCard={!canCoordinate}
+              onSaved={async () => {
+                await openMatch(selectedMatch.id);
+                await onReload();
+              }}
+            />
           </section>
         </div>
       )}
