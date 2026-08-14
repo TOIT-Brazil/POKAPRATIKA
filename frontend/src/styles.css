@@ -1355,11 +1355,6 @@ textarea {
 
 .draw-selected-list {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px;
-}
-
-.draw-selected-list.draw-selected-list-split {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 6px;
   row-gap: 4px;
@@ -1491,11 +1486,51 @@ textarea {
 
 .draw-result-list {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .draw-result-player {
   grid-template-columns: 24px minmax(92px, 1fr) 82px 72px 28px;
+}
+
+.draw-result-line {
+  grid-template-columns: 22px minmax(0, 1fr) 24px;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 9px;
+  background: rgba(255,255,255,.88);
+  border: 1px solid #e8e0d1;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.draw-result-line.is-bench {
+  background: #eef5f0;
+  border-color: rgba(46, 139, 87, .34);
+}
+
+.draw-result-meta {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.draw-result-meta b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111827;
+  font-size: .74rem;
+  font-weight: 800;
+}
+
+.draw-result-meta small {
+  color: #6b7280;
+  font-size: .66rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .draw-result-order {
@@ -1509,6 +1544,11 @@ textarea {
   background: #eef7ef;
   font-size: .7rem;
   font-weight: 900;
+}
+
+.draw-result-line.is-bench .draw-result-order {
+  color: #21643e;
+  background: #dff1e5;
 }
 
 .draw-inline-select {
@@ -1666,10 +1706,6 @@ textarea {
   }
 
   .draw-selected-list {
-    grid-template-columns: 1fr;
-  }
-
-  .draw-selected-list.draw-selected-list-split {
     grid-template-columns: 1fr;
   }
 

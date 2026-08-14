@@ -1801,35 +1801,39 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
           <div className="draw-result-list">
             {rows.map((player, index) => (
               <div
-                className="draw-result-player"
+                className={`draw-result-player draw-result-line ${player.startsOnBench ? 'is-bench' : ''}`}
                 key={player.userId}
                 draggable
                 onDragStart={() => setDraggedUserId(player.userId)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={() => movePlayer(draggedUserId, player.userId, team)}
+                onClick={() => updatePlayer(player.userId, { startsOnBench: !player.startsOnBench })}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    updatePlayer(player.userId, { startsOnBench: !player.startsOnBench });
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-pressed={player.startsOnBench}
+                title={player.startsOnBench ? 'Clique para tirar do banco' : 'Clique para marcar como banco'}
               >
                 <span className="draw-result-order">{index + 1}</span>
-                <div className="player-meta">
-                  <b>{player.name}</b>
+                <div className="draw-result-meta">
+                  <b>{player.name.trim().split(/\s+/)[0] ?? player.name}</b>
                   <small>{positionLabel(player.position)}</small>
                 </div>
-                <select
-                  className="draw-inline-select"
-                  value={player.roleInMatch}
-                  onChange={(event) => updatePlayer(player.userId, { roleInMatch: event.target.value as MatchDraftPlayer['roleInMatch'] })}
+                <button
+                  type="button"
+                  className="ghost draw-inline-remove"
+                  aria-label={`Remover ${player.name}`}
+                  title="Remover"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    removePlayer(player.userId);
+                  }}
                 >
-                  <option value="LINHA">Linha</option>
-                  <option value="GOLEIRO">Goleiro</option>
-                </select>
-                <label className="bench draw-inline-bench">
-                  <input
-                    type="checkbox"
-                    checked={player.startsOnBench}
-                    onChange={(event) => updatePlayer(player.userId, { startsOnBench: event.target.checked })}
-                  />
-                  Banco
-                </label>
-                <button type="button" className="ghost draw-inline-remove" onClick={() => removePlayer(player.userId)}>
                   X
                 </button>
               </div>
@@ -1972,10 +1976,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                   </div>
 
                   {rosterRows.length > 0 && (
-                    <div className={`draw-selected-list ${rosterRows.length > 6 ? 'draw-selected-list-split' : ''}`}>
+                    <div className="draw-selected-list">
                       {rosterRows.map((player) => (
                         <div className={`draw-selected-player draw-selected-line ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
-                          <span className="draw-selected-name">{player.name}</span>
+                          <span className="draw-selected-name">{player.name.trim().split(/\s+/)[0] ?? player.name}</span>
                           <span className="draw-selected-position">{positionLabel(player.position)}</span>
                           <button type="button" className="ghost draw-inline-remove" aria-label={`Remover ${player.name}`} title="Remover" onClick={() => removePlayer(player.userId)}>X</button>
                         </div>

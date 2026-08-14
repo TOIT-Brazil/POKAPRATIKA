@@ -134,6 +134,9 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O stepper da modal `Súmula Inteligente` foi refinado novamente para que cada pílula envolva número + texto no mesmo bloco visual, impedindo a trilha de passar sobre o rótulo do passo central.
 - A lista de atletas selecionados na modal `Súmula Inteligente` foi compactada para linhas únicas com nome + posição e remoção discreta, evitando cards grandes quando houver muitos participantes.
 - A lista de atletas selecionados na modal `Súmula Inteligente` agora quebra em duas colunas quando ultrapassa 6 participantes, reduzindo a altura do modal sem perder legibilidade.
+- A lista de atletas selecionados na modal `Súmula Inteligente` foi simplificada novamente para permanecer sempre em duas colunas no desktop, mantendo a altura mais controlada desde poucos até muitos participantes.
+- A lista de atletas selecionados na modal `Súmula Inteligente` passou a exibir apenas o primeiro nome de cada atleta, reduzindo ainda mais a largura das linhas compactas em duas colunas.
+- O resultado do sorteio na modal `Súmula Inteligente` foi compactado para linhas pequenas com primeiro nome + posição; o clique na linha agora alterna se o atleta começa no banco, enquanto a definição fina de função operacional fica para depois.
 
 ## Regras importantes consolidadas
 
@@ -187,6 +190,8 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após fazer a pílula do stepper da `Súmula Inteligente` envolver número + rótulo completo; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após compactar a lista de atletas selecionados da `Súmula Inteligente` para linhas únicas; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após dividir a lista de atletas selecionados da `Súmula Inteligente` em duas colunas quando houver mais de 6 nomes; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após deixar a lista de atletas selecionados da `Súmula Inteligente` sempre em duas colunas no desktop; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após simplificar o resultado do sorteio da `Súmula Inteligente` para linhas compactas clicáveis que alternam banco; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
