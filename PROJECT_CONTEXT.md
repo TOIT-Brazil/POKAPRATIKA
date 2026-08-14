@@ -138,6 +138,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - A lista de atletas selecionados na modal `Súmula Inteligente` passou a exibir apenas o primeiro nome de cada atleta, reduzindo ainda mais a largura das linhas compactas em duas colunas.
 - O resultado do sorteio na modal `Súmula Inteligente` foi compactado para linhas pequenas com primeiro nome + posição; o clique na linha agora alterna se o atleta começa no banco, enquanto a definição fina de função operacional fica para depois.
 - O resultado do sorteio foi removido do corpo principal da modal `Súmula Inteligente`: ao clicar em `Sortear times`, abre uma confirmação rápida separada com `Time A` e `Time B`, onde o clique na linha do atleta alterna banco antes do `Salvar súmula final` no modal principal.
+- A confirmação rápida de `Time A` e `Time B` foi recentralizada verticalmente no meio da tela, deixando de ficar presa visualmente na parte superior do overlay.
 
 ## Regras importantes consolidadas
 

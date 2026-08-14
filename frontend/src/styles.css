@@ -1575,7 +1575,9 @@ textarea {
 }
 
 .draw-confirm-modal {
-  padding-top: 70px;
+  place-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .draw-confirm-card {
