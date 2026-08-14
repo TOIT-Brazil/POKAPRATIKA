@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { MdOutlineRestaurantMenu, MdSportsSoccer } from 'react-icons/md';
 import SoccerLineUp from 'react-soccer-lineup';
 import { ApiClient } from './api';
 import { AthletePosition, MatchListItem, PointSetting, Season, Standing, User } from './types';
@@ -1058,9 +1059,9 @@ function AttendancePanel({ api, match, currentUserId, onSaved }: { api: ApiClien
   const recentSavedAt = own?.updatedAt ? new Date(own.updatedAt).toLocaleString('pt-BR') : '';
 
   function RoundIcon({ kind, className }: { kind: 'ball' | 'person' | 'meal' | 'status' | 'play' | 'present' | 'absent' | 'check'; className?: string }) {
-    if (kind === 'ball') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.8" /><path d="m12 6.9 3.15 2.15-1.18 3.45h-3.94L8.85 9.05 12 6.9Z" fill="currentColor" /><path d="m8.85 9.05-3.1-.95M15.15 9.05l3.1-.95M8.9 15.05l-1.85 2.9M15.1 15.05l1.85 2.9M10.03 12.5 8.1 15.05l3.9 2.45 3.9-2.45-1.93-2.55" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+    if (kind === 'ball') return <MdSportsSoccer className={className} aria-hidden="true" focusable="false" />;
     if (kind === 'person') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M5.5 18.5c1.4-3.5 3.6-5.3 6.5-5.3s5.1 1.8 6.5 5.3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-    if (kind === 'meal') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 3.8v7.6M8.7 3.8v7.6M10.6 3.8v7.6M6.8 7.8h3.8M8.7 11.4v8.8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M15.7 4.1c1.9 0 3.4 1.8 3.4 4v1.6c0 1.9-1.2 3.5-2.8 4v5.7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M12.7 14.8c.85-1.1 2.1-1.75 3.5-1.75s2.65.65 3.5 1.75" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><ellipse cx="16.2" cy="16.8" rx="4.7" ry="2.25" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.4" /></svg>;
+    if (kind === 'meal') return <MdOutlineRestaurantMenu className={className} aria-hidden="true" focusable="false" />;
     if (kind === 'status') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><circle cx="12" cy="12" r="3" fill="currentColor" /></svg>;
     if (kind === 'play') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z" fill="currentColor" /><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>;
     if (kind === 'present') return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M7 19h10M9.2 15.5h5.6M8.2 18c.4-2.2 1.8-3.8 3.8-3.8s3.4 1.6 3.8 3.8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
