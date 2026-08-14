@@ -935,16 +935,44 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
               </div>
               <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setSelectedMatch(null); setCancelConfirm(false); }}>X</button>
             </div>
-            <AttendancePanel
-              api={api}
-              match={selectedMatch}
-              currentUserId={currentUserId}
-              showRecentCard={!canCoordinate}
-              onSaved={async () => {
-                await openMatch(selectedMatch.id);
-                await onReload();
-              }}
-            />
+            {canCoordinate ? (
+              <div className="match-ops-grid">
+                <section className="score-editor broadcast-panel">
+                  <div className="scoreboard">
+                    <b>{selectedMatch.teamAName}</b>
+                    <strong>{selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamAScore : selectedMatch.draftTeamAScore ?? selectedMatch.teamAScore} x {selectedMatch.status === 'CONFIRMED' ? selectedMatch.teamBScore : selectedMatch.draftTeamBScore ?? selectedMatch.teamBScore}</strong>
+                    <b>{selectedMatch.teamBName}</b>
+                  </div>
+                  <div className="clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</div>
+                  {selectedMatch.startedAt && <p className="muted">Jogo iniciado oficialmente em {formatBrasiliaTime(selectedMatch.startedAt)}. Tempo útil desta súmula: {selectedMatch.availableMinutes ?? 60} min.</p>}
+                  <MatchDayChecklist match={selectedMatch} />
+                  <div className="actions">
+                    {selectedMatch.status !== 'RUNNING' && <button className="primary" onClick={() => setClockRunning((value) => !value)}>{clockRunning ? 'Pausar rascunho' : 'Iniciar rascunho'}</button>}
+                    <button className="ghost" disabled={selectedMatch.status === 'RUNNING'} onClick={() => setSeconds(0)}>Zerar</button>
+                    {selectedMatch.status === 'DRAFT' && <button className="primary" onClick={() => void startSelectedMatch()}>Jogo iniciado</button>}
+                    {['DRAFT', 'RUNNING', 'SUBMITTED'].includes(selectedMatch.status) && !cancelConfirm && <button className="ghost danger-action" onClick={() => setCancelConfirm(true)}>Cancelar jogo</button>}
+                    {cancelConfirm && <><button className="ghost" onClick={() => setCancelConfirm(false)}>Manter jogo</button><button className="primary danger-action" onClick={() => void cancelSelectedMatch()}>Confirmar cancelamento</button></>}
+                  </div>
+                  <SubstitutionManager rotation={selectedMatch.rotation} currentMinute={Math.max(0, Math.floor(seconds / 60))} />
+                </section>
+                <div className="match-sheet-panel">
+                  <ExistingLineupEditor api={api} match={selectedMatch} users={users} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} forceOpen />
+                  <MatchScoreEditor api={api} match={selectedMatch} users={users} clockSeconds={seconds} clockRunning={clockRunning} onSaved={async () => { await openMatch(selectedMatch.id); await onReload(); }} />
+                  <CorrectionHistory corrections={selectedMatch.corrections ?? []} />
+                </div>
+              </div>
+            ) : (
+              <AttendancePanel
+                api={api}
+                match={selectedMatch}
+                currentUserId={currentUserId}
+                showRecentCard
+                onSaved={async () => {
+                  await openMatch(selectedMatch.id);
+                  await onReload();
+                }}
+              />
+            )}
           </section>
         </div>
       )}
@@ -1396,8 +1424,8 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
   );
 }
 
-function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; match: MatchDetail; users: User[]; onSaved: () => Promise<void> }) {
-  const [open, setOpen] = useState(match.status === 'DRAFT' && match.players.length === 0);
+function ExistingLineupEditor({ api, match, users, onSaved, forceOpen = false }: { api: ApiClient; match: MatchDetail; users: User[]; onSaved: () => Promise<void>; forceOpen?: boolean }) {
+  const [open, setOpen] = useState(forceOpen || (match.status === 'DRAFT' && match.players.length === 0));
   const [title, setTitle] = useState(match.title);
   const [date, setDate] = useState(match.matchDate.slice(0, 10));
   const [refereeName, setRefereeName] = useState(match.refereeName ?? '');
@@ -1450,6 +1478,10 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
     setPlayers(savedPlayers.length ? savedPlayers : attendancePlayers);
     setMessage(savedPlayers.length || !attendancePlayers.length ? '' : `${attendancePlayers.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR').length} atleta(s) para jogo e ${attendancePlayers.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} apenas presente(s) carregados das confirmações. Revise e salve a escalação antes de iniciar.`);
   }, [match.id, match.title, match.matchDate, match.refereeName, match.teamAName, match.teamBName, match.players, match.attendance, users]);
+
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
 
   const assignedIds = new Set(players.map((player) => player.userId));
   const search = query.trim().toLowerCase();
@@ -1568,7 +1600,7 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
 
   return (
     <>
-      {!open && <button className="ghost small" onClick={() => setOpen(true)}>Editar escalação</button>}
+      {!open && !forceOpen && <button className="ghost small" onClick={() => setOpen(true)}>Editar escalação</button>}
       {open && (
         <section className="card team-builder">
           <div className="card-head">
@@ -1577,7 +1609,7 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
               <p className="muted">Revise atletas confirmados, rebalanceie os times e ajuste banco/goleiro antes de iniciar.</p>
             </div>
             <div className="actions">
-              <button type="button" className="ghost" onClick={() => setOpen(false)}>Fechar</button>
+              {!forceOpen && <button type="button" className="ghost" onClick={() => setOpen(false)}>Fechar</button>}
             </div>
           </div>
           {message && <p className="status-line">{message}</p>}
