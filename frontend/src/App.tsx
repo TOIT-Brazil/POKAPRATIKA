@@ -1974,13 +1974,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                   {rosterRows.length > 0 && (
                     <div className="draw-selected-list">
                       {rosterRows.map((player) => (
-                        <div className={`draw-selected-player ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
-                          <div className="player-meta">
-                            <b>{player.name}</b>
-                            <small>{positionLabel(player.position)}</small>
-                          </div>
-                          <span className="team-badge">{player.team === 'PRESENTE_SEM_JOGAR' ? 'Aguardando' : player.team === 'A' ? teamAName : teamBName}</span>
-                          <button type="button" className="ghost draw-inline-remove" onClick={() => removePlayer(player.userId)}>X</button>
+                        <div className={`draw-selected-player draw-selected-line ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
+                          <span className="draw-selected-name">{player.name}</span>
+                          <span className="draw-selected-position">{positionLabel(player.position)}</span>
+                          <button type="button" className="ghost draw-inline-remove" aria-label={`Remover ${player.name}`} title="Remover" onClick={() => removePlayer(player.userId)}>X</button>
                         </div>
                       ))}
                     </div>

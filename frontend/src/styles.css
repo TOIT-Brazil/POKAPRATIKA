@@ -1355,8 +1355,8 @@ textarea {
 
 .draw-selected-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: 1fr;
+  gap: 4px;
 }
 
 .draw-selected-player,
@@ -1374,6 +1374,42 @@ textarea {
 .draw-selected-player.is-pending {
   background: #fffbef;
   border-color: #ecdca2;
+}
+
+.draw-selected-line {
+  grid-template-columns: minmax(0, 1fr) auto 24px;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid #ece4d6;
+  box-shadow: none;
+}
+
+.draw-selected-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111827;
+  font-size: .74rem;
+  font-weight: 800;
+}
+
+.draw-selected-position {
+  color: #6b7280;
+  font-size: .68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.draw-selected-line .draw-inline-remove {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: .64rem;
 }
 
 .draw-button.draw-button-full,
@@ -1625,6 +1661,10 @@ textarea {
 
   .draw-selected-list {
     grid-template-columns: 1fr;
+  }
+
+  .draw-selected-line {
+    grid-template-columns: minmax(0, 1fr) auto 24px;
   }
 
   .draw-result-player,

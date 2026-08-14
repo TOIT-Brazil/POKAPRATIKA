@@ -132,6 +132,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - Os ícones da modal `Súmula Inteligente` foram ampliados levemente para melhorar a leitura visual sem reabrir o problema de densidade/rolagem do modal.
 - O stepper da modal `Súmula Inteligente` foi ajustado para o padrão em pílulas conectadas da referência, com trilha ao fundo e sem a linha atravessar visualmente a pílula central.
 - O stepper da modal `Súmula Inteligente` foi refinado novamente para que cada pílula envolva número + texto no mesmo bloco visual, impedindo a trilha de passar sobre o rótulo do passo central.
+- A lista de atletas selecionados na modal `Súmula Inteligente` foi compactada para linhas únicas com nome + posição e remoção discreta, evitando cards grandes quando houver muitos participantes.
 
 ## Regras importantes consolidadas
 
@@ -183,6 +184,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - `frontend`: `npm run build` concluído com sucesso após adicionar ícones e comprimir a `Súmula Inteligente` para eliminar a rolagem do modal principal; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após converter o stepper da `Súmula Inteligente` para o visual em pílulas conectadas; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 - `frontend`: `npm run build` concluído com sucesso após fazer a pílula do stepper da `Súmula Inteligente` envolver número + rótulo completo; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
+- `frontend`: `npm run build` concluído com sucesso após compactar a lista de atletas selecionados da `Súmula Inteligente` para linhas únicas; o warning pré-existente de `@import` fora do topo em `frontend/src/styles.css` permanece sem bloquear o bundle.
 
 ## Próximo passo técnico recomendado
 
