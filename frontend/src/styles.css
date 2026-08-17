@@ -268,7 +268,17 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .admin-modal-card { width: min(620px, 100%); }
 .modal-card.wide { width: min(980px, 100%); max-height: min(86dvh, 760px); overflow: auto; }
 .payments-panel { overflow: auto; }
-.payment-list { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.payments-table-wrap { max-height: 52dvh; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
+.payments-table { min-width: 1260px; font-size: .75rem; }
+.payments-table th,
+.payments-table td { white-space: nowrap; }
+.payments-table .payments-name-cell,
+.payments-table .payments-notes-cell { white-space: normal; }
+.payments-table .payments-name-cell { min-width: 220px; }
+.payments-table .payments-balance-cell { color: #8a6500; font-weight: 900; }
+.payments-table .payments-notes-cell { min-width: 240px; text-align: left; color: var(--muted); }
+.payments-table .payments-action-cell { min-width: 110px; }
+.payments-muted { color: var(--muted); font-size: .72rem; }
 .admin-home, .users-home { overflow: auto; }
 .users-card { min-height: 0; }
 .users-summary { grid-template-columns: repeat(5, 1fr); }
