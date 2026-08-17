@@ -1269,7 +1269,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   return (
     <div className="sheet-preview-board">
       <div className="sheet-preview-top">
-        <section className="sheet-top-card is-empty" />
         <section className="match-time-card sheet-top-clock-card">
           <span>TEMPO DE JOGO</span>
           <strong className="match-time-card-clock">{clockLabel}</strong>
@@ -1279,7 +1278,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
             <div><b>{match.teamBName}</b><small>{teamBScore}</small></div>
           </div>
         </section>
-        <section className="sheet-top-card sheet-crest-card"><div className="sheet-crest-pair"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div></section>
       </div>
 
       <div className="sheet-preview-arena">
