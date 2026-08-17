@@ -25,6 +25,22 @@ const avatarSchema = z.object({
   avatarDataUrl: z.string().max(900000).regex(/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/, 'Envie uma imagem PNG, JPG ou WEBP válida.').nullable()
 });
 
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+async function ensureEmailAvailable(email: string, currentUserId?: string): Promise<void> {
+  const result = await query<{ id: string }>(
+    `SELECT id
+     FROM users
+     WHERE lower(email) = $1
+       AND ($2::UUID IS NULL OR id <> $2)
+     LIMIT 1`,
+    [normalizeEmail(email), currentUserId ?? null]
+  );
+  if (result.rowCount) throw httpError(409, 'Já existe um usuário cadastrado com este e-mail.');
+}
+
 async function ensureNotRemovingLastAdmin(userId: string, nextRole?: string, nextActive?: boolean): Promise<void> {
   const current = await query<{ role: string; active: boolean }>('SELECT role, active FROM users WHERE id = $1', [userId]);
   if (!current.rowCount) throw httpError(404, 'Usuário não encontrado.');
@@ -152,12 +168,15 @@ usersRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (
     throw httpError(403, 'Coordenador pode cadastrar atletas, mas não pode criar admins ou coordenadores.');
   }
 
+  const normalizedEmail = normalizeEmail(body.email);
+  await ensureEmailAvailable(normalizedEmail);
+
   const temporaryPassword = crypto.randomBytes(48).toString('hex');
   const result = await query<{ id: string; name: string; email: string; role: string; position: string; active: boolean }>(
     `INSERT INTO users (name, email, password_hash, role, position)
      VALUES ($1, lower($2), $3, $4, $5)
      RETURNING id, name, email, role, position, active`,
-    [body.name.trim(), body.email, await hashPassword(body.password ?? temporaryPassword), body.role, body.position]
+    [body.name.trim(), normalizedEmail, await hashPassword(body.password ?? temporaryPassword), body.role, body.position]
   );
   let activationEmailSent = false;
 
@@ -174,6 +193,7 @@ usersRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (
 usersRouter.patch('/:id', requireRoles('ADMIN'), asyncHandler(async (req, res) => {
   const body = validate(updateUserSchema, req.body);
   await ensureNotRemovingLastAdmin(req.params.id, body.role, body.active);
+  if (body.email) await ensureEmailAvailable(body.email, req.params.id);
   const passwordHash = body.password ? await hashPassword(body.password) : null;
   const result = await query(
     `UPDATE users SET
@@ -187,7 +207,7 @@ usersRouter.patch('/:id', requireRoles('ADMIN'), asyncHandler(async (req, res) =
       updated_at = now()
      WHERE id = $1
      RETURNING id, name, email, role, position, avatar_data_url AS "avatarDataUrl", active`,
-    [req.params.id, body.name?.trim(), body.email, passwordHash, body.role, body.position, body.active, Object.prototype.hasOwnProperty.call(body, 'avatarDataUrl'), body.avatarDataUrl]
+    [req.params.id, body.name?.trim(), body.email ? normalizeEmail(body.email) : body.email, passwordHash, body.role, body.position, body.active, Object.prototype.hasOwnProperty.call(body, 'avatarDataUrl'), body.avatarDataUrl]
   );
   if (!result.rowCount) throw httpError(404, 'Usuário não encontrado.');
   res.json(result.rows[0]);

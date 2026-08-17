@@ -2806,7 +2806,16 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
 }
 
 function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: ApiClient; canCoordinate: boolean; users: User[]; activeSeasonId: string }) {
-  const activeAthletes = useMemo(() => users.filter((user) => user.active !== false && user.role === 'ATLETA'), [users]);
+  const activeAthletes = useMemo(() => {
+    const seenEmails = new Set<string>();
+    return users.filter((user) => user.active !== false && user.role === 'ATLETA').filter((user) => {
+      const emailKey = user.email.trim().toLowerCase();
+      if (!emailKey) return true;
+      if (seenEmails.has(emailKey)) return false;
+      seenEmails.add(emailKey);
+      return true;
+    });
+  }, [users]);
   const [userId, setUserId] = useState(users[0]?.id ?? '');
   const [amount, setAmount] = useState('0');
   const [bulkAmount, setBulkAmount] = useState('0');

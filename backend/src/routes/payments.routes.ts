@@ -29,6 +29,18 @@ const generateMonthlyPaymentsSchema = z.object({
   notes: z.string().max(500).nullable().optional()
 }).refine((body) => body.referenceMonth || body.startMonth, 'Informe o mês inicial da geração.');
 
+const paymentPriorityOrder = `CASE
+        WHEN p.status = 'PAID' THEN 5
+        WHEN p.status = 'WAIVED' THEN 4
+        WHEN p.paid_amount_cents > 0 THEN 3
+        WHEN p.due_date < CURRENT_DATE THEN 2
+        ELSE 1
+      END DESC,
+      p.paid_amount_cents DESC,
+      p.updated_at DESC NULLS LAST,
+      p.created_at DESC NULLS LAST,
+      p.id DESC`;
+
 const paymentSelect = `p.id, p.user_id AS "userId", u.name AS "userName", p.season_id AS "seasonId", p.reference_month AS "referenceMonth",
       p.due_date AS "dueDate", p.amount_cents AS "amountCents", p.paid_amount_cents AS "paidAmountCents",
       GREATEST(p.amount_cents - p.paid_amount_cents, 0)::INTEGER AS "balanceCents",
@@ -47,11 +59,20 @@ paymentsRouter.use(requireAuth);
 
 paymentsRouter.get('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req, res) => {
   const result = await query(
-    `SELECT ${paymentSelect}
-     FROM payments p
-     JOIN users u ON u.id = p.user_id
-     WHERE ($1::UUID IS NULL OR p.season_id = $1) AND ($2::TEXT IS NULL OR p.status = $2)
-     ORDER BY p.reference_month DESC, p.due_date ASC, u.name ASC`,
+    `WITH ranked_payments AS (
+       SELECT ${paymentSelect},
+         row_number() OVER (
+           PARTITION BY lower(u.email), p.reference_month
+           ORDER BY ${paymentPriorityOrder}
+         ) AS duplicate_rank
+       FROM payments p
+       JOIN users u ON u.id = p.user_id
+       WHERE ($1::UUID IS NULL OR p.season_id = $1) AND ($2::TEXT IS NULL OR p.status = $2)
+     )
+     SELECT id, "userId", "userName", "seasonId", "referenceMonth", "dueDate", "amountCents", "paidAmountCents", "balanceCents", status, "paidAt", "earnsPoint", notes
+     FROM ranked_payments
+     WHERE duplicate_rank = 1
+     ORDER BY "referenceMonth" DESC, "dueDate" ASC, "userName" ASC`,
     [req.query.seasonId || null, req.query.status || null]
   );
   res.json(result.rows);
@@ -59,18 +80,35 @@ paymentsRouter.get('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
 
 paymentsRouter.get('/summary', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req, res) => {
   const result = await query(
-    `SELECT
+    `WITH deduplicated_payments AS (
+       SELECT p.amount_cents, p.paid_amount_cents, p.due_date, p.paid_at,
+         CASE
+           WHEN p.status = 'PAID' THEN 'PAID'
+           WHEN p.status = 'WAIVED' THEN 'WAIVED'
+           WHEN p.paid_amount_cents > 0 THEN 'PARTIAL'
+           WHEN p.due_date < CURRENT_DATE THEN 'LATE'
+           ELSE p.status
+         END AS resolved_status,
+         row_number() OVER (
+           PARTITION BY lower(u.email), p.reference_month
+           ORDER BY ${paymentPriorityOrder}
+         ) AS duplicate_rank
+       FROM payments p
+       JOIN users u ON u.id = p.user_id
+       WHERE ($1::UUID IS NULL OR p.season_id = $1)
+     )
+     SELECT
       COALESCE(sum(amount_cents), 0)::INTEGER AS "totalCents",
       COALESCE(sum(paid_amount_cents), 0)::INTEGER AS "paidCents",
-      COALESCE(sum(GREATEST(amount_cents - paid_amount_cents, 0)) FILTER (WHERE status NOT IN ('PAID', 'WAIVED')), 0)::INTEGER AS "openCents",
+      COALESCE(sum(GREATEST(amount_cents - paid_amount_cents, 0)) FILTER (WHERE resolved_status NOT IN ('PAID', 'WAIVED')), 0)::INTEGER AS "openCents",
       count(*)::INTEGER AS total,
-      count(*) FILTER (WHERE status = 'PAID')::INTEGER AS paid,
-      count(*) FILTER (WHERE status = 'WAIVED')::INTEGER AS waived,
-      count(*) FILTER (WHERE status = 'PENDING' AND due_date >= CURRENT_DATE)::INTEGER AS pending,
-      count(*) FILTER (WHERE status = 'LATE' OR (status IN ('PENDING', 'PARTIAL') AND due_date < CURRENT_DATE))::INTEGER AS late,
-      count(*) FILTER (WHERE status = 'PAID' AND paid_amount_cents >= amount_cents AND paid_at IS NOT NULL AND paid_at::DATE < due_date)::INTEGER AS "earlyPoints"
-     FROM payments
-     WHERE ($1::UUID IS NULL OR season_id = $1)`,
+      count(*) FILTER (WHERE resolved_status = 'PAID')::INTEGER AS paid,
+      count(*) FILTER (WHERE resolved_status = 'WAIVED')::INTEGER AS waived,
+      count(*) FILTER (WHERE resolved_status = 'PENDING' AND due_date >= CURRENT_DATE)::INTEGER AS pending,
+      count(*) FILTER (WHERE resolved_status = 'LATE' OR (resolved_status IN ('PENDING', 'PARTIAL') AND due_date < CURRENT_DATE))::INTEGER AS late,
+      count(*) FILTER (WHERE resolved_status = 'PAID' AND paid_amount_cents >= amount_cents AND paid_at IS NOT NULL AND paid_at::DATE < due_date)::INTEGER AS "earlyPoints"
+     FROM deduplicated_payments
+     WHERE duplicate_rank = 1`,
     [req.query.seasonId || null]
   );
   res.json(result.rows[0]);
@@ -138,8 +176,10 @@ paymentsRouter.post('/generate-month', requireRoles('ADMIN', 'COORDENADOR'), asy
          ($3::DATE + (interval '1 month' * gs.month_offset))::DATE AS due_date
        FROM generate_series(0, $7::INTEGER - 1) AS gs(month_offset)
      ), target_users AS (
-       SELECT id FROM users
+       SELECT DISTINCT ON (lower(email)) id
+       FROM users
        WHERE active = TRUE AND role = 'ATLETA' AND ($8::UUID[] IS NULL OR id = ANY($8::UUID[]))
+       ORDER BY lower(email), created_at ASC, id ASC
      )
      INSERT INTO payments (user_id, season_id, reference_month, due_date, amount_cents, paid_amount_cents, status, paid_at, notes, recorded_by)
      SELECT target_users.id, $1, months.reference_month, months.due_date, $4, 0, 'PENDING', NULL, $5, $6
