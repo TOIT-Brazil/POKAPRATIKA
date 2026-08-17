@@ -261,9 +261,14 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .payment-row > .ghost { grid-column: 1 / -1; justify-self: start; padding: 6px 9px; font-size: .72rem; }
 .cash-summary { grid-template-columns: repeat(3, 1fr); }
 .cash-ledger { display: grid; gap: 7px; padding: 9px; border-radius: 15px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
-.cash-list { max-height: 260px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.cash-row { align-content: start; }
-.cash-row b { color: #ffe39b; font-size: .88rem; }
+.cash-table-wrap { max-height: 42dvh; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
+.cash-table { min-width: 880px; font-size: .75rem; }
+.cash-table th,
+.cash-table td { white-space: nowrap; }
+.cash-table .cash-description-cell { min-width: 280px; white-space: normal; text-align: left; }
+.cash-table .cash-amount-cell { font-weight: 900; }
+.cash-table .cash-amount-cell.is-revenue { color: #1a7f4b; }
+.cash-table .cash-amount-cell.is-expense { color: #c2410c; }
 .voting-popup { border-color: rgba(59,130,246,.32); }
 .admin-modal-card { width: min(620px, 100%); }
 .modal-card.wide { width: min(980px, 100%); max-height: min(86dvh, 760px); overflow: auto; }
