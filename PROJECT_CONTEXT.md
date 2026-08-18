@@ -159,6 +159,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O bloco `Caixa do grupo` dentro de `Mensalidades` também deixou os cards e passou a usar tabela compacta com data, tipo, descrição, origem, responsável e valor.
 - As tabelas de `Mensalidades` e `Caixa do grupo` receberam uma segunda linha no cabeçalho com filtros por coluna, permitindo pesquisa direcionada por nome, mês, vencimento, status, observação, descrição, origem, responsável e demais campos visíveis.
 - O filtro dessas tabelas foi refinado para o padrão solicitado: cada coluna agora mostra um ícone de filtro no cabeçalho; ao clicar, abre um painel lateral compacto com campo de busca e lista rolável de valores daquele campo para seleção direta.
+- Os indicadores financeiros do módulo `Mensalidades` foram reunidos em uma única faixa horizontal, mantendo recebido, aberto, pendente, atraso, pontos antecipados, receitas, despesas e saldo de caixa na mesma linha com rolagem lateral quando necessário.
 - O fluxo de mensalistas foi blindado contra duplicidade por e-mail: cadastro/edição agora recusam e-mails já existentes, a geração/listagem de mensalidades desconsidera atletas repetidos por e-mail e foi preparada uma migration SQL manual para consolidar pagamentos duplicados e inativar cadastros repetidos legados.
 
 ## Regras importantes consolidadas
