@@ -117,6 +117,45 @@ function positionLabel(position?: AthletePosition | null): string {
   return athletePositionOptions.find((item) => item.value === position)?.label ?? 'MC • Meio campo';
 }
 
+function normalizeTableFilterValue(value: string | number | boolean | null | undefined): string {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function buildTableFilterOptions(values: Array<string | number | boolean | null | undefined>): string[] {
+  return [...new Set(values.map((value) => String(value ?? '').trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right, 'pt-BR', { sensitivity: 'base' }));
+}
+
+function TableFilterHeader({
+  label,
+  menuKey,
+  currentValue,
+  options,
+  activeMenu,
+  searchValue,
+  placeholder,
+  onToggle,
+  onSearchChange,
+  onSelect,
+  onClear
+}: {
+  label: string;
+  menuKey: string;
+  currentValue: string;
+  options: string[];
+  activeMenu: string | null;
+  searchValue: string;
+  placeholder: string;
+  onToggle: (key: string) => void;
+  onSearchChange: (value: string) => void;
+  onSelect: (value: string) => void;
+  onClear: () => void;
+}) {
+  const visibleOptions = options.filter((option) => normalizeTableFilterValue(option).includes(normalizeTableFilterValue(searchValue)));
+  const isOpen = activeMenu === menuKey;
+
+  return <div className="table-filter-anchor"><span>{label}</span><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => onToggle(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={onClear}>Limpar</button></div><input value={searchValue} onChange={(event) => onSearchChange(event.target.value)} placeholder={placeholder} /><div className="table-filter-options">{visibleOptions.length === 0 ? <span className="table-filter-empty">Nenhum valor encontrado.</span> : visibleOptions.map((option) => <button type="button" key={option} className={`table-filter-option ${currentValue === option ? 'is-selected' : ''}`} onClick={() => onSelect(option)}>{option}</button>)}</div></div>}</div>;
+}
+
 function positionBalanceGroup(position: AthletePosition): PositionBalanceGroup {
   if (position === 'GO') return 'GO';
   if (position === 'ZG' || position === 'LD' || position === 'LE') return 'DEFESA';
@@ -3053,6 +3092,13 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
   const [newMetric, setNewMetric] = useState<MetricCode>('TOTAL_POINTS');
   const [newType, setNewType] = useState<AwardType>('RANKING');
   const [newIcon, setNewIcon] = useState('🏅');
+  const [tableFilters, setTableFilters] = useState({ label: '', type: '', metric: '', sortDirection: '', winners: '', minGames: '', voteSlots: '', allowSelfVote: '', badgeIcon: '', badgeColor: '', active: '', hint: '' });
+  const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
+  const [filterSearch, setFilterSearch] = useState('');
+
+  useEffect(() => {
+    setFilterSearch('');
+  }, [activeFilterMenu]);
 
   async function loadSettings() {
     setCategories(await api.request<AwardSetting[]>('/settings/awards'));
@@ -3104,6 +3150,31 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
     setMessage('Regra adicionada na tela. Clique em salvar para gravar no banco.');
   }
 
+  function toggleFilterMenu(key: string) {
+    setActiveFilterMenu((current) => current === key ? null : key);
+  }
+
+  function filterValue(item: AwardSetting, key: keyof typeof tableFilters) {
+    if (key === 'label') return item.label;
+    if (key === 'type') return item.awardType === 'RANKING' ? 'Ranking automático' : item.awardType === 'VOTACAO' ? 'Votação' : item.awardType === 'SORTEIO' ? 'Sorteio/manual' : 'Premiação manual';
+    if (key === 'metric') return item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.votingEnabled ? 'Entra na votação' : 'Sem votação';
+    if (key === 'sortDirection') return item.sortDirection === 'DESC' ? 'Maior vence' : 'Menor vence';
+    if (key === 'winners') return String(item.winnersCount);
+    if (key === 'minGames') return String(item.minGames);
+    if (key === 'voteSlots') return String(item.voteSlots);
+    if (key === 'allowSelfVote') return item.allowSelfVote ? 'Permitido' : 'Bloqueado';
+    if (key === 'badgeIcon') return item.badgeIcon;
+    if (key === 'badgeColor') return item.badgeColor;
+    if (key === 'active') return item.active ? 'Ativa' : 'Inativa';
+    return metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.';
+  }
+
+  function filterOptions(key: keyof typeof tableFilters) {
+    return buildTableFilterOptions(categories.map((item) => filterValue(item, key)));
+  }
+
+  const filteredCategories = useMemo(() => categories.filter((item) => Object.entries(tableFilters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(item, key as keyof typeof tableFilters)).includes(normalizeTableFilterValue(value)))), [categories, tableFilters]);
+
   return (
     <section className="card compact rules-center">
       <div className="card-head">
@@ -3152,7 +3223,8 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
             </tr>
           </thead>
           <tbody>
-            {categories.length === 0 ? <tr><td colSpan={12} className="table-empty-cell">Nenhuma regra cadastrada.</td></tr> : categories.map((item) => <tr key={item.code}><td className="management-main-cell"><div className="rule-title"><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><div><input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} /><small>{item.code}</small></div></div></td><td><select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select></td><td>{item.awardType === 'RANKING' ? <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select> : <label className="bench compact-bench"><input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} />Entra na votação</label>}</td><td><select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select></td><td><input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} /></td><td><input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} /></td><td><input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} />Permitido</label></td><td><input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} /></td><td><input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} />{item.active ? 'Ativa' : 'Inativa'}</label></td><td className="management-hint-cell">{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</td></tr>)}
+            <tr><th>{TableFilterHeader({ label: 'Regra', menuKey: 'award-label', currentValue: tableFilters.label, options: filterOptions('label'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar regra', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, label: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, label: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Tipo', menuKey: 'award-type', currentValue: tableFilters.type, options: filterOptions('type'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar tipo', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, type: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, type: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Métrica / Votação', menuKey: 'award-metric', currentValue: tableFilters.metric, options: filterOptions('metric'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar métrica', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, metric: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, metric: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Ordenação', menuKey: 'award-sort', currentValue: tableFilters.sortDirection, options: filterOptions('sortDirection'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar ordenação', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, sortDirection: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, sortDirection: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Vencedores', menuKey: 'award-winners', currentValue: tableFilters.winners, options: filterOptions('winners'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar quantidade', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, winners: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, winners: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Mín. jogos', menuKey: 'award-minGames', currentValue: tableFilters.minGames, options: filterOptions('minGames'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar mínimo', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, minGames: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, minGames: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Votos', menuKey: 'award-voteSlots', currentValue: tableFilters.voteSlots, options: filterOptions('voteSlots'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar votos', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, voteSlots: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, voteSlots: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Auto-voto', menuKey: 'award-selfVote', currentValue: tableFilters.allowSelfVote, options: filterOptions('allowSelfVote'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar auto-voto', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, allowSelfVote: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, allowSelfVote: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Ícone', menuKey: 'award-icon', currentValue: tableFilters.badgeIcon, options: filterOptions('badgeIcon'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar ícone', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, badgeIcon: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, badgeIcon: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Cor', menuKey: 'award-color', currentValue: tableFilters.badgeColor, options: filterOptions('badgeColor'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar cor', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, badgeColor: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, badgeColor: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Status', menuKey: 'award-active', currentValue: tableFilters.active, options: filterOptions('active'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar status', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, active: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, active: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Dica', menuKey: 'award-hint', currentValue: tableFilters.hint, options: filterOptions('hint'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar dica', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, hint: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, hint: '' })); setActiveFilterMenu(null); } })}</th></tr>
+            {filteredCategories.length === 0 ? <tr><td colSpan={12} className="table-empty-cell">Nenhuma regra encontrada com os filtros atuais.</td></tr> : filteredCategories.map((item) => <tr key={item.code}><td className="management-main-cell"><div className="rule-title"><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><div><input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} /><small>{item.code}</small></div></div></td><td><select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select></td><td>{item.awardType === 'RANKING' ? <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select> : <label className="bench compact-bench"><input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} />Entra na votação</label>}</td><td><select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select></td><td><input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} /></td><td><input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} /></td><td><input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} />Permitido</label></td><td><input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} /></td><td><input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} />{item.active ? 'Ativa' : 'Inativa'}</label></td><td className="management-hint-cell">{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</td></tr>)}
           </tbody>
         </table>
       </div>
@@ -3317,6 +3389,160 @@ function parseStandingClipboard(text: string) {
   }).filter((row) => row.email || row.name);
 }
 
+function UsersAdminTable({ api, users, onReload, isAdmin, emptyText }: { api: ApiClient; users: User[]; onReload: () => Promise<void>; isAdmin: boolean; emptyText: string }) {
+  const [filters, setFilters] = useState({ name: '', email: '', role: '', position: '', status: '' });
+  const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
+  const [filterSearch, setFilterSearch] = useState('');
+
+  useEffect(() => {
+    setFilterSearch('');
+  }, [activeFilterMenu]);
+
+  function filterValue(user: User, key: keyof typeof filters) {
+    if (key === 'name') return user.name;
+    if (key === 'email') return user.email;
+    if (key === 'role') return user.role;
+    if (key === 'position') return positionLabel(user.position);
+    return user.active !== false ? 'Ativo' : 'Inativo';
+  }
+
+  function filterOptions(key: keyof typeof filters) {
+    return buildTableFilterOptions(users.map((user) => filterValue(user, key)));
+  }
+
+  const filteredUsers = useMemo(() => users.filter((user) => Object.entries(filters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(user, key as keyof typeof filters)).includes(normalizeTableFilterValue(value)))), [users, filters]);
+
+  return (
+    <div className="championship-wrap management-table-wrap">
+      <table className="championship-table management-table users-management-table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Perfil</th>
+            <th>Posição</th>
+            <th>Status</th>
+            <th>Ações</th>
+            <th>Retorno</th>
+          </tr>
+          <tr>
+            <th><TableFilterHeader label="Nome" menuKey="users-name" currentValue={filters.name} options={filterOptions('name')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar nome" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, name: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, name: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="E-mail" menuKey="users-email" currentValue={filters.email} options={filterOptions('email')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar e-mail" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, email: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, email: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Perfil" menuKey="users-role" currentValue={filters.role} options={filterOptions('role')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar perfil" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, role: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, role: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Posição" menuKey="users-position" currentValue={filters.position} options={filterOptions('position')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar posição" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, position: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, position: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Status" menuKey="users-status" currentValue={filters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th>
+            <th>Ações</th>
+            <th>Retorno</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredUsers.length === 0 ? <tr><td colSpan={7} className="table-empty-cell">{emptyText}</td></tr> : filteredUsers.map((user) => <UserAdminTableRow key={user.id} api={api} user={user} isAdmin={isAdmin} onReload={onReload} />)}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SeasonsAdminTable({ seasons, onStartSeason, onCloseSeason }: { seasons: Season[]; onStartSeason: (id: string) => Promise<void>; onCloseSeason: (id: string) => Promise<void> }) {
+  const [filters, setFilters] = useState({ name: '', year: '', status: '', startsOn: '', endsOn: '' });
+  const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
+  const [filterSearch, setFilterSearch] = useState('');
+
+  useEffect(() => {
+    setFilterSearch('');
+  }, [activeFilterMenu]);
+
+  function statusLabel(status: Season['status']) {
+    return status === 'OPEN' ? 'Aberta' : status === 'CLOSED' ? 'Encerrada' : 'Rascunho';
+  }
+
+  function filterValue(season: Season, key: keyof typeof filters) {
+    if (key === 'name') return season.name;
+    if (key === 'year') return String(season.year);
+    if (key === 'status') return statusLabel(season.status);
+    if (key === 'startsOn') return season.startsOn?.slice(0, 10) ?? 'Sem início';
+    return season.endsOn?.slice(0, 10) ?? 'Sem fim';
+  }
+
+  function filterOptions(key: keyof typeof filters) {
+    return buildTableFilterOptions(seasons.map((season) => filterValue(season, key)));
+  }
+
+  const filteredSeasons = useMemo(() => seasons.filter((season) => Object.entries(filters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(season, key as keyof typeof filters)).includes(normalizeTableFilterValue(value)))), [seasons, filters]);
+
+  return (
+    <div className="championship-wrap management-table-wrap">
+      <table className="championship-table management-table">
+        <thead>
+          <tr>
+            <th>Temporada</th>
+            <th>Ano</th>
+            <th>Status</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Ações</th>
+          </tr>
+          <tr>
+            <th><TableFilterHeader label="Temporada" menuKey="seasons-name" currentValue={filters.name} options={filterOptions('name')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar temporada" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, name: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, name: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Ano" menuKey="seasons-year" currentValue={filters.year} options={filterOptions('year')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar ano" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, year: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, year: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Status" menuKey="seasons-status" currentValue={filters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Início" menuKey="seasons-start" currentValue={filters.startsOn} options={filterOptions('startsOn')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar início" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, startsOn: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, startsOn: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Fim" menuKey="seasons-end" currentValue={filters.endsOn} options={filterOptions('endsOn')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar fim" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, endsOn: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, endsOn: '' })); setActiveFilterMenu(null); }} /></th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredSeasons.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhuma temporada encontrada com os filtros atuais.</td></tr> : filteredSeasons.map((season) => <tr key={season.id}><td className="management-main-cell"><strong>{season.name}</strong></td><td>{season.year}</td><td><span className={`status ${season.status.toLowerCase()}`}>{statusLabel(season.status)}</span></td><td>{season.startsOn?.slice(0, 10) ?? 'Sem início'}</td><td>{season.endsOn?.slice(0, 10) ?? 'Sem fim'}</td><td><div className="actions compact-actions">{season.status !== 'OPEN' && season.status !== 'CLOSED' && <button className="primary small" onClick={() => void onStartSeason(season.id)}>Iniciar</button>}{season.status === 'OPEN' && <button className="ghost" onClick={() => void onCloseSeason(season.id)}>Encerrar e liberar votação</button>}{season.status === 'CLOSED' && <span className="payments-muted">Encerrada</span>}</div></td></tr>)}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PointsSettingsTable({ points, onPointChange }: { points: PointSetting[]; onPointChange: (code: string, points: number) => void }) {
+  const [filters, setFilters] = useState({ label: '', code: '', points: '' });
+  const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
+  const [filterSearch, setFilterSearch] = useState('');
+
+  useEffect(() => {
+    setFilterSearch('');
+  }, [activeFilterMenu]);
+
+  function filterValue(item: PointSetting, key: keyof typeof filters) {
+    if (key === 'label') return item.label;
+    if (key === 'code') return item.code;
+    return String(item.points);
+  }
+
+  function filterOptions(key: keyof typeof filters) {
+    return buildTableFilterOptions(points.map((item) => filterValue(item, key)));
+  }
+
+  const filteredPoints = useMemo(() => points.filter((item) => Object.entries(filters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(item, key as keyof typeof filters)).includes(normalizeTableFilterValue(value)))), [points, filters]);
+
+  return (
+    <div className="championship-wrap management-table-wrap">
+      <table className="championship-table management-table">
+        <thead>
+          <tr>
+            <th>Regra</th>
+            <th>Código</th>
+            <th>Pontos</th>
+          </tr>
+          <tr>
+            <th><TableFilterHeader label="Regra" menuKey="points-label" currentValue={filters.label} options={filterOptions('label')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar regra" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, label: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, label: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Código" menuKey="points-code" currentValue={filters.code} options={filterOptions('code')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar código" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, code: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, code: '' })); setActiveFilterMenu(null); }} /></th>
+            <th><TableFilterHeader label="Pontos" menuKey="points-value" currentValue={filters.points} options={filterOptions('points')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar pontos" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, points: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, points: '' })); setActiveFilterMenu(null); }} /></th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredPoints.length === 0 ? <tr><td colSpan={3} className="table-empty-cell">Nenhuma regra de pontuação encontrada com os filtros atuais.</td></tr> : filteredPoints.map((item) => <tr key={item.code}><td className="management-main-cell"><strong>{item.label}</strong></td><td>{item.code}</td><td><input type="number" value={item.points} onChange={(event) => onPointChange(item.code, Number(event.target.value))} /></td></tr>)}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function UsersManagementPanel({ api, users, onReload, isAdmin }: { api: ApiClient; users: User[]; onReload: () => Promise<void>; isAdmin: boolean }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -3388,24 +3614,7 @@ function UsersManagementTablePanel({ api, users, onReload, isAdmin }: { api: Api
 
       <section className="card compact users-card">
         <div className="card-head"><h2>Usuários do grupo</h2><span className="status open">{users.length} pessoa(s)</span></div>
-        <div className="championship-wrap management-table-wrap">
-          <table className="championship-table management-table users-management-table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>E-mail</th>
-                <th>Perfil</th>
-                <th>Posição</th>
-                <th>Status</th>
-                <th>Ações</th>
-                <th>Retorno</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length === 0 ? <tr><td colSpan={7} className="table-empty-cell">Nenhum usuário cadastrado.</td></tr> : users.map((user) => <UserAdminTableRow key={user.id} api={api} user={user} isAdmin={isAdmin} onReload={onReload} />)}
-            </tbody>
-          </table>
-        </div>
+        <UsersAdminTable api={api} users={users} onReload={onReload} isAdmin={isAdmin} emptyText="Nenhum usuário encontrado com os filtros atuais." />
       </section>
 
       {modalOpen && <div className="modal"><form className="card modal-card admin-modal-card" onSubmit={(event) => { void createUser(event).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao criar usuário.')); }}><div className="card-head"><h2>Novo usuário</h2><button type="button" className="ghost" onClick={() => setModalOpen(false)}>Fechar</button></div><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome" required /><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" required /><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha inicial opcional" type="password" minLength={8} />{isAdmin ? <select value={role} onChange={(event) => setRole(event.target.value as 'ADMIN' | 'COORDENADOR' | 'ATLETA')}><option>ATLETA</option><option>COORDENADOR</option><option>ADMIN</option></select> : <span className="status">Novo usuário será ATLETA</span>}<select value={position} onChange={(event) => setPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><button className="primary">Criar/enviar convite</button></form></div>}
@@ -3487,6 +3696,10 @@ function AdminPanel({ api, users, seasons, points, activeSeasonId, onReload, isA
 
   useEffect(() => setDraftPoints(points), [points]);
 
+  function updateDraftPoint(code: string, nextPoints: number) {
+    setDraftPoints((list) => list.map((item) => item.code === code ? { ...item, points: nextPoints } : item));
+  }
+
   async function savePoints() {
     await api.request('/settings/points', { method: 'PUT', body: JSON.stringify({ settings: draftPoints.map(({ code, points }) => ({ code, points })) }) });
     await onReload();
@@ -3545,10 +3758,10 @@ function AdminPanel({ api, users, seasons, points, activeSeasonId, onReload, isA
           {isAdmin && <button className="row-card as-button" onClick={() => setAdminModal('import')} disabled={!activeSeasonId}><strong>Importar Excel</strong><span>{importResult?.imported.length ?? 0}</span><small>Atualize saldo inicial da temporada ativa via colagem do Excel.</small></button>}
         </div>
       </section>
-      <section className="card compact"><div className="card-head"><h2>Temporadas</h2><span className="status open">{seasons.length} registro(s)</span></div><div className="table-cards admin-list">{seasons.map((season) => <article className="row-card" key={season.id}><strong>{season.name} • {season.year}</strong><span className={`status ${season.status.toLowerCase()}`}>{season.status}</span><small>{season.startsOn?.slice(0, 10) ?? 'sem início'} até {season.endsOn?.slice(0, 10) ?? 'sem fim'}</small><div className="actions">{season.status !== 'OPEN' && season.status !== 'CLOSED' && <button className="primary small" onClick={() => void startSeason(season.id)}>Iniciar</button>}{season.status === 'OPEN' && <button className="ghost" onClick={() => void closeSeason(season.id)}>Encerrar e liberar votação</button>}</div></article>)}</div></section>
-      <section className="card compact"><div className="card-head"><h2>Usuários</h2><span className="status open">{users.length} pessoa(s)</span></div><div className="table-cards admin-users">{users.map((user) => <UserAdminRow key={user.id} api={api} user={user} isAdmin={isAdmin} onReload={onReload} />)}</div></section>
+      <section className="card compact"><div className="card-head"><h2>Temporadas</h2><span className="status open">{seasons.length} registro(s)</span></div><SeasonsAdminTable seasons={seasons} onStartSeason={startSeason} onCloseSeason={closeSeason} /></section>
+      <section className="card compact"><div className="card-head"><h2>Usuários</h2><span className="status open">{users.length} pessoa(s)</span></div><UsersAdminTable api={api} users={users} onReload={onReload} isAdmin={isAdmin} emptyText="Nenhum usuário encontrado com os filtros atuais." /></section>
       {adminModal === 'season' && <div className="modal"><form className="card modal-card admin-modal-card" onSubmit={(event) => { void createSeason(event).then(() => setAdminModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao criar temporada.')); }}><div className="card-head"><h2>Criar temporada</h2><button type="button" className="ghost" onClick={() => setAdminModal(null)}>Fechar</button></div><input value={seasonName} onChange={(event) => setSeasonName(event.target.value)} placeholder="Nome da temporada" required /><input type="number" value={seasonYear} onChange={(event) => setSeasonYear(Number(event.target.value))} min="2000" max="2100" /><input type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} /><input type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} /><button className="primary">Criar temporada</button></form></div>}
-      {adminModal === 'points' && <div className="modal"><section className="card modal-card admin-modal-card"><div className="card-head"><h2>Pontuação configurável</h2><button type="button" className="ghost" onClick={() => setAdminModal(null)}>Fechar</button></div>{draftPoints.map((item, index) => <label className="field-row" key={item.code}><span>{item.label}</span><input type="number" value={item.points} onChange={(event) => setDraftPoints((list) => list.map((current, currentIndex) => currentIndex === index ? { ...current, points: Number(event.target.value) } : current))} /></label>)}<button className="primary" onClick={() => void savePoints().then(() => setAdminModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao salvar pontuação.'))}>Salvar pontuação</button></section></div>}
+      {adminModal === 'points' && <div className="modal"><section className="card modal-card wide"><div className="card-head"><h2>Pontuação configurável</h2><button type="button" className="ghost" onClick={() => setAdminModal(null)}>Fechar</button></div><PointsSettingsTable points={draftPoints} onPointChange={updateDraftPoint} /><button className="primary" onClick={() => void savePoints().then(() => setAdminModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao salvar pontuação.'))}>Salvar pontuação</button></section></div>}
       {adminModal === 'user' && <div className="modal"><form className="card modal-card admin-modal-card" onSubmit={(event) => { void createUser(event).then(() => setAdminModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao criar usuário.')); }}><div className="card-head"><h2>Novo usuário</h2><button type="button" className="ghost" onClick={() => setAdminModal(null)}>Fechar</button></div><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome" required /><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" required /><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha inicial opcional" type="password" minLength={8} />{isAdmin ? <select value={role} onChange={(event) => setRole(event.target.value as 'ADMIN' | 'COORDENADOR' | 'ATLETA')}><option>ATLETA</option><option>COORDENADOR</option><option>ADMIN</option></select> : <span className="status">Novo usuário será ATLETA</span>}<select value={userPosition} onChange={(event) => setUserPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><button className="primary">Criar/enviar convite</button></form></div>}
       {isAdmin && adminModal === 'import' && <div className="modal"><section className="card modal-card wide"><div className="card-head"><h2>Importar tabela atual do Excel</h2><button type="button" className="ghost" onClick={() => setAdminModal(null)}>Fechar</button></div><p className="muted">Cole do Excel com cabeçalho. Use e-mail para casar atletas com segurança.</p><textarea className="paste-box" value={standingPaste} onChange={(event) => setStandingPaste(event.target.value)} placeholder="nome\temail\tpontos\tjogos\tpresenças\tv\te\td\tgols\tgols contra\tassistências\tmarcados\tsofridos" /><button className="primary" onClick={() => void importStandings().then(() => setAdminModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao importar Excel.'))} disabled={!activeSeasonId}>Importar saldo</button>{importResult && <div className="chips"><span className="chip trophy">Importados: {importResult.imported.length}</span>{importResult.skipped.map((item) => <span className="chip danger" key={`${item.identifier}-${item.reason}`}>{item.identifier}: {item.reason}</span>)}</div>}</section></div>}
     </div>
