@@ -1072,9 +1072,11 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
   const [clockSeconds, setClockSeconds] = useState(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
   const [clockRunning, setClockRunning] = useState(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
-  const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Monte a súmula operacional neste quadro.');
-  const [swapSelection, setSwapSelection] = useState<string[]>([]);
+  const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
+  const [draggedPlayerId, setDraggedPlayerId] = useState('');
+  const [dropTargetId, setDropTargetId] = useState('');
   const usersById = new Map(users.map((item) => [item.id, item]));
+  const skipAutosaveRef = useRef(true);
 
   useEffect(() => {
     const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
@@ -1084,8 +1086,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setEvents(recoveredEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
     setClockSeconds(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
     setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
-    setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Monte a súmula operacional neste quadro.');
-    setSwapSelection([]);
+    setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
+    setDraggedPlayerId('');
+    setDropTargetId('');
+    skipAutosaveRef.current = true;
   }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users]);
 
   useEffect(() => {
@@ -1100,6 +1104,18 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const timer = window.setInterval(() => setClockSeconds((value) => Math.min(limitSeconds, value + 1)), 1000);
     return () => window.clearInterval(timer);
   }, [clockRunning, match.availableMinutes, match.startedAt, match.status]);
+
+  useEffect(() => {
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return;
+    }
+    if (match.status === 'CONFIRMED') return;
+    const timer = window.setTimeout(() => {
+      void saveBoard(false).catch((err) => setSheetMessage(err instanceof Error ? err.message : 'Falha ao salvar rascunho da súmula.'));
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [players, teamAScore, teamBScore, events, match.status]);
 
   const playablePlayers = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
 
@@ -1172,17 +1188,11 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setSheetMessage(`${eventLabel(eventType)} lançado para ${player.name}.`);
   }
 
-  function toggleSwapCandidate(player: MatchDetail['players'][number]) {
-    setSwapSelection((current) => {
-      if (current.includes(player.userId)) return current.filter((item) => item !== player.userId);
-      if (current.length === 0) return [player.userId];
-      const anchor = players.find((item) => item.userId === current[0]);
-      if (!anchor || anchor.team !== player.team || anchor.startsOnBench === player.startsOnBench) return [player.userId];
-      return [current[0], player.userId];
-    });
+  function canSwapPlayers(firstPlayer: MatchDetail['players'][number] | undefined, secondPlayer: MatchDetail['players'][number] | undefined) {
+    return Boolean(firstPlayer && secondPlayer && firstPlayer.userId !== secondPlayer.userId && firstPlayer.team === secondPlayer.team && firstPlayer.team !== 'PRESENTE_SEM_JOGAR' && firstPlayer.startsOnBench !== secondPlayer.startsOnBench);
   }
 
-  async function saveBoard() {
+  async function saveBoard(showFeedback = true) {
     const teamAPlayers = players.filter((player) => player.team === 'A');
     const teamBPlayers = players.filter((player) => player.team === 'B');
     await api.request(`/matches/${match.id}/lineup`, {
@@ -1208,19 +1218,23 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       method: 'PATCH',
       body: JSON.stringify({ teamAScore, teamBScore, events, clockSeconds, clockRunning })
     });
-    setSheetMessage(`Rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.`);
-    await onSaved();
+    if (showFeedback) setSheetMessage(`Rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.`);
   }
 
-  async function startReport() {
+  async function startGame() {
     if (match.status === 'RUNNING') {
       setClockRunning(true);
-      setSheetMessage('Relatório já está em andamento para esta súmula.');
+      setSheetMessage('O jogo já foi iniciado nesta súmula.');
       return;
     }
+    if (match.status === 'SUBMITTED' || match.status === 'CONFIRMED') {
+      setSheetMessage('Este jogo já está encerrado para edição operacional.');
+      return;
+    }
+    await saveBoard(false);
     await api.request(`/matches/${match.id}/start`, { method: 'POST' });
     setClockRunning(true);
-    setSheetMessage('Relatório iniciado com cronômetro oficial.');
+    setSheetMessage('Jogo iniciado com cronômetro oficial.');
     await onSaved();
   }
 
@@ -1229,33 +1243,33 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setSheetMessage('Esta súmula já foi confirmada.');
       return;
     }
-    await api.request(`/matches/${match.id}/submit`, { method: 'POST', body: JSON.stringify({ teamAScore, teamBScore, events }) });
-    setClockRunning(false);
-    setSheetMessage('Jogo finalizado e enviado para fechamento.');
-    await onSaved();
-  }
-
-  async function generateSheet() {
-    if (match.status !== 'SUBMITTED') {
-      setSheetMessage('Finalize o jogo antes de gerar a súmula.');
+    if (match.status === 'DRAFT') {
+      setSheetMessage('Inicie o jogo antes de finalizar a súmula.');
       return;
+    }
+    await saveBoard(false);
+    if (match.status !== 'SUBMITTED') {
+      await api.request(`/matches/${match.id}/submit`, { method: 'POST', body: JSON.stringify({ teamAScore, teamBScore, events }) });
     }
     await api.request(`/matches/${match.id}/confirm`, { method: 'POST' });
-    setSheetMessage('Súmula gerada e confirmada.');
+    setClockRunning(false);
+    setSheetMessage('Jogo finalizado e súmula confirmada.');
     await onSaved();
   }
 
-  function executeSwap() {
-    const [firstId, secondId] = swapSelection;
-    const firstPlayer = players.find((player) => player.userId === firstId);
-    const secondPlayer = players.find((player) => player.userId === secondId);
-    if (!firstPlayer || !secondPlayer || firstPlayer.team !== secondPlayer.team || firstPlayer.startsOnBench === secondPlayer.startsOnBench) {
-      setSheetMessage('A troca precisa envolver um titular e um reserva do mesmo time.');
+  function executeDragSwap(targetPlayerId: string) {
+    const draggedPlayer = players.find((player) => player.userId === draggedPlayerId);
+    const targetPlayer = players.find((player) => player.userId === targetPlayerId);
+    if (!canSwapPlayers(draggedPlayer, targetPlayer)) {
+      setDraggedPlayerId('');
+      setDropTargetId('');
+      setSheetMessage('Arraste um titular sobre um reserva do mesmo time para trocar automaticamente.');
       return;
     }
-    setPlayers((list) => list.map((player) => player.userId === firstId ? { ...player, startsOnBench: secondPlayer.startsOnBench } : player.userId === secondId ? { ...player, startsOnBench: firstPlayer.startsOnBench } : player));
-    setSwapSelection([]);
-    setSheetMessage(`Troca armada entre #${playerBoardNumber(firstPlayer, 0)} e #${playerBoardNumber(secondPlayer, 0)}.`);
+    setPlayers((list) => list.map((player) => player.userId === draggedPlayerId ? { ...player, startsOnBench: targetPlayer?.startsOnBench ?? player.startsOnBench } : player.userId === targetPlayerId ? { ...player, startsOnBench: draggedPlayer?.startsOnBench ?? player.startsOnBench } : player));
+    setDraggedPlayerId('');
+    setDropTargetId('');
+    setSheetMessage(`Troca feita entre #${playerBoardNumber(draggedPlayer!, 0)} e #${playerBoardNumber(targetPlayer!, 0)}.`);
   }
 
   function summaryTime(item: MatchEventDraft) {
@@ -1281,13 +1295,14 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   function rosterRow(player: MatchDetail['players'][number], index: number, reserve = false) {
     const user = usersById.get(player.userId);
-    const selected = swapSelection.includes(player.userId);
+    const dragged = draggedPlayerId === player.userId;
+    const dropTarget = dropTargetId === player.userId;
     return (
-      <button type="button" className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${selected ? 'is-selected' : ''}`} key={player.userId} onClick={() => toggleSwapCandidate(player)}>
+      <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''}`} key={player.userId} role="group" draggable={match.status !== 'CONFIRMED'} onDragStart={() => setDraggedPlayerId(player.userId)} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); executeDragSwap(player.userId); }}>
         <div className="ops-roster-avatar">{user?.avatarDataUrl ? <img src={user.avatarDataUrl} alt={player.name} /> : <span>{player.name.slice(0, 1)}</span>}</div>
         <div className="ops-roster-copy">
           <strong>#{playerBoardNumber(player, index)} {player.name}</strong>
-          <small>{rosterSubtitle(player)}</small>
+          <small>{rosterSubtitle(player)}{match.status !== 'CONFIRMED' ? ' • arraste para trocar' : ''}</small>
         </div>
         <div className="ops-roster-actions">
           <button type="button" className="ops-icon-card is-yellow" title="Cartão amarelo" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
@@ -1295,7 +1310,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <button type="button" className="ops-icon-card is-goal" title="Gol" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
           <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>⋮</button>
         </div>
-      </button>
+      </div>
     );
   }
 
@@ -1305,10 +1320,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const rightTime = right.occurredAt ?? right.createdAt ? new Date(right.occurredAt ?? right.createdAt ?? '').getTime() : right.minute * 60000;
     return leftTime - rightTime;
   });
-  const swapFirstPlayer = swapSelection.length >= 1 ? players.find((player) => player.userId === swapSelection[0]) ?? null : null;
-  const swapSecondPlayer = swapSelection.length >= 2 ? players.find((player) => player.userId === swapSelection[1]) ?? null : null;
-
-
   return (
     <div className="sheet-preview-board">
       <div className="sheet-preview-top">
@@ -1347,30 +1358,22 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <div className="ops-roster-head team-b-head"><div className="sheet-crest-pair small"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div><strong>{match.teamBName}</strong></div>
           <span className="sheet-panel-label">Titulares</span>
           <div className="ops-roster-list">{startersForTeam('B').length ? startersForTeam('B').map((player, index) => rosterRow(player, index)) : <small className="muted">Sem titulares definidos.</small>}</div>
+          <div className="ops-roster-head reserve-head"><strong>Banco de reservas</strong><span>{reservesForTeam('B').length}</span></div>
+          <div className="ops-roster-list reserve-list">{reservesForTeam('B').length ? reservesForTeam('B').map((player, index) => rosterRow(player, index, true)) : <small className="muted">Sem reservas definidos.</small>}</div>
         </section>
       </div>
 
       <div className="sheet-preview-bottom">
-        <section className="sheet-swap-panel">
-          <div className="sheet-swap-actions">
-            <button type="button" className="primary sheet-green-button" onClick={executeSwap}>Troca</button>
-          </div>
-        </section>
-
-        <section className="sheet-closing-panel">
-          <div className="sheet-closing-head">
+        <section className="sheet-log-panel is-sheet-main">
+          <div className="match-control-feed-head">
             <div>
-              <strong>Fechamento da súmula</strong>
-              <small>{sheetMessage}</small>
+              <strong>Log da súmula</strong>
+              <small>{match.matchDate ? new Date(match.matchDate).toLocaleDateString('pt-BR') : 'Sem data'}</small>
             </div>
-            <div className="sheet-head-actions"><button type="button" className="primary sheet-green-button" onClick={() => void saveBoard()}>Salvar Súmula</button><button type="button" className="primary sheet-green-button is-alt" onClick={() => void startReport()}>Iniciar Relatório</button></div>
+            <small>{sheetMessage}</small>
           </div>
-          <div className="sheet-event-summary">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`${item.userId}-${item.eventType}-${index}`}>{summaryText(item)}</span>)}</div>
-          <div className="sheet-log-panel">
-            <div className="match-control-feed-head"><strong>Log da súmula</strong><small>{match.matchDate ? new Date(match.matchDate).toLocaleDateString('pt-BR') : 'Sem data'}</small></div>
-            <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`log-${item.userId}-${item.eventType}-${index}`}><b>{summaryTime(item)}</b><small>{summaryText(item).split(' - ').slice(1).join(' - ')}</small></span>)}</div>
-          </div>
-          <div className="sheet-footer-actions"><button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>FINALIZAR JOGO</button><button type="button" className="primary sheet-green-button" onClick={() => void generateSheet()}>GERAR SÚMULA</button></div>
+          <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`log-${item.userId}-${item.eventType}-${index}`}><b>{summaryTime(item)}</b><small>{summaryText(item).split(' - ').slice(1).join(' - ')}</small></span>)}</div>
+          <div className="sheet-footer-actions">{match.status === 'DRAFT' && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}{match.status !== 'CONFIRMED' && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}</div>
         </section>
       </div>
     </div>

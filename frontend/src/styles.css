@@ -530,8 +530,9 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-roster-panel { gap: 5px; padding: 10px; }
 .sheet-roster-panel .ops-roster-head { border-bottom: 0; padding-bottom: 0; }
 .sheet-panel-label { color: #141414; font-size: .92rem; font-weight: 950; text-transform: uppercase; }
-.sheet-roster-row { width: 100%; text-align: left; cursor: pointer; padding: 6px; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 6px; }
-.sheet-roster-row.is-selected { border-color: rgba(22,163,74,.55); box-shadow: inset 0 0 0 1px rgba(22,163,74,.22), 0 0 0 2px rgba(34,197,94,.1); }
+.sheet-roster-row { width: 100%; text-align: left; cursor: grab; padding: 6px; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 6px; user-select: none; }
+.sheet-roster-row.is-dragging { opacity: .62; transform: scale(.99); }
+.sheet-roster-row.is-drop-target { border-color: rgba(22,163,74,.55); box-shadow: inset 0 0 0 1px rgba(22,163,74,.22), 0 0 0 2px rgba(34,197,94,.1); background: linear-gradient(180deg, #f4fbf6 0%, #ebf7ef 100%); }
 .sheet-roster-row .ops-roster-actions button { cursor: pointer; }
 .sheet-roster-row .ops-roster-avatar { width: 38px; height: 38px; border-radius: 10px; }
 .sheet-roster-row .ops-roster-copy strong { font-size: .82rem; }
@@ -540,7 +541,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-pitch-panel { padding: 0; background: transparent; border: 0; box-shadow: none; }
 .sheet-pitch-surface { min-height: 338px; }
 .ops-pitch-player.is-goalkeeper span { background: linear-gradient(180deg, #7ad6b5 0%, #399b77 100%); color: #083327; }
-.sheet-preview-bottom { display: grid; grid-template-columns: minmax(230px, .48fr) minmax(0, 1.52fr); gap: 10px; align-items: start; }
+.sheet-preview-bottom { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
 .sheet-swap-panel { display: grid; gap: 7px; padding: 10px; align-content: start; }
 .sheet-swap-actions { display: grid; gap: 8px; }
 .sheet-green-button { min-height: 40px; border-radius: 14px; background: linear-gradient(180deg, #23b65f 0%, #139847 100%); border: 1px solid #0f7f3b; box-shadow: 0 10px 22px rgba(19, 152, 71, .22); }
@@ -554,6 +555,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-event-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; padding: 8px 10px; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fbf8 100%); border: 1px solid #d7e5da; }
 .sheet-event-summary span { color: #142019; font-size: .78rem; line-height: 1.25; }
 .sheet-log-panel { display: grid; gap: 6px; padding: 8px 10px; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fbf8 100%); border: 1px solid #d7e5da; }
+.sheet-log-panel.is-sheet-main { gap: 10px; }
 .sheet-log-panel .event-log { background: #fdfefd; border-color: #dde9df; }
 .sheet-log-panel .event-log { max-height: 108px; }
 .sheet-log-panel .event-log b { color: #215a49; }

@@ -4,6 +4,7 @@
 - O modal `Perfil do atleta` foi redesenhado para um card vertical inspirado no layout visual de referência, com avatar central grande, ações logo abaixo, histórico visual de temporadas e cards compactos para títulos/badges e resumo da carreira.
 - O menu da conta foi simplificado: `Trocar senha` saiu do dropdown e ficou disponível apenas dentro do modal `Perfil do atleta`, evitando ação duplicada.
 - Os filtros das tabelas foram simplificados para busca direta por texto no popover; a lista grande de opções por coluna foi removida para manter a filtragem mais rápida e limpa.
+- A nova súmula operacional foi simplificada: banco de reservas visível para os dois times, troca manual por botão removida em favor de arrastar e soltar, autosave do quadro sem botão explícito e fluxo reduzido a `Iniciar jogo`, `Finalizar jogo` e `Log da súmula`.
 - A aba `Usuários` passou a usar uma versão tabelada própria com colunas de nome, e-mail, perfil, posição, status, ações e retorno; a central de `Prêmios` também foi migrada para tabela editável de regras.
 # PROJECT_CONTEXT — POKA PRÁTIKA
 
