@@ -3207,20 +3207,6 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
       <div className="championship-wrap management-table-wrap">
         <table className="championship-table management-table rules-table">
           <thead>
-            <tr>
-              <th>Regra</th>
-              <th>Tipo</th>
-              <th>Métrica / Votação</th>
-              <th>Ordenação</th>
-              <th>Vencedores</th>
-              <th>Mín. jogos</th>
-              <th>Votos</th>
-              <th>Auto-voto</th>
-              <th>Ícone</th>
-              <th>Cor</th>
-              <th>Status</th>
-              <th>Dica</th>
-            </tr>
           </thead>
           <tbody>
             <tr><th>{TableFilterHeader({ label: 'Regra', menuKey: 'award-label', currentValue: tableFilters.label, options: filterOptions('label'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar regra', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, label: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, label: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Tipo', menuKey: 'award-type', currentValue: tableFilters.type, options: filterOptions('type'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar tipo', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, type: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, type: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Métrica / Votação', menuKey: 'award-metric', currentValue: tableFilters.metric, options: filterOptions('metric'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar métrica', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, metric: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, metric: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Ordenação', menuKey: 'award-sort', currentValue: tableFilters.sortDirection, options: filterOptions('sortDirection'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar ordenação', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, sortDirection: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, sortDirection: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Vencedores', menuKey: 'award-winners', currentValue: tableFilters.winners, options: filterOptions('winners'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar quantidade', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, winners: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, winners: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Mín. jogos', menuKey: 'award-minGames', currentValue: tableFilters.minGames, options: filterOptions('minGames'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar mínimo', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, minGames: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, minGames: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Votos', menuKey: 'award-voteSlots', currentValue: tableFilters.voteSlots, options: filterOptions('voteSlots'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar votos', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, voteSlots: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, voteSlots: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Auto-voto', menuKey: 'award-selfVote', currentValue: tableFilters.allowSelfVote, options: filterOptions('allowSelfVote'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar auto-voto', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, allowSelfVote: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, allowSelfVote: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Ícone', menuKey: 'award-icon', currentValue: tableFilters.badgeIcon, options: filterOptions('badgeIcon'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar ícone', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, badgeIcon: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, badgeIcon: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Cor', menuKey: 'award-color', currentValue: tableFilters.badgeColor, options: filterOptions('badgeColor'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar cor', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, badgeColor: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, badgeColor: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Status', menuKey: 'award-active', currentValue: tableFilters.active, options: filterOptions('active'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar status', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, active: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, active: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Dica', menuKey: 'award-hint', currentValue: tableFilters.hint, options: filterOptions('hint'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar dica', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, hint: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, hint: '' })); setActiveFilterMenu(null); } })}</th></tr>
@@ -3417,15 +3403,6 @@ function UsersAdminTable({ api, users, onReload, isAdmin, emptyText }: { api: Ap
       <table className="championship-table management-table users-management-table">
         <thead>
           <tr>
-            <th>Nome</th>
-            <th>E-mail</th>
-            <th>Perfil</th>
-            <th>Posição</th>
-            <th>Status</th>
-            <th>Ações</th>
-            <th>Retorno</th>
-          </tr>
-          <tr>
             <th><TableFilterHeader label="Nome" menuKey="users-name" currentValue={filters.name} options={filterOptions('name')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar nome" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, name: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, name: '' })); setActiveFilterMenu(null); }} /></th>
             <th><TableFilterHeader label="E-mail" menuKey="users-email" currentValue={filters.email} options={filterOptions('email')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar e-mail" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, email: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, email: '' })); setActiveFilterMenu(null); }} /></th>
             <th><TableFilterHeader label="Perfil" menuKey="users-role" currentValue={filters.role} options={filterOptions('role')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar perfil" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, role: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, role: '' })); setActiveFilterMenu(null); }} /></th>
@@ -3475,14 +3452,6 @@ function SeasonsAdminTable({ seasons, onStartSeason, onCloseSeason }: { seasons:
       <table className="championship-table management-table">
         <thead>
           <tr>
-            <th>Temporada</th>
-            <th>Ano</th>
-            <th>Status</th>
-            <th>Início</th>
-            <th>Fim</th>
-            <th>Ações</th>
-          </tr>
-          <tr>
             <th><TableFilterHeader label="Temporada" menuKey="seasons-name" currentValue={filters.name} options={filterOptions('name')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar temporada" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, name: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, name: '' })); setActiveFilterMenu(null); }} /></th>
             <th><TableFilterHeader label="Ano" menuKey="seasons-year" currentValue={filters.year} options={filterOptions('year')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar ano" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, year: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, year: '' })); setActiveFilterMenu(null); }} /></th>
             <th><TableFilterHeader label="Status" menuKey="seasons-status" currentValue={filters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th>
@@ -3524,11 +3493,6 @@ function PointsSettingsTable({ points, onPointChange }: { points: PointSetting[]
     <div className="championship-wrap management-table-wrap">
       <table className="championship-table management-table">
         <thead>
-          <tr>
-            <th>Regra</th>
-            <th>Código</th>
-            <th>Pontos</th>
-          </tr>
           <tr>
             <th><TableFilterHeader label="Regra" menuKey="points-label" currentValue={filters.label} options={filterOptions('label')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar regra" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, label: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, label: '' })); setActiveFilterMenu(null); }} /></th>
             <th><TableFilterHeader label="Código" menuKey="points-code" currentValue={filters.code} options={filterOptions('code')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar código" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, code: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, code: '' })); setActiveFilterMenu(null); }} /></th>
