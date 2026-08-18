@@ -1,5 +1,6 @@
 - O `config.` agora exibe `Temporadas`, `Usuários` e `Pontuação` em tabelas com filtros por coluna; a Central de `Prêmios` também ganhou filtros laterais em cada coluna da tabela editável.
 - O modal `Agenda` foi ampliado e a lista de jogos pré-definidos virou tabela com filtros por coluna, exibindo data, jogo, horário, confirmação, janela e presenças de forma mais legível.
+- O modal `Agenda` foi alargado novamente e a tabela interna passou a ocupar 100% da largura útil, removendo a necessidade de barra de rolagem lateral em desktop.
 - A aba `Usuários` passou a usar uma versão tabelada própria com colunas de nome, e-mail, perfil, posição, status, ações e retorno; a central de `Prêmios` também foi migrada para tabela editável de regras.
 # PROJECT_CONTEXT — POKA PRÁTIKA
 
