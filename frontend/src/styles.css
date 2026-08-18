@@ -3246,34 +3246,98 @@ textarea {
     overflow: visible;
   }
 
+  .championship-wrap,
+  .payments-table-wrap,
+  .cash-table-wrap,
+  .management-table-wrap,
+  .schedule-table-wrap,
+  .dashboard-standings-wrap {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .championship-table,
   .management-table,
   .payments-table,
   .cash-table,
   .dashboard-standings-table,
   .schedule-table {
-    min-width: 0 !important;
-    width: 100%;
-    table-layout: fixed;
-    font-size: .62rem;
+    width: max-content;
+    table-layout: auto;
+    font-size: .68rem;
+  }
+
+  .championship-table {
+    min-width: 980px;
+  }
+
+  .management-table {
+    min-width: 860px;
+  }
+
+  .users-management-table {
+    min-width: 920px;
+  }
+
+  .payments-table {
+    min-width: 1080px;
+  }
+
+  .cash-table {
+    min-width: 760px;
+  }
+
+  .schedule-table {
+    min-width: 860px;
+  }
+
+  .dashboard-standings-table {
+    min-width: 620px;
   }
 
   .championship-table th,
-  .championship-table td,
   .management-table th,
-  .management-table td,
   .payments-table th,
-  .payments-table td,
   .cash-table th,
-  .cash-table td,
   .dashboard-standings-table th,
+  .schedule-table th {
+    padding: 6px 6px;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .championship-table td,
+  .management-table td,
+  .payments-table td,
+  .cash-table td,
   .dashboard-standings-table td,
-  .schedule-table th,
   .schedule-table td {
-    padding: 4px 3px;
-    white-space: normal !important;
-    word-break: break-word;
-    overflow-wrap: anywhere;
+    padding: 6px 6px;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .table-filter-anchor {
+    min-width: max-content;
+    gap: 4px;
+  }
+
+  .table-filter-anchor span {
+    white-space: nowrap;
+  }
+
+  .table-filter-button {
+    width: 22px;
+    height: 22px;
+  }
+
+  .table-filter-popover {
+    left: 0;
+    right: auto;
+    width: min(220px, calc(100vw - 28px));
   }
 
   .championship-table .athlete-cell,
@@ -3286,7 +3350,8 @@ textarea {
   .cash-table .cash-description-cell,
   .schedule-title-cell,
   .schedule-detail-cell {
-    min-width: 0 !important;
+    min-width: 180px !important;
+    white-space: normal !important;
   }
 
   .payments-table .payments-action-cell,
@@ -3295,8 +3360,9 @@ textarea {
   .schedule-table .actions,
   .compact-actions {
     min-width: 0;
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .dashboard-standings-wrap,
@@ -3305,8 +3371,7 @@ textarea {
   .cash-table-wrap,
   .management-table-wrap,
   .schedule-table-wrap {
-    border-width: 0;
-    background: transparent;
+    padding-bottom: 4px;
   }
 
   .match-modal-card,
