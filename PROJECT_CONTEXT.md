@@ -3,6 +3,7 @@
 - O modal `Agenda` foi alargado novamente e a tabela interna passou a ocupar 100% da largura útil, removendo a necessidade de barra de rolagem lateral em desktop.
 - O modal `Perfil do atleta` foi redesenhado para um card vertical inspirado no layout visual de referência, com avatar central grande, ações logo abaixo, histórico visual de temporadas e cards compactos para títulos/badges e resumo da carreira.
 - O menu da conta foi simplificado: `Trocar senha` saiu do dropdown e ficou disponível apenas dentro do modal `Perfil do atleta`, evitando ação duplicada.
+- Os filtros das tabelas foram simplificados para busca direta por texto no popover; a lista grande de opções por coluna foi removida para manter a filtragem mais rápida e limpa.
 - A aba `Usuários` passou a usar uma versão tabelada própria com colunas de nome, e-mail, perfil, posição, status, ações e retorno; a central de `Prêmios` também foi migrada para tabela editável de regras.
 # PROJECT_CONTEXT — POKA PRÁTIKA
 

@@ -150,10 +150,10 @@ function TableFilterHeader({
   onSelect: (value: string) => void;
   onClear: () => void;
 }) {
-  const visibleOptions = options.filter((option) => normalizeTableFilterValue(option).includes(normalizeTableFilterValue(searchValue)));
   const isOpen = activeMenu === menuKey;
+  const inputValue = currentValue || searchValue;
 
-  return <div className="table-filter-anchor"><span>{label}</span><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => onToggle(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={onClear}>Limpar</button></div><input value={searchValue} onChange={(event) => onSearchChange(event.target.value)} placeholder={placeholder} /><div className="table-filter-options">{visibleOptions.length === 0 ? <span className="table-filter-empty">Nenhum valor encontrado.</span> : visibleOptions.map((option) => <button type="button" key={option} className={`table-filter-option ${currentValue === option ? 'is-selected' : ''}`} onClick={() => onSelect(option)}>{option}</button>)}</div></div>}</div>;
+  return <div className="table-filter-anchor"><span>{label}</span><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => onToggle(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={onClear}>Limpar</button></div><input value={inputValue} onChange={(event) => { onSearchChange(event.target.value); onSelect(event.target.value); }} placeholder={placeholder} /></div>}</div>;
 }
 
 function positionBalanceGroup(position: AthletePosition): PositionBalanceGroup {
@@ -3149,9 +3149,9 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   }
 
   function renderFilterHeader(label: string, menuKey: string, currentValue: string, options: string[], onSelect: (value: string) => void, onClear: () => void, placeholder: string) {
-    const visibleOptions = options.filter((option) => option.toLowerCase().includes(filterSearch.trim().toLowerCase()));
     const isOpen = activeFilterMenu === menuKey;
-    return <div className="table-filter-anchor"><span>{label}</span><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => toggleFilterMenu(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={() => { onClear(); setActiveFilterMenu(null); }}>Limpar</button></div><input value={filterSearch} onChange={(event) => setFilterSearch(event.target.value)} placeholder={placeholder} /><div className="table-filter-options">{visibleOptions.length === 0 ? <span className="table-filter-empty">Nenhum valor encontrado.</span> : visibleOptions.map((option) => <button type="button" key={option} className={`table-filter-option ${currentValue === option ? 'is-selected' : ''}`} onClick={() => { onSelect(option); setActiveFilterMenu(null); }}>{option}</button>)}</div></div>}</div>;
+    const inputValue = currentValue || filterSearch;
+    return <div className="table-filter-anchor"><span>{label}</span><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => toggleFilterMenu(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={() => { onClear(); setActiveFilterMenu(null); }}>Limpar</button></div><input value={inputValue} onChange={(event) => { setFilterSearch(event.target.value); onSelect(event.target.value); }} placeholder={placeholder} /></div>}</div>;
   }
 
   function openRegister(payment?: PaymentRecord) {
