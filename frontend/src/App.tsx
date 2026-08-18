@@ -971,6 +971,17 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
     }
   }
 
+  useEffect(() => {
+    if (!selectedSheetMatch) return;
+    if (selectedSheetMatch.status === 'CONFIRMED') return;
+    const timer = window.setInterval(() => {
+      void api.request<MatchDetail>(`/matches/${selectedSheetMatch.id}`)
+        .then(setSelectedSheetMatch)
+        .catch(() => undefined);
+    }, 12000);
+    return () => window.clearInterval(timer);
+  }, [api, selectedSheetMatch?.id, selectedSheetMatch?.status]);
+
   async function startSelectedMatch() {
     if (!selectedMatch) return;
     await api.request(`/matches/${selectedMatch.id}/start`, { method: 'POST' });
@@ -1388,7 +1399,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function playerIsDimmed(player: MatchDetail['players'][number]) {
-    return attendanceStatusByUserId.get(player.userId) !== 'JOGAR';
+    const status = attendanceStatusByUserId.get(player.userId);
+    return !status || status === 'AUSENTE';
   }
 
   function summaryTime(item: MatchEventDraft) {

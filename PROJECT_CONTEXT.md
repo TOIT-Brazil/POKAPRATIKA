@@ -6,6 +6,7 @@
 - Os filtros das tabelas foram simplificados para busca direta por texto no popover; a lista grande de opções por coluna foi removida para manter a filtragem mais rápida e limpa.
 - A nova súmula operacional foi simplificada: banco de reservas visível para os dois times, troca manual por botão removida em favor de arrastar e soltar, autosave do quadro sem botão explícito e fluxo reduzido a `Iniciar jogo`, `Finalizar jogo` e `Log da súmula`.
 - A súmula operacional agora reaplica automaticamente o roteiro de trocas por tempo de jogo com base nas regras legadas do projeto, permite rearranjo manual entre os dois times por drag-and-drop e deixa atletas ainda não confirmados visualmente apagados em campo, titulares e bancos.
+- A súmula aberta passa a se atualizar sozinha enquanto estiver em edição para refletir novas confirmações; atleta acende ao confirmar presença para jogar ou apenas comparecer, e continua apagado só quando ainda não respondeu ou marcou ausência.
 - A aba `Usuários` passou a usar uma versão tabelada própria com colunas de nome, e-mail, perfil, posição, status, ações e retorno; a central de `Prêmios` também foi migrada para tabela editável de regras.
 # PROJECT_CONTEXT — POKA PRÁTIKA
 
