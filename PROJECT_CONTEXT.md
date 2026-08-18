@@ -1,3 +1,4 @@
+- A aba `Usuários` passou a usar uma versão tabelada própria com colunas de nome, e-mail, perfil, posição, status, ações e retorno; a central de `Prêmios` também foi migrada para tabela editável de regras.
 # PROJECT_CONTEXT — POKA PRÁTIKA
 
 Data: 2026-07-23

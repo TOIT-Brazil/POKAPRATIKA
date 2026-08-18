@@ -113,6 +113,19 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .rule-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .rule-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 12px; font-size: 1rem; font-weight: 950; }
 .rule-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.management-table-wrap { max-height: 56dvh; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
+.management-table { min-width: 1180px; font-size: .74rem; }
+.management-table th,
+.management-table td { vertical-align: top; }
+.management-table td input,
+.management-table td select { min-height: 34px; width: 100%; }
+.management-main-cell { min-width: 220px; text-align: left; }
+.management-main-cell small { display: block; margin-top: 4px; color: var(--muted); }
+.management-hint-cell { min-width: 260px; text-align: left; white-space: normal; color: var(--muted); }
+.management-feedback-cell { min-width: 180px; text-align: left; white-space: normal; color: var(--muted); }
+.compact-bench { justify-content: flex-start; min-height: 34px; padding-inline: 8px; font-size: .72rem; }
+.compact-actions { flex-wrap: wrap; }
+.users-management-table { min-width: 980px; }
 .award-board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
 .award-board { display: grid; align-content: start; gap: 7px; padding: 10px; border-radius: 16px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.085); }
 .board-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 6px 8px; border-radius: 11px; background: rgba(255,255,255,.055); font-size: .78rem; }

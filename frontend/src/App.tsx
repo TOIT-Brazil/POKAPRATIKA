@@ -533,7 +533,7 @@ export function App() {
       {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} onReload={loadData} /></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
-      {view === 'usuarios' && canCoordinate && <UsersManagementPanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
+      {view === 'usuarios' && canCoordinate && <UsersManagementTablePanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
       {view === 'admin' && canCoordinate && <AdminPanel api={api} users={users} seasons={seasons} points={points} activeSeasonId={activeSeasonId} onReload={loadData} isAdmin={isAdmin} />}
     </main>
   );
@@ -3133,77 +3133,28 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
         <button className="ghost" onClick={addCategory}>Adicionar regra</button>
       </div>
 
-      <div className="table-cards rule-list">
-        {categories.map((item) => (
-          <article className="row-card rule-card" key={item.code}>
-            <div className="rule-title">
-              <span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span>
-              <div>
-                <strong>{item.label}</strong>
-                <small>{item.code} • {item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.awardType === 'VOTACAO' ? 'Votação da temporada' : item.awardType === 'SORTEIO' ? 'Sorteio configurável' : 'Premiação manual'}</small>
-              </div>
-            </div>
-
-            <span className={`status ${item.active ? 'open' : 'danger'}`}>{item.active ? 'ativa' : 'inativa'}</span>
-
-            <div className="rule-grid">
-              <input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} />
-
-              <select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}>
-                <option value="RANKING">Ranking automático</option>
-                <option value="VOTACAO">Votação</option>
-                <option value="SORTEIO">Sorteio/manual</option>
-                <option value="MANUAL">Premiação manual</option>
-              </select>
-
-              {item.awardType === 'RANKING' ? (
-                <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>
-                  {metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}
-                </select>
-              ) : (
-                <label className="bench">
-                  <input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} />
-                  Entra na votação
-                </label>
-              )}
-
-              <select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}>
-                <option value="DESC">Maior vence</option>
-                <option value="ASC">Menor vence</option>
-              </select>
-
-              <label className="field-row">
-                <span>Vencedores</span>
-                <input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} />
-              </label>
-
-              <label className="field-row">
-                <span>Mín. jogos</span>
-                <input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} />
-              </label>
-
-              <label className="field-row">
-                <span>Votos</span>
-                <input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} />
-              </label>
-
-              <label className="bench">
-                <input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} />
-                Permite voto em si
-              </label>
-
-              <input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} />
-              <input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} />
-
-              <label className="bench">
-                <input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} />
-                Ativa
-              </label>
-            </div>
-
-            <small>{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</small>
-          </article>
-        ))}
+      <div className="championship-wrap management-table-wrap">
+        <table className="championship-table management-table rules-table">
+          <thead>
+            <tr>
+              <th>Regra</th>
+              <th>Tipo</th>
+              <th>Métrica / Votação</th>
+              <th>Ordenação</th>
+              <th>Vencedores</th>
+              <th>Mín. jogos</th>
+              <th>Votos</th>
+              <th>Auto-voto</th>
+              <th>Ícone</th>
+              <th>Cor</th>
+              <th>Status</th>
+              <th>Dica</th>
+            </tr>
+          </thead>
+          <tbody>
+            {categories.length === 0 ? <tr><td colSpan={12} className="table-empty-cell">Nenhuma regra cadastrada.</td></tr> : categories.map((item) => <tr key={item.code}><td className="management-main-cell"><div className="rule-title"><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><div><input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} /><small>{item.code}</small></div></div></td><td><select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select></td><td>{item.awardType === 'RANKING' ? <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select> : <label className="bench compact-bench"><input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} />Entra na votação</label>}</td><td><select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select></td><td><input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} /></td><td><input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} /></td><td><input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} />Permitido</label></td><td><input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} /></td><td><input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} />{item.active ? 'Ativa' : 'Inativa'}</label></td><td className="management-hint-cell">{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</td></tr>)}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -3393,6 +3344,129 @@ function UsersManagementPanel({ api, users, onReload, isAdmin }: { api: ApiClien
   }
 
   return <div className="home-stack users-home"><section className="card compact"><div className="card-head"><div><h2>Gestão de usuários</h2><p className="muted">Cadastro, convite, permissões, posição oficial e bloqueio de acesso dos atletas.</p></div><button className="primary small" onClick={() => setModalOpen(true)}>Novo usuário</button></div>{message && <p className="status-line">{message}</p>}<div className="stat-grid users-summary"><span><b>{users.length}</b> cadastrados</span><span><b>{activeUsers}</b> ativos</span><span><b>{athletes}</b> atletas</span><span><b>{coordinators}</b> coord.</span><span><b>{admins}</b> admins</span></div></section><section className="card compact users-card"><div className="card-head"><h2>Usuários do grupo</h2><span className="status open">{users.length} pessoa(s)</span></div><div className="table-cards admin-users">{users.map((user) => <UserAdminRow key={user.id} api={api} user={user} isAdmin={isAdmin} onReload={onReload} />)}</div></section>{modalOpen && <div className="modal"><form className="card modal-card admin-modal-card" onSubmit={(event) => { void createUser(event).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao criar usuário.')); }}><div className="card-head"><h2>Novo usuário</h2><button type="button" className="ghost" onClick={() => setModalOpen(false)}>Fechar</button></div><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome" required /><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" required /><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha inicial opcional" type="password" minLength={8} />{isAdmin ? <select value={role} onChange={(event) => setRole(event.target.value as 'ADMIN' | 'COORDENADOR' | 'ATLETA')}><option>ATLETA</option><option>COORDENADOR</option><option>ADMIN</option></select> : <span className="status">Novo usuário será ATLETA</span>}<select value={position} onChange={(event) => setPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><button className="primary">Criar/enviar convite</button></form></div>}</div>;
+}
+
+function UsersManagementTablePanel({ api, users, onReload, isAdmin }: { api: ApiClient; users: User[]; onReload: () => Promise<void>; isAdmin: boolean }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'ADMIN' | 'COORDENADOR' | 'ATLETA'>('ATLETA');
+  const [position, setPosition] = useState<AthletePosition>('MC');
+  const [message, setMessage] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const activeUsers = users.filter((user) => user.active !== false).length;
+  const admins = users.filter((user) => user.role === 'ADMIN').length;
+  const coordinators = users.filter((user) => user.role === 'COORDENADOR').length;
+  const athletes = users.filter((user) => user.role === 'ATLETA').length;
+
+  async function createUser(event: FormEvent) {
+    event.preventDefault();
+    const result = await api.request<{ activationEmailSent?: boolean }>('/users', { method: 'POST', body: JSON.stringify({ name, email, password: password || undefined, role: isAdmin ? role : 'ATLETA', position }) });
+    setMessage(password ? 'Usuário criado com senha inicial definida.' : result.activationEmailSent ? 'Usuário criado e convite de ativação enviado por e-mail.' : 'Usuário criado. Se o e-mail não chegar, use recuperação de senha.');
+    setName('');
+    setEmail('');
+    setPassword('');
+    setRole('ATLETA');
+    setPosition('MC');
+    setModalOpen(false);
+    await onReload();
+  }
+
+  return (
+    <div className="home-stack users-home">
+      <section className="card compact">
+        <div className="card-head">
+          <div>
+            <h2>Gestão de usuários</h2>
+            <p className="muted">Cadastro, convite, permissões, posição oficial e bloqueio de acesso dos atletas.</p>
+          </div>
+          <button className="primary small" onClick={() => setModalOpen(true)}>Novo usuário</button>
+        </div>
+        {message && <p className="status-line">{message}</p>}
+        <div className="stat-grid users-summary"><span><b>{users.length}</b> cadastrados</span><span><b>{activeUsers}</b> ativos</span><span><b>{athletes}</b> atletas</span><span><b>{coordinators}</b> coord.</span><span><b>{admins}</b> admins</span></div>
+      </section>
+
+      <section className="card compact users-card">
+        <div className="card-head"><h2>Usuários do grupo</h2><span className="status open">{users.length} pessoa(s)</span></div>
+        <div className="championship-wrap management-table-wrap">
+          <table className="championship-table management-table users-management-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Perfil</th>
+                <th>Posição</th>
+                <th>Status</th>
+                <th>Ações</th>
+                <th>Retorno</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.length === 0 ? <tr><td colSpan={7} className="table-empty-cell">Nenhum usuário cadastrado.</td></tr> : users.map((user) => <UserAdminTableRow key={user.id} api={api} user={user} isAdmin={isAdmin} onReload={onReload} />)}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {modalOpen && <div className="modal"><form className="card modal-card admin-modal-card" onSubmit={(event) => { void createUser(event).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao criar usuário.')); }}><div className="card-head"><h2>Novo usuário</h2><button type="button" className="ghost" onClick={() => setModalOpen(false)}>Fechar</button></div><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome" required /><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" required /><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha inicial opcional" type="password" minLength={8} />{isAdmin ? <select value={role} onChange={(event) => setRole(event.target.value as 'ADMIN' | 'COORDENADOR' | 'ATLETA')}><option>ATLETA</option><option>COORDENADOR</option><option>ADMIN</option></select> : <span className="status">Novo usuário será ATLETA</span>}<select value={position} onChange={(event) => setPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><button className="primary">Criar/enviar convite</button></form></div>}
+    </div>
+  );
+}
+
+function UserAdminTableRow({ api, user, isAdmin, onReload }: { api: ApiClient; user: User; isAdmin: boolean; onReload: () => Promise<void> }) {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [role, setRole] = useState<User['role']>(user.role);
+  const [position, setPosition] = useState<AthletePosition>(user.position ?? 'MC');
+  const [active, setActive] = useState(user.active !== false);
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setName(user.name);
+    setEmail(user.email);
+    setRole(user.role);
+    setPosition(user.position ?? 'MC');
+    setActive(user.active !== false);
+    setPassword('');
+  }, [user.id, user.name, user.email, user.role, user.position, user.active]);
+
+  async function save() {
+    await api.request(`/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ name, email, role, position, active }) });
+    setMessage('Usuário atualizado.');
+    await onReload();
+  }
+
+  async function sendActivation() {
+    const result = await api.request<{ activationEmailSent: boolean }>(`/users/${user.id}/send-activation`, { method: 'POST' });
+    setMessage(result.activationEmailSent ? 'Convite enviado por e-mail.' : 'Convite gerado; Graph não confirmou envio. Use recuperação de senha se necessário.');
+  }
+
+  async function changePassword() {
+    if (password.length < 8) {
+      setMessage('A senha precisa ter pelo menos 8 caracteres.');
+      return;
+    }
+    await api.request(`/users/${user.id}/password`, { method: 'POST', body: JSON.stringify({ password }) });
+    setPassword('');
+    setMessage('Senha redefinida pelo ADMIN.');
+  }
+
+  return (
+    <>
+      <tr>
+        <td className="management-main-cell"><strong>{user.name}</strong></td>
+        <td>{user.email}</td>
+        <td>{user.role}</td>
+        <td>{positionLabel(user.position)}</td>
+        <td><span className={`status ${active ? 'open' : 'danger'}`}>{active ? 'ativo' : 'inativo'}</span></td>
+        <td>{isAdmin ? <div className="actions compact-actions"><button className="ghost" onClick={() => setOpen(true)}>Editar</button><button className="ghost" onClick={() => void sendActivation()}>Reenviar convite</button></div> : <span className="payments-muted">Sem ações</span>}</td>
+        <td className="management-feedback-cell">{message || '-'}</td>
+      </tr>
+      {open && <div className="modal"><form className="card modal-card admin-modal-card" onSubmit={(event) => { event.preventDefault(); void save().then(() => setOpen(false)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao salvar usuário.')); }}><div className="card-head"><h2>Editar usuário</h2><button type="button" className="ghost" onClick={() => setOpen(false)}>Fechar</button></div><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome" /><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" /><select value={role} onChange={(event) => setRole(event.target.value as User['role'])}><option>ATLETA</option><option>COORDENADOR</option><option>ADMIN</option></select><select value={position} onChange={(event) => setPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><select value={active ? 'true' : 'false'} onChange={(event) => setActive(event.target.value === 'true')}><option value="true">Ativo</option><option value="false">Inativo</option></select><button className="primary">Salvar cadastro</button><div className="inline-form"><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Nova senha" type="password" minLength={8} /><button type="button" className="ghost" onClick={() => void changePassword().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao redefinir senha.'))}>Redefinir senha</button></div></form></div>}
+    </>
+  );
 }
 
 function AdminPanel({ api, users, seasons, points, activeSeasonId, onReload, isAdmin }: { api: ApiClient; users: User[]; seasons: Season[]; points: PointSetting[]; activeSeasonId: string; onReload: () => Promise<void>; isAdmin: boolean }) {
