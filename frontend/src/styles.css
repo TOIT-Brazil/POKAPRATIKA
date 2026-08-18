@@ -3057,9 +3057,88 @@ textarea {
   }
 
   .shell {
-    width: min(100%, calc(100% - 12px));
-    padding: 6px 0 12px;
+    width: 100%;
+    min-height: auto;
+    height: auto;
+    padding: 6px 6px 18px;
     gap: 8px;
+    overflow: visible;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .hero {
+    min-height: 64px;
+    padding: 6px 8px;
+  }
+
+  .brand-lockup {
+    gap: 8px;
+  }
+
+  .brand-logo {
+    height: 58px;
+  }
+
+  h1 {
+    font-size: 1.12rem;
+  }
+
+  h2 {
+    font-size: .92rem;
+  }
+
+  .eyebrow,
+  .muted,
+  .status,
+  .tabs button,
+  .primary.small,
+  .ghost,
+  .primary,
+  input,
+  select,
+  textarea {
+    font-size: .74rem;
+  }
+
+  .home-stack,
+  .admin-home,
+  .users-home,
+  .payments-panel,
+  .table-cards,
+  .chips,
+  .match-mini-list,
+  .match-history-list,
+  .suspension-list,
+  .finished-vertical-list,
+  .dashboard-standings-wrap,
+  .rotation,
+  .attendance-list,
+  .user-select-grid,
+  .roster-list,
+  .search-results,
+  .player-picker,
+  .championship-wrap,
+  .management-table-wrap,
+  .payments-table-wrap,
+  .cash-table-wrap,
+  .schedule-table-wrap {
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0;
+  }
+
+  .compact,
+  .dashboard-next-match-card,
+  .dashboard-ops-card,
+  .dashboard-finished-card,
+  .dashboard-standings-card,
+  .card {
+    padding: 8px;
+    gap: 8px;
+    border-radius: 12px;
   }
 
   .header-actions {
@@ -3074,8 +3153,186 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-top-grid,
+  .dashboard-bottom-grid,
+  .season-lower,
+  .ops-widget-grid,
+  .leader-strip,
+  .ranking-grid,
+  .podium,
+  .award-cards,
+  .selection-grid,
+  .quick-sheet,
+  .match-section-grid,
+  .payments-overview-strip,
+  .payment-preview,
+  .payment-values,
+  .payment-form-grid,
+  .stat-grid,
+  .season-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .payments-overview-strip {
+    grid-auto-flow: row;
+    grid-auto-columns: initial;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .payments-overview-strip span {
+    min-width: 0;
+  }
+
+  .next-match-hero {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .next-match-date-badge b,
+  .finished-list-score b {
+    font-size: 1.45rem;
+  }
+
+  .next-scoreboard .score-pill {
+    min-width: 78px;
+    font-size: .94rem;
+    padding: 5px 10px;
+  }
+
+  .next-match-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .next-match-metrics span,
+  .dashboard-ops-card .ops-highlight {
+    min-height: 0;
+    padding: 8px;
+  }
+
+  .dashboard-ops-card .ops-highlight strong {
+    font-size: 1.45rem;
+  }
+
   .next-match-side,
   .finished-list-side {
     justify-items: start;
+  }
+
+  .context-row,
+  .dashboard-season-row,
+  .header-status-group,
+  .card-head,
+  .panel-actions,
+  .next-match-topbar,
+  .next-match-footer,
+  .finished-card-top,
+  .finished-score,
+  .match-card-headline,
+  .match-card-footer,
+  .match-row-actions,
+  .ops-actions,
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .context-row {
+    overflow: visible;
+  }
+
+  .tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .championship-table,
+  .management-table,
+  .payments-table,
+  .cash-table,
+  .dashboard-standings-table,
+  .schedule-table {
+    min-width: 0 !important;
+    width: 100%;
+    table-layout: fixed;
+    font-size: .62rem;
+  }
+
+  .championship-table th,
+  .championship-table td,
+  .management-table th,
+  .management-table td,
+  .payments-table th,
+  .payments-table td,
+  .cash-table th,
+  .cash-table td,
+  .dashboard-standings-table th,
+  .dashboard-standings-table td,
+  .schedule-table th,
+  .schedule-table td {
+    padding: 4px 3px;
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .championship-table .athlete-cell,
+  .dashboard-standings-table .athlete-cell,
+  .management-main-cell,
+  .management-hint-cell,
+  .management-feedback-cell,
+  .payments-table .payments-name-cell,
+  .payments-table .payments-notes-cell,
+  .cash-table .cash-description-cell,
+  .schedule-title-cell,
+  .schedule-detail-cell {
+    min-width: 0 !important;
+  }
+
+  .payments-table .payments-action-cell,
+  .cash-table .actions,
+  .management-table .actions,
+  .schedule-table .actions,
+  .compact-actions {
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard-standings-wrap,
+  .championship-wrap,
+  .payments-table-wrap,
+  .cash-table-wrap,
+  .management-table-wrap,
+  .schedule-table-wrap {
+    border-width: 0;
+    background: transparent;
+  }
+
+  .match-modal-card,
+  .sheet-modal-card,
+  .schedule-modal,
+  .profile-modal-card,
+  .athlete-profile-modal-card,
+  .payment-card.wide-payment,
+  .modal-card.wide {
+    width: min(100vw - 12px, 100%);
+    max-height: none;
+    overflow: visible;
+    padding: 10px;
+  }
+
+  .sheet-preview-arena,
+  .sheet-preview-top,
+  .sheet-preview-bottom,
+  .match-control-top,
+  .match-ops-arena,
+  .match-control-bottom {
+    gap: 8px;
+  }
+
+  .ops-pitch-surface,
+  .sheet-pitch-surface {
+    min-height: 240px;
   }
 }
