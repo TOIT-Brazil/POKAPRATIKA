@@ -206,6 +206,10 @@ function formatCardReason(reason: string) {
   return reason === 'CARTAO_VERMELHO' ? 'Vermelho direto' : 'Acúmulo de 3 amarelos';
 }
 
+function polarChartPoint(cx: number, cy: number, radius: number, angle: number) {
+  return `${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`;
+}
+
 function eventLabel(event: string) {
   return event.replace('GOL_CONTRA', 'Gol contra').replace('CARTAO_', 'Cartão ').replace('GOL', 'Gol').replace('ASSISTENCIA', 'Assistência').toLowerCase();
 }
@@ -557,7 +561,7 @@ export function App() {
       {canCoordinate && <ScheduleManagerDialog api={api} matches={matches} activeSeasonId={activeSeasonId} onDone={loadData} controlledOpen={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen} hideTrigger />}
 
       {changePasswordOpen && <ChangePasswordDialog api={api} onClose={() => setChangePasswordOpen(false)} />}
-      {profileUserId && <div className="modal profile-modal"><div className="profile-modal-card"><div className="card-head"><h2>Perfil do atleta</h2><div className="actions">{profileUserId === auth.user.id && <button className="ghost" onClick={() => { setProfileUserId(null); setChangePasswordOpen(true); }}>Trocar senha</button>}<button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setProfileUserId(null)}>X</button></div></div><ProfilesPanel api={api} users={users} currentUserId={auth.user.id} initialUserId={profileUserId} onCurrentUserUpdated={updateAuthenticatedUser} /></div></div>}
+      {profileUserId && <div className="modal profile-modal"><div className="profile-modal-card athlete-profile-modal-card"><div className="card-head athlete-profile-modal-head"><h2>Perfil do atleta</h2><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setProfileUserId(null)}>X</button></div><ProfilesPanel api={api} currentUserId={auth.user.id} initialUserId={profileUserId} onCurrentUserUpdated={updateAuthenticatedUser} onRequestChangePassword={() => { setProfileUserId(null); setChangePasswordOpen(true); }} /></div></div>}
 
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
@@ -1442,7 +1446,7 @@ function SeasonOperationsPanel({ api, suspensions, matches, canCoordinate, onRel
   return <section className="card compact operations-panel"><div className="card-head"><div><h2>Central operacional</h2><p className="muted">Pendências disciplinares e suspensões ativas da temporada.</p></div><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length} susp.</span></div><div className="ops-section"><div className="card-head"><strong>Suspensões</strong><span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length}</span></div>{suspensions.length === 0 ? <p className="muted">Sem pendências disciplinares no momento.</p> : <div className="suspension-list compact-suspensions">{suspensions.map((item) => <article className="suspension-row" key={item.id}><strong>{item.userName}</strong><span>{formatCardReason(item.reason)}</span><small>Origem: {item.triggerMatchTitle}</small>{canCoordinate && <select disabled={!confirmedMatches.length} defaultValue="" onChange={(event) => void serveSuspension(item.id, event.target.value)}><option value="">Cumpriu em...</option>{confirmedMatches.map((match) => <option key={match.id} value={match.id}>{match.title} • {match.matchDate?.slice(0, 10)}</option>)}</select>}</article>)}</div>}</div></section>;
 }
 
-function ProfilesPanel({ api, users, currentUserId, initialUserId, onCurrentUserUpdated }: { api: ApiClient; users: User[]; currentUserId: string; initialUserId: string; onCurrentUserUpdated: (user: User) => void }) {
+function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated, onRequestChangePassword }: { api: ApiClient; currentUserId: string; initialUserId: string; onCurrentUserUpdated: (user: User) => void; onRequestChangePassword: () => void }) {
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
   const [career, setCareer] = useState<CareerProfile | null>(null);
   const [message, setMessage] = useState('');
@@ -1483,7 +1487,117 @@ function ProfilesPanel({ api, users, currentUserId, initialUserId, onCurrentUser
     setMessage('Foto atualizada. Agora o craque tem figurinha oficial.');
   }
 
-  return <div className="grid two"><section className="card compact"><div className="card-head"><h2>Perfil do atleta</h2><select value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}>{users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></div>{message && <p className="muted">{message}</p>}{career && <><div className="career-hero"><div className="profile-pill big">{career.profile.avatarDataUrl ? <img src={career.profile.avatarDataUrl} alt="Avatar" /> : <span>{career.profile.name.slice(0, 1)}</span>}<div><strong>{career.profile.name}</strong><small>{career.profile.role} • {positionLabel(career.profile.position)}</small></div></div><strong>{career.totals.seasonsPlayed} temporada(s)</strong></div>{selectedUserId === currentUserId && <div className="avatar-tools"><label className="ghost"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void saveAvatar(file); }} />Trocar foto</label>{career.profile.avatarDataUrl && <button type="button" className="ghost" onClick={() => void saveAvatar(null)}>Remover foto</button>}</div>}<div className="stat-grid"><span><b>{career.totals.totalPoints}</b> pontos</span><span><b>{career.totals.presences}</b> presenças</span><span><b>{career.totals.goals}</b> gols</span><span><b>{career.totals.assists}</b> assist.</span><span><b>{career.totals.wins}</b> vitórias</span><span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b> cartões</span></div><h2>Títulos e badges</h2><div className="chips">{career.awards.length === 0 ? <span className="muted">Nenhum prêmio registrado ainda.</span> : career.awards.map((award) => <span className="chip trophy" key={award.id}>{award.label} • {award.year}</span>)}</div><div className="chips">{career.badges.map((badge) => <span className="chip" key={badge.id}>{badge.label}</span>)}</div></>}</section><section className="card compact"><h2>Histórico por temporada</h2><div className="table-cards">{career?.seasons.map((season) => <article className="row-card" key={season.seasonId}><strong>{season.seasonName} • {season.year}</strong><span>{season.totalPoints} pts</span><small>Pres. {season.presences} • V {season.wins} • E {season.draws} • D {season.losses} • G {season.goals} • A {season.assists}</small></article>)}</div></section></div>;
+  const orderedSeasons = career ? [...career.seasons].sort((left, right) => left.year - right.year || left.seasonName.localeCompare(right.seasonName)) : [];
+  const lineValues = orderedSeasons.map((season) => season.totalPoints);
+  const maxLineValue = Math.max(...lineValues, 1);
+  const lineWidth = 188;
+  const lineHeight = 110;
+  const linePadding = 16;
+  const linePath = lineValues.map((value, index) => {
+    const x = lineValues.length === 1 ? lineWidth / 2 : linePadding + (index * (lineWidth - linePadding * 2)) / Math.max(1, lineValues.length - 1);
+    const y = lineHeight - linePadding - (value / maxLineValue) * (lineHeight - linePadding * 2);
+    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+  const radarValues = career ? [career.totals.totalPoints, career.totals.presences, career.totals.goals, career.totals.assists, career.totals.wins] : [0, 0, 0, 0, 0];
+  const radarLabels = ['Pontos', 'Presença', 'Gols', 'Assist', 'Vitórias'];
+  const maxRadarValue = Math.max(...radarValues, 1);
+  const radarCx = 78;
+  const radarCy = 78;
+  const radarRadius = 54;
+  const radarAngles = radarLabels.map((_, index) => (-Math.PI / 2) + (index * Math.PI * 2) / radarLabels.length);
+  const radarPolygon = radarValues.map((value, index) => polarChartPoint(radarCx, radarCy, (value / maxRadarValue) * radarRadius, radarAngles[index])).join(' ');
+  const suspensionCount = career?.suspensions.length ?? 0;
+
+  return (
+    <div className="athlete-profile-sheet">
+      {message && <p className="status-line athlete-profile-message">{message}</p>}
+      {!career && <p className="muted">Carregando perfil...</p>}
+      {career && <>
+        <section className="athlete-profile-hero-card">
+          <div className="athlete-profile-avatar-shell">
+            <div className="athlete-profile-avatar-ring">
+              {career.profile.avatarDataUrl ? <img src={career.profile.avatarDataUrl} alt={`Avatar de ${career.profile.name}`} /> : <span>{career.profile.name.slice(0, 1)}</span>}
+            </div>
+          </div>
+
+          {selectedUserId === currentUserId && <div className="athlete-profile-actions"><button type="button" className="primary small" onClick={onRequestChangePassword}>Trocar senha</button><label className="ghost small"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void saveAvatar(file); }} />Trocar foto</label>{career.profile.avatarDataUrl && <button type="button" className="ghost small athlete-profile-remove-photo" onClick={() => void saveAvatar(null)}>Remover foto</button>}</div>}
+
+          <div className="athlete-profile-identity">
+            <h3>{career.profile.name}</h3>
+            <p>{career.profile.role} • {positionLabel(career.profile.position)}</p>
+            <strong>{career.totals.seasonsPlayed} temporada(s)</strong>
+          </div>
+        </section>
+
+        <section className="athlete-profile-card athlete-profile-history-card">
+          <div className="athlete-profile-card-head">
+            <strong>Histórico de temporadas</strong>
+            <span>{orderedSeasons.length}</span>
+          </div>
+          {orderedSeasons.length === 0 ? <p className="muted">Sem temporadas suficientes para montar histórico visual.</p> : <>
+            <div className="athlete-profile-season-strip">{orderedSeasons.map((season, index) => <span key={season.seasonId}>Temporada {index + 1}: {season.year}</span>)}</div>
+            <div className="athlete-profile-chart-grid">
+              <div className="athlete-profile-chart-card athlete-profile-radar-card">
+                <svg viewBox="0 0 156 156" aria-hidden="true">
+                  {[0.25, 0.5, 0.75, 1].map((step) => <polygon key={step} points={radarAngles.map((angle) => polarChartPoint(radarCx, radarCy, radarRadius * step, angle)).join(' ')} className="athlete-profile-radar-grid" />)}
+                  {radarAngles.map((angle, index) => {
+                    const [x, y] = polarChartPoint(radarCx, radarCy, radarRadius, angle).split(',').map(Number);
+                    return <line key={radarLabels[index]} x1={radarCx} y1={radarCy} x2={x} y2={y} className="athlete-profile-radar-axis" />;
+                  })}
+                  <polygon points={radarPolygon} className="athlete-profile-radar-shape" />
+                  <circle cx={radarCx} cy={radarCy} r="3" className="athlete-profile-radar-center" />
+                  {radarLabels.map((label, index) => {
+                    const [x, y] = polarChartPoint(radarCx, radarCy, radarRadius + 18, radarAngles[index]).split(',').map(Number);
+                    return <text key={label} x={x} y={y} className="athlete-profile-radar-label">{label}</text>;
+                  })}
+                </svg>
+              </div>
+              <div className="athlete-profile-chart-card athlete-profile-line-card">
+                <svg viewBox={`0 0 ${lineWidth} ${lineHeight}`} aria-hidden="true">
+                  {[0, 0.25, 0.5, 0.75, 1].map((step) => {
+                    const y = lineHeight - linePadding - step * (lineHeight - linePadding * 2);
+                    return <line key={step} x1={linePadding} y1={y} x2={lineWidth - linePadding} y2={y} className="athlete-profile-line-grid" />;
+                  })}
+                  {linePath && <path d={linePath} className="athlete-profile-line-path" />}
+                  {lineValues.map((value, index) => {
+                    const x = lineValues.length === 1 ? lineWidth / 2 : linePadding + (index * (lineWidth - linePadding * 2)) / Math.max(1, lineValues.length - 1);
+                    const y = lineHeight - linePadding - (value / maxLineValue) * (lineHeight - linePadding * 2);
+                    return <g key={`${orderedSeasons[index]?.seasonId ?? index}-dot`}><circle cx={x} cy={y} r="4" className="athlete-profile-line-dot" /><text x={x} y={lineHeight - 4} className="athlete-profile-line-label">{index + 1}</text></g>;
+                  })}
+                </svg>
+              </div>
+            </div>
+          </>}
+        </section>
+
+        <section className="athlete-profile-card athlete-profile-trophies-card">
+          <div className="athlete-profile-card-head">
+            <strong>Títulos e badges</strong>
+            <span>{career.awards.length + career.badges.length}</span>
+          </div>
+          {career.awards.length === 0 && career.badges.length === 0 ? <p className="muted">Nenhum prêmio registrado ainda.</p> : <>
+            <div className="athlete-profile-awards-list">{career.awards.map((award) => <span className="chip trophy" key={award.id}>{award.label} • {award.year}</span>)}</div>
+            <div className="athlete-profile-badge-list">{career.badges.length === 0 ? <span className="muted">Sem badges adicionais.</span> : career.badges.map((badge) => <span className="chip" key={badge.id}>{badge.icon ? `${badge.icon} ` : ''}{badge.label}</span>)}</div>
+          </>}
+        </section>
+
+        <section className="athlete-profile-card athlete-profile-stats-card">
+          <div className="athlete-profile-card-head">
+            <strong>Resumo da carreira</strong>
+            <span>{suspensionCount}</span>
+          </div>
+          <div className="athlete-profile-stat-grid">
+            <span><b>{career.totals.totalPoints}</b><small>Pontos</small></span>
+            <span><b>{career.totals.presences}</b><small>Presenças</small></span>
+            <span><b>{career.totals.goals}</b><small>Gols</small></span>
+            <span><b>{career.totals.assists}</b><small>Assistências</small></span>
+            <span><b>{career.totals.wins}</b><small>Vitórias</small></span>
+            <span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b><small>Cartões</small></span>
+          </div>
+        </section>
+      </>}
+    </div>
+  );
 }
 
 function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = true }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: () => Promise<void>; showRecentCard?: boolean }) {
