@@ -66,7 +66,61 @@ type MatchDetail = MatchListItem & {
   rotation: Record<'A' | 'B', { reserves: number; firstCycleMinutes: number; secondCycleMinutes: number; schedule: Array<{ minute: number; label: string; entering: string[]; leaving: string[] }> }>;
 };
 
+type SheetRotationStep = { minute: number; label: string; enteringIds: string[]; leavingIds: string[]; entering: string[]; leaving: string[] };
+type SheetRotationPlan = { reserves: number; firstCycleMinutes: number; secondCycleMinutes: number; exchangeSize: number; schedule: SheetRotationStep[] };
+
 const storageKey = 'pokapratika.auth';
+
+const sheetLegacySchedules: Record<number, number[]> = {
+  1: [8, 16, 24, 32, 40, 48, 56],
+  2: [9, 18, 27, 36, 41, 46, 51, 56],
+  3: [10, 20, 30, 39, 48, 57]
+};
+
+const sheetLegacyCycleMinutes: Record<number, { first: number; second: number }> = {
+  1: { first: 8, second: 0 },
+  2: { first: 9, second: 5 },
+  3: { first: 10, second: 9 }
+};
+
+function chunkRotationItems<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [];
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  return chunks;
+}
+
+function buildSheetRotationPlan(players: Array<{ userId: string; name: string; rotationOrder: number; startsOnBench: boolean }>, availableMinutes: number): SheetRotationPlan {
+  const ordered = [...players].sort((left, right) => left.rotationOrder - right.rotationOrder);
+  const bench = ordered.filter((player) => player.startsOnBench);
+  const reserves = Math.max(0, ordered.length - 6);
+  const exchangeSize = Math.max(1, bench.length);
+
+  if (reserves === 0 || bench.length === 0) {
+    return { reserves, firstCycleMinutes: 0, secondCycleMinutes: 0, exchangeSize: 0, schedule: [] };
+  }
+
+  const groups = chunkRotationItems(ordered, exchangeSize);
+  const scheduleMinutes = sheetLegacySchedules[reserves] ?? Array.from({ length: Math.max(1, Math.floor(availableMinutes / 8)) }, (_, index) => Math.min(availableMinutes - 1, (index + 1) * 8));
+  const cycle = sheetLegacyCycleMinutes[reserves] ?? { first: Math.min(10, Math.max(6, Math.floor(availableMinutes / Math.max(4, groups.length * 2)))), second: 5 };
+
+  const schedule = scheduleMinutes
+    .filter((minute) => minute < availableMinutes)
+    .map((minute, index) => {
+      const enteringGroup = groups[index % groups.length];
+      const leavingGroup = groups[(index + 1) % groups.length];
+      return {
+        minute,
+        label: `${index + 1}ª troca`,
+        enteringIds: enteringGroup.map((player) => player.userId),
+        leavingIds: leavingGroup.map((player) => player.userId),
+        entering: enteringGroup.map((player) => player.name),
+        leaving: leavingGroup.map((player) => player.name)
+      };
+    });
+
+  return { reserves, firstCycleMinutes: cycle.first, secondCycleMinutes: cycle.second, exchangeSize, schedule };
+}
 
 const athletePositionOptions: Array<{ value: AthletePosition; label: string }> = [
   { value: 'GO', label: 'GO • Goleiro' },
@@ -1076,7 +1130,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [draggedPlayerId, setDraggedPlayerId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
   const usersById = new Map(users.map((item) => [item.id, item]));
+  const attendanceStatusByUserId = new Map(match.attendance.map((item) => [item.userId, item.responseStatus]));
   const skipAutosaveRef = useRef(true);
+  const appliedAutoSwapMinutesRef = useRef<Record<'A' | 'B', number[]>>({ A: [], B: [] });
 
   useEffect(() => {
     const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
@@ -1090,6 +1146,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setDraggedPlayerId('');
     setDropTargetId('');
     skipAutosaveRef.current = true;
+    appliedAutoSwapMinutesRef.current = { A: [], B: [] };
   }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users]);
 
   useEffect(() => {
@@ -1118,6 +1175,18 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }, [players, teamAScore, teamBScore, events, match.status]);
 
   const playablePlayers = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
+  const currentMinute = Math.floor(clockSeconds / 60);
+
+  function normalizePlayersForBoard(list: MatchDetail['players']) {
+    const ranked = [...list].sort((left, right) => {
+      const leftOrder = left.rotationOrder ?? left.drawOrder ?? 999;
+      const rightOrder = right.rotationOrder ?? right.drawOrder ?? 999;
+      if (left.team !== right.team) return left.team.localeCompare(right.team);
+      return leftOrder - rightOrder;
+    });
+    const teamOrders = { A: 0, B: 0 };
+    return ranked.map((player) => player.team === 'A' || player.team === 'B' ? { ...player, rotationOrder: ++teamOrders[player.team] } : { ...player, rotationOrder: player.rotationOrder ?? null });
+  }
 
   function playerBoardNumber(player: MatchDetail['players'][number], fallbackIndex: number) {
     return player.rotationOrder ?? player.drawOrder ?? fallbackIndex + 1;
@@ -1167,6 +1236,37 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return ordered.slice(0, pitchSlots(team).length).map((player, index) => ({ player, slot: pitchSlots(team)[index] }));
   }
 
+  const sheetRotationPlans = useMemo(() => ({
+    A: buildSheetRotationPlan(playersForTeam('A').filter((player) => player.roleInMatch === 'LINHA').map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60),
+    B: buildSheetRotationPlan(playersForTeam('B').filter((player) => player.roleInMatch === 'LINHA').map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60)
+  }), [players, match.availableMinutes]);
+
+  const currentRotation = useMemo<MatchDetail['rotation']>(() => ({
+    A: { reserves: sheetRotationPlans.A.reserves, firstCycleMinutes: sheetRotationPlans.A.firstCycleMinutes, secondCycleMinutes: sheetRotationPlans.A.secondCycleMinutes, schedule: sheetRotationPlans.A.schedule.map(({ minute, label, entering, leaving }) => ({ minute, label, entering, leaving })) },
+    B: { reserves: sheetRotationPlans.B.reserves, firstCycleMinutes: sheetRotationPlans.B.firstCycleMinutes, secondCycleMinutes: sheetRotationPlans.B.secondCycleMinutes, schedule: sheetRotationPlans.B.schedule.map(({ minute, label, entering, leaving }) => ({ minute, label, entering, leaving })) }
+  }), [sheetRotationPlans]);
+
+  useEffect(() => {
+    if (match.status !== 'RUNNING') return;
+    const dueSteps: Array<{ team: 'A' | 'B'; step: SheetRotationStep }> = [];
+    for (const team of ['A', 'B'] as const) {
+      for (const step of sheetRotationPlans[team].schedule) {
+        if (step.minute <= currentMinute && !appliedAutoSwapMinutesRef.current[team].includes(step.minute)) dueSteps.push({ team, step });
+      }
+    }
+    if (!dueSteps.length) return;
+    setPlayers((current) => {
+      let next = [...current];
+      for (const { team, step } of dueSteps) {
+        next = next.map((player) => step.enteringIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: false } : step.leavingIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: true } : player);
+      }
+      return normalizePlayersForBoard(next);
+    });
+    for (const { team, step } of dueSteps) appliedAutoSwapMinutesRef.current[team].push(step.minute);
+    const labels = dueSteps.map(({ team, step }) => `Time ${team} ${step.label.toLowerCase()}`).join(' • ');
+    setSheetMessage(`Troca automática aplicada: ${labels}.`);
+  }, [currentMinute, match.status, sheetRotationPlans]);
+
   function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
     if (eventType === 'GOL') {
       if (team === 'A') setTeamAScore((value) => value + 1);
@@ -1189,7 +1289,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function canSwapPlayers(firstPlayer: MatchDetail['players'][number] | undefined, secondPlayer: MatchDetail['players'][number] | undefined) {
-    return Boolean(firstPlayer && secondPlayer && firstPlayer.userId !== secondPlayer.userId && firstPlayer.team === secondPlayer.team && firstPlayer.team !== 'PRESENTE_SEM_JOGAR' && firstPlayer.startsOnBench !== secondPlayer.startsOnBench);
+    return Boolean(firstPlayer && secondPlayer && firstPlayer.userId !== secondPlayer.userId && firstPlayer.team !== 'PRESENTE_SEM_JOGAR' && secondPlayer.team !== 'PRESENTE_SEM_JOGAR' && ((firstPlayer.team === secondPlayer.team && firstPlayer.startsOnBench !== secondPlayer.startsOnBench) || firstPlayer.team !== secondPlayer.team));
   }
 
   async function saveBoard(showFeedback = true) {
@@ -1266,10 +1366,29 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setSheetMessage('Arraste um titular sobre um reserva do mesmo time para trocar automaticamente.');
       return;
     }
-    setPlayers((list) => list.map((player) => player.userId === draggedPlayerId ? { ...player, startsOnBench: targetPlayer?.startsOnBench ?? player.startsOnBench } : player.userId === targetPlayerId ? { ...player, startsOnBench: draggedPlayer?.startsOnBench ?? player.startsOnBench } : player));
+    setPlayers((list) => {
+      const next = list.map((player) => {
+        if (player.userId === draggedPlayerId) {
+          return draggedPlayer?.team === targetPlayer?.team
+            ? { ...player, startsOnBench: targetPlayer?.startsOnBench ?? player.startsOnBench }
+            : { ...player, team: targetPlayer?.team ?? player.team, roleInMatch: targetPlayer?.roleInMatch ?? player.roleInMatch, startsOnBench: targetPlayer?.startsOnBench ?? player.startsOnBench };
+        }
+        if (player.userId === targetPlayerId) {
+          return draggedPlayer?.team === targetPlayer?.team
+            ? { ...player, startsOnBench: draggedPlayer?.startsOnBench ?? player.startsOnBench }
+            : { ...player, team: draggedPlayer?.team ?? player.team, roleInMatch: draggedPlayer?.roleInMatch ?? player.roleInMatch, startsOnBench: draggedPlayer?.startsOnBench ?? player.startsOnBench };
+        }
+        return player;
+      });
+      return normalizePlayersForBoard(next);
+    });
     setDraggedPlayerId('');
     setDropTargetId('');
-    setSheetMessage(`Troca feita entre #${playerBoardNumber(draggedPlayer!, 0)} e #${playerBoardNumber(targetPlayer!, 0)}.`);
+    setSheetMessage(draggedPlayer?.team === targetPlayer?.team ? `Troca feita entre #${playerBoardNumber(draggedPlayer!, 0)} e #${playerBoardNumber(targetPlayer!, 0)}.` : `${draggedPlayer?.name} e ${targetPlayer?.name} trocaram de lado.`);
+  }
+
+  function playerIsDimmed(player: MatchDetail['players'][number]) {
+    return attendanceStatusByUserId.get(player.userId) !== 'JOGAR';
   }
 
   function summaryTime(item: MatchEventDraft) {
@@ -1297,12 +1416,13 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const user = usersById.get(player.userId);
     const dragged = draggedPlayerId === player.userId;
     const dropTarget = dropTargetId === player.userId;
+    const pending = playerIsDimmed(player);
     return (
-      <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''}`} key={player.userId} role="group" draggable={match.status !== 'CONFIRMED'} onDragStart={() => setDraggedPlayerId(player.userId)} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); executeDragSwap(player.userId); }}>
+      <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${pending ? 'is-pending' : ''}`} key={player.userId} role="group" draggable={match.status !== 'CONFIRMED'} onDragStart={() => setDraggedPlayerId(player.userId)} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); executeDragSwap(player.userId); }}>
         <div className="ops-roster-avatar">{user?.avatarDataUrl ? <img src={user.avatarDataUrl} alt={player.name} /> : <span>{player.name.slice(0, 1)}</span>}</div>
         <div className="ops-roster-copy">
           <strong>#{playerBoardNumber(player, index)} {player.name}</strong>
-          <small>{rosterSubtitle(player)}{match.status !== 'CONFIRMED' ? ' • arraste para trocar' : ''}</small>
+          <small>{rosterSubtitle(player)}{pending ? ' • não confirmado' : ''}{match.status !== 'CONFIRMED' ? ' • arraste para trocar' : ''}</small>
         </div>
         <div className="ops-roster-actions">
           <button type="button" className="ops-icon-card is-yellow" title="Cartão amarelo" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
@@ -1349,8 +1469,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
             <div className="ops-pitch-midline" />
             <div className="ops-pitch-box ops-pitch-box-a" />
             <div className="ops-pitch-box ops-pitch-box-b" />
-            {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span></div>)}
-            {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span></div>)}
+            {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+            {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
           </div>
         </section>
 
@@ -1365,6 +1485,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
       <div className="sheet-preview-bottom">
         <section className="sheet-log-panel is-sheet-main">
+          <SubstitutionManager rotation={currentRotation} currentMinute={currentMinute} />
           <div className="match-control-feed-head">
             <div>
               <strong>Log da súmula</strong>
