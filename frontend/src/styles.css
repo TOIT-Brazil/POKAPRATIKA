@@ -253,9 +253,12 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .modal-card { width: min(460px, 100%); padding: 16px; display: grid; gap: 9px; }
 .prompt-modal { z-index: 12; place-items: start center; padding-top: 92px; background: rgba(0,0,0,.34); pointer-events: none; }
 .confirmation-popup { width: min(540px, calc(100% - 18px)); border-color: rgba(255,205,86,.28); background: linear-gradient(145deg, rgba(7,17,31,.98), rgba(22,43,70,.96)); box-shadow: 0 22px 70px rgba(0,0,0,.5); pointer-events: auto; }
-.schedule-modal { gap: 10px; }
-.schedule-form { display: grid; gap: 8px; padding: 9px; border-radius: 16px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
-.schedule-list { max-height: 330px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.schedule-modal { width: min(1240px, calc(100vw - 20px)); max-height: min(92dvh, 860px); overflow: auto; gap: 12px; }
+.schedule-form { display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
+.schedule-table-wrap { max-height: 42dvh; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
+.schedule-table { min-width: 1180px; font-size: .75rem; }
+.schedule-title-cell small, .schedule-detail-cell small { display: block; margin-top: 4px; color: #66796f; }
+.schedule-detail-cell strong { display: block; }
 .password-card { width: min(420px, 100%); }
 .payment-card { width: min(520px, 100%); }
 .payment-card.wide-payment { width: min(760px, 100%); max-height: min(88dvh, 760px); overflow: auto; }
