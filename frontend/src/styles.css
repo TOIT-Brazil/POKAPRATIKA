@@ -269,6 +269,11 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .cash-table .cash-amount-cell { font-weight: 900; }
 .cash-table .cash-amount-cell.is-revenue { color: #1a7f4b; }
 .cash-table .cash-amount-cell.is-expense { color: #c2410c; }
+.table-filter-row th { position: sticky; top: 30px; z-index: 1; padding: 6px; background: #eef6f1; }
+.table-filter-row input { min-height: 34px; padding: 6px 8px; border-radius: 10px; border: 1px solid rgba(15,82,87,.12); background: #ffffff; color: var(--text); font-size: .72rem; }
+.table-filter-row input::placeholder { color: var(--muted); }
+.table-filter-placeholder { display: inline-block; color: var(--muted); font-size: .72rem; }
+.table-empty-cell { padding: 14px 10px; text-align: center; color: var(--muted); font-size: .8rem; }
 .voting-popup { border-color: rgba(59,130,246,.32); }
 .admin-modal-card { width: min(620px, 100%); }
 .modal-card.wide { width: min(980px, 100%); max-height: min(86dvh, 760px); overflow: auto; }

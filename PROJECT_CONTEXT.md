@@ -157,6 +157,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 - O botão de `Confirmações`/`Confirmar presença` no card principal do próximo jogo foi restaurado como ação sempre visível acima de `Abrir súmula`, sem depender de a janela estar aberta naquele instante. Assim a modal de confirmação continua acessível o tempo todo.
 - A aba `Mensalidades` deixou o grid de cards individuais e passou a exibir uma tabela densa ordenada por nome/mês, reunindo nome, valor, pago, pendente, status, ponto, observação e ação operacional em menos espaço vertical.
 - O bloco `Caixa do grupo` dentro de `Mensalidades` também deixou os cards e passou a usar tabela compacta com data, tipo, descrição, origem, responsável e valor.
+- As tabelas de `Mensalidades` e `Caixa do grupo` receberam uma segunda linha no cabeçalho com filtros por coluna, permitindo pesquisa direcionada por nome, mês, vencimento, status, observação, descrição, origem, responsável e demais campos visíveis.
 - O fluxo de mensalistas foi blindado contra duplicidade por e-mail: cadastro/edição agora recusam e-mails já existentes, a geração/listagem de mensalidades desconsidera atletas repetidos por e-mail e foi preparada uma migration SQL manual para consolidar pagamentos duplicados e inativar cadastros repetidos legados.
 
 ## Regras importantes consolidadas
