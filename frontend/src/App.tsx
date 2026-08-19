@@ -1486,7 +1486,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <button type="button" className="ops-icon-card is-yellow" title="Cartão amarelo" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
           <button type="button" className="ops-icon-card is-red" title="Cartão vermelho" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>🟥</button>
           <button type="button" className="ops-icon-card is-goal" title="Gol" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
-          <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>⋮</button>
+          <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>A</button>
         </div>
       </div>
     );
@@ -2528,7 +2528,7 @@ function MatchScoreEditor({ api, match, users, clockSeconds, clockRunning, onSav
           <button type="button" className="ops-icon-card is-yellow" title="Cartão amarelo" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'CARTAO_AMARELO' })}>🟨</button>
           <button type="button" className="ops-icon-card is-red" title="Cartão vermelho" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'CARTAO_VERMELHO' })}>🟥</button>
           <button type="button" className="ops-icon-card is-goal" title="Gol" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'GOL' })}>⚽</button>
-          <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'ASSISTENCIA' })}>⋮</button>
+          <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={() => setPendingQuickEvent({ userId: player.userId, eventType: 'ASSISTENCIA' })}>A</button>
         </div>
       </div>
     );
