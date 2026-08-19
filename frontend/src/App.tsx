@@ -1190,7 +1190,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   useEffect(() => {
     const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
-    setPlayers(seededPlayers());
+    setPlayers(normalizeOperationalLineup(seededPlayers()));
     setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
     setEvents(recoveredEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
@@ -1245,6 +1245,32 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     });
     const teamOrders = { A: 0, B: 0 };
     return ranked.map((player) => player.team === 'A' || player.team === 'B' ? { ...player, rotationOrder: ++teamOrders[player.team] } : { ...player, rotationOrder: player.rotationOrder ?? null });
+  }
+
+  function normalizeOperationalLineup(list: MatchDetail['players']) {
+    const normalized = list.map((player) => ({ ...player }));
+
+    for (const team of ['A', 'B'] as const) {
+      const teamPlayers = normalized.filter((player) => player.team === team);
+      if (!teamPlayers.length) continue;
+
+      const goalkeeperCandidate = teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO' && !player.startsOnBench)
+        ?? teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO')
+        ?? teamPlayers.find((player) => usersById.get(player.userId)?.position === 'GO' && !player.startsOnBench)
+        ?? teamPlayers.find((player) => usersById.get(player.userId)?.position === 'GO')
+        ?? teamPlayers[0];
+
+      for (const player of teamPlayers) {
+        if (player.userId === goalkeeperCandidate.userId) {
+          player.roleInMatch = 'GOLEIRO';
+          player.startsOnBench = false;
+        } else {
+          player.roleInMatch = 'LINHA';
+        }
+      }
+    }
+
+    return normalizePlayersForBoard(normalized);
   }
 
   function playerBoardNumber(player: MatchDetail['players'][number], fallbackIndex: number) {
@@ -1360,8 +1386,14 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   async function saveBoard(showFeedback = true) {
-    const teamAPlayers = players.filter((player) => player.team === 'A');
-    const teamBPlayers = players.filter((player) => player.team === 'B');
+    const normalizedPlayers = normalizeOperationalLineup(players);
+    const lineupAdjusted = normalizedPlayers.some((player, index) => {
+      const current = players[index];
+      return current && (current.userId !== player.userId || current.team !== player.team || current.roleInMatch !== player.roleInMatch || current.startsOnBench !== player.startsOnBench || current.rotationOrder !== player.rotationOrder);
+    });
+    if (lineupAdjusted) setPlayers(normalizedPlayers);
+    const teamAPlayers = normalizedPlayers.filter((player) => player.team === 'A');
+    const teamBPlayers = normalizedPlayers.filter((player) => player.team === 'B');
     await api.request(`/matches/${match.id}/lineup`, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -1370,7 +1402,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         refereeName: match.refereeName ?? null,
         teamAName: match.teamAName,
         teamBName: match.teamBName,
-        players: players.map((player, index) => ({
+        players: normalizedPlayers.map((player, index) => ({
           userId: player.userId,
           team: player.team,
           roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch,
@@ -1385,28 +1417,32 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       method: 'PATCH',
       body: JSON.stringify({ teamAScore, teamBScore, events, clockSeconds, clockRunning })
     });
-    if (showFeedback) setSheetMessage(`Rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.`);
+    if (showFeedback) setSheetMessage(lineupAdjusted ? `Escalação ajustada e rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.` : `Rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.`);
   }
 
   async function startGame() {
-    if (match.status === 'RUNNING') {
+    try {
+      if (match.status === 'RUNNING') {
+        setGameStarted(true);
+        setClockRunning(true);
+        setSheetMessage('O jogo já foi iniciado nesta súmula.');
+        return;
+      }
+      if (match.status === 'SUBMITTED' || match.status === 'CONFIRMED') {
+        setSheetMessage('Este jogo já está encerrado para edição operacional.');
+        return;
+      }
+      await saveBoard(false);
+      const started = await api.request<{ id: string; status: string; startedAt: string }>(`/matches/${match.id}/start`, { method: 'POST' });
       setGameStarted(true);
+      setOfficialStartedAt(started.startedAt);
+      setClockSeconds(Math.max(0, Math.floor((Date.now() - new Date(started.startedAt).getTime()) / 1000)));
       setClockRunning(true);
-      setSheetMessage('O jogo já foi iniciado nesta súmula.');
-      return;
+      setSheetMessage('Jogo iniciado com cronômetro oficial.');
+      await onSaved();
+    } catch (error) {
+      setSheetMessage(error instanceof Error ? error.message : 'Não foi possível iniciar o jogo.');
     }
-    if (match.status === 'SUBMITTED' || match.status === 'CONFIRMED') {
-      setSheetMessage('Este jogo já está encerrado para edição operacional.');
-      return;
-    }
-    await saveBoard(false);
-    const started = await api.request<{ id: string; status: string; startedAt: string }>(`/matches/${match.id}/start`, { method: 'POST' });
-    setGameStarted(true);
-    setOfficialStartedAt(started.startedAt);
-    setClockSeconds(Math.max(0, Math.floor((Date.now() - new Date(started.startedAt).getTime()) / 1000)));
-    setClockRunning(true);
-    setSheetMessage('Jogo iniciado com cronômetro oficial.');
-    await onSaved();
   }
 
   async function finalizeGame() {
@@ -1451,7 +1487,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         }
         return player;
       });
-      return normalizePlayersForBoard(next);
+      return normalizeOperationalLineup(next);
     });
     setDraggedPlayerId('');
     setDropTargetId('');
