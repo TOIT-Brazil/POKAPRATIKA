@@ -1232,6 +1232,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   const playablePlayers = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
   const currentMinute = Math.floor(clockSeconds / 60);
+  const matchIsOperationallyRunning = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const canRegisterEvents = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const canRepositionPlayers = match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
 
@@ -1310,7 +1311,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }), [players, match.availableMinutes]);
 
   useEffect(() => {
-    if (match.status !== 'RUNNING') return;
+    if (!matchIsOperationallyRunning) return;
     const dueSteps: Array<{ team: 'A' | 'B'; step: SheetRotationStep }> = [];
     for (const team of ['A', 'B'] as const) {
       for (const step of sheetRotationPlans[team].schedule) {
@@ -1328,12 +1329,11 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     for (const { team, step } of dueSteps) appliedAutoSwapMinutesRef.current[team].push(step.minute);
     const labels = dueSteps.map(({ team, step }) => `Time ${team} ${step.label.toLowerCase()}`).join(' • ');
     setSheetMessage(`Troca automática aplicada: ${labels}.`);
-  }, [currentMinute, match.status, sheetRotationPlans]);
+  }, [currentMinute, matchIsOperationallyRunning, sheetRotationPlans]);
 
   function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
     if (eventType === 'GOL') {
       if (team === 'A') setTeamAScore((value) => value + 1);
-      if (team === 'B') setTeamBScore((value) => value + 1);
     }
     if (eventType === 'GOL_CONTRA') {
       if (team === 'A') setTeamBScore((value) => value + 1);
@@ -1414,7 +1414,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setSheetMessage('Esta súmula já foi confirmada.');
       return;
     }
-    if (match.status === 'DRAFT') {
+    if (!gameStarted && match.status === 'DRAFT') {
       setSheetMessage('Inicie o jogo antes de finalizar a súmula.');
       return;
     }
@@ -1565,7 +1565,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
             <small>{sheetMessage}</small>
           </div>
           <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`log-${item.userId}-${item.eventType}-${index}`}><b>{summaryTime(item)}</b><small>{summaryText(item).split(' - ').slice(1).join(' - ')}</small></span>)}</div>
-          <div className="sheet-footer-actions">{match.status === 'DRAFT' && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}{match.status !== 'CONFIRMED' && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}</div>
+          <div className="sheet-footer-actions">{match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}{match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}</div>
         </section>
       </div>
     </div>
