@@ -1094,8 +1094,6 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
 function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; match: MatchDetail; users: User[]; onSaved: () => Promise<void> }) {
   const initialEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
   function seededPlayers(): MatchDetail['players'] {
-    if (match.players.length) return match.players.map((player) => ({ ...player }));
-
     const attendancePlayers: MatchDraftPlayer[] = match.attendance
       .filter((item) => item.responseStatus !== 'AUSENTE')
       .map((item, index) => {
@@ -1113,6 +1111,49 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           startsOnBench: false
         };
       });
+
+    if (match.players.length) {
+      const mergedPlayers = match.players.map((player) => ({ ...player }));
+      const existingIds = new Set(mergedPlayers.map((player) => player.userId));
+      let nextDrawOrder = mergedPlayers.reduce((highest, player) => Math.max(highest, player.drawOrder ?? 0), 0) + 1;
+
+      for (const attendancePlayer of attendancePlayers) {
+        if (existingIds.has(attendancePlayer.userId)) continue;
+        if (attendancePlayer.team === 'PRESENTE_SEM_JOGAR') {
+          mergedPlayers.push({
+            userId: attendancePlayer.userId,
+            name: attendancePlayer.name,
+            team: 'PRESENTE_SEM_JOGAR',
+            roleInMatch: 'PRESENTE_SEM_JOGAR',
+            drawOrder: nextDrawOrder++,
+            rotationOrder: null,
+            startsOnBench: false
+          });
+          existingIds.add(attendancePlayer.userId);
+          continue;
+        }
+
+        const teamAPlayers = mergedPlayers.filter((player) => player.team === 'A');
+        const teamBPlayers = mergedPlayers.filter((player) => player.team === 'B');
+        const targetTeam: 'A' | 'B' = teamAPlayers.length <= teamBPlayers.length ? 'A' : 'B';
+        const targetTeamStarters = mergedPlayers.filter((player) => player.team === targetTeam && !player.startsOnBench);
+        const missingGoalkeeper = attendancePlayer.position === 'GO' && !targetTeamStarters.some((player) => player.roleInMatch === 'GOLEIRO');
+        mergedPlayers.push({
+          userId: attendancePlayer.userId,
+          name: attendancePlayer.name,
+          team: targetTeam,
+          roleInMatch: missingGoalkeeper ? 'GOLEIRO' : 'LINHA',
+          drawOrder: nextDrawOrder++,
+          rotationOrder: null,
+          startsOnBench: targetTeamStarters.length >= 7 && !missingGoalkeeper
+        });
+        existingIds.add(attendancePlayer.userId);
+      }
+
+      return normalizePlayersForBoard(mergedPlayers);
+    }
+
+    if (!attendancePlayers.length) return [];
 
     const balanced = drawBalancedTeams(attendancePlayers);
     const teamOrders = { A: 0, B: 0 };
@@ -1208,35 +1249,44 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function startersForTeam(team: 'A' | 'B') {
-    return playersForTeam(team).filter((player) => !player.startsOnBench).slice(0, 6);
+    return playersForTeam(team).filter((player) => !player.startsOnBench);
   }
 
   function reservesForTeam(team: 'A' | 'B') {
-    return playersForTeam(team).filter((player) => player.startsOnBench).slice(0, 4);
+    return playersForTeam(team).filter((player) => player.startsOnBench);
   }
 
-  function pitchSlots(team: 'A' | 'B') {
-    return team === 'A'
+  function pitchSlots(team: 'A' | 'B', count: number) {
+    const baseSlots = team === 'A'
       ? [
           { left: 11, top: 50 },
-          { left: 24, top: 20 },
-          { left: 24, top: 42 },
-          { left: 24, top: 64 },
-          { left: 38, top: 30 },
-          { left: 38, top: 55 },
-          { left: 52, top: 18 },
-          { left: 50, top: 66 }
+          { left: 24, top: 18 },
+          { left: 24, top: 34 },
+          { left: 24, top: 50 },
+          { left: 24, top: 66 },
+          { left: 24, top: 82 },
+          { left: 40, top: 26 },
+          { left: 40, top: 42 },
+          { left: 40, top: 58 },
+          { left: 40, top: 74 },
+          { left: 56, top: 38 },
+          { left: 56, top: 62 }
         ]
       : [
           { left: 89, top: 50 },
-          { left: 76, top: 20 },
-          { left: 76, top: 42 },
-          { left: 76, top: 64 },
-          { left: 62, top: 30 },
-          { left: 62, top: 55 },
-          { left: 48, top: 18 },
-          { left: 50, top: 66 }
+          { left: 76, top: 18 },
+          { left: 76, top: 34 },
+          { left: 76, top: 50 },
+          { left: 76, top: 66 },
+          { left: 76, top: 82 },
+          { left: 60, top: 26 },
+          { left: 60, top: 42 },
+          { left: 60, top: 58 },
+          { left: 60, top: 74 },
+          { left: 44, top: 38 },
+          { left: 44, top: 62 }
         ];
+    return baseSlots.slice(0, Math.max(count, 0));
   }
 
   function fieldPlayers(team: 'A' | 'B') {
@@ -1244,18 +1294,14 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const goalkeeper = starters.find((player) => player.roleInMatch === 'GOLEIRO');
     const outfield = starters.filter((player) => player.userId !== goalkeeper?.userId);
     const ordered = goalkeeper ? [goalkeeper, ...outfield] : outfield;
-    return ordered.slice(0, pitchSlots(team).length).map((player, index) => ({ player, slot: pitchSlots(team)[index] }));
+    const slots = pitchSlots(team, ordered.length);
+    return ordered.map((player, index) => ({ player, slot: slots[index] }));
   }
 
   const sheetRotationPlans = useMemo(() => ({
     A: buildSheetRotationPlan(playersForTeam('A').filter((player) => player.roleInMatch === 'LINHA').map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60),
     B: buildSheetRotationPlan(playersForTeam('B').filter((player) => player.roleInMatch === 'LINHA').map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60)
   }), [players, match.availableMinutes]);
-
-  const currentRotation = useMemo<MatchDetail['rotation']>(() => ({
-    A: { reserves: sheetRotationPlans.A.reserves, firstCycleMinutes: sheetRotationPlans.A.firstCycleMinutes, secondCycleMinutes: sheetRotationPlans.A.secondCycleMinutes, schedule: sheetRotationPlans.A.schedule.map(({ minute, label, entering, leaving }) => ({ minute, label, entering, leaving })) },
-    B: { reserves: sheetRotationPlans.B.reserves, firstCycleMinutes: sheetRotationPlans.B.firstCycleMinutes, secondCycleMinutes: sheetRotationPlans.B.secondCycleMinutes, schedule: sheetRotationPlans.B.schedule.map(({ minute, label, entering, leaving }) => ({ minute, label, entering, leaving })) }
-  }), [sheetRotationPlans]);
 
   useEffect(() => {
     if (match.status !== 'RUNNING') return;
@@ -1497,7 +1543,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
       <div className="sheet-preview-bottom">
         <section className="sheet-log-panel is-sheet-main">
-          <SubstitutionManager rotation={currentRotation} currentMinute={currentMinute} />
           <div className="match-control-feed-head">
             <div>
               <strong>Log da súmula</strong>
@@ -2314,15 +2359,6 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
       )}
     </>
   );
-}
-
-function SubstitutionManager({ rotation, currentMinute }: { rotation: MatchDetail['rotation']; currentMinute: number }) {
-  return <div className="rotation-grid">{(['A', 'B'] as const).map((team) => {
-    const schedule = rotation[team].schedule;
-    const next = schedule.find((item) => item.minute >= currentMinute);
-    const last = [...schedule].reverse().find((item) => item.minute < currentMinute);
-    return <div key={team} className="rotation"><strong>Trocas time {team}</strong>{next ? <div className={`next-sub ${next.minute <= currentMinute ? 'due' : ''}`}><b>{next.minute <= currentMinute ? 'Troca agora' : `Próxima aos ${next.minute}'`}</b><span>Entram: {next.entering.join(', ') || '—'}</span><span>Saem: {next.leaving.join(', ') || '—'}</span></div> : <div className="next-sub done"><b>Roteiro concluído</b><span>Última troca: {last ? `${last.minute}'` : 'nenhuma'}</span></div>}{schedule.map((item) => <span className={item.minute < currentMinute ? 'done' : item.minute === currentMinute ? 'due' : ''} key={`${team}-${item.minute}-${item.label}`}>{item.minute}' • {item.label} • entram {item.entering.join(', ')} • saem {item.leaving.join(', ')}</span>)}</div>;
-  })}</div>;
 }
 
 function MatchScoreEditor({ api, match, users, clockSeconds, clockRunning, onSaved }: { api: ApiClient; match: MatchDetail; users: User[]; clockSeconds: number; clockRunning: boolean; onSaved: () => Promise<void> }) {

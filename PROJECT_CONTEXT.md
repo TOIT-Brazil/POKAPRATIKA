@@ -9,6 +9,7 @@
 - A súmula aberta passa a se atualizar sozinha enquanto estiver em edição para refletir novas confirmações; atleta acende ao confirmar presença para jogar ou apenas comparecer, e continua apagado só quando ainda não respondeu ou marcou ausência.
 - O mobile recebeu um override responsivo global: telas principais agora empilham os blocos em coluna única, os elementos foram reduzidos, áreas com `max-height`/rolagem interna perderam scroll no celular e tabelas/modais foram comprimidos para evitar barra lateral sempre que possível.
 - O ajuste mobile das tabelas foi recalibrado: em vez de esmagar colunas e quebrar cabeçalhos, o celular agora preserva largura mínima e legibilidade nas tabelas, usando rolagem horizontal apenas dentro dos blocos tabulares mais largos.
+- A súmula operacional deixou de exibir os blocos separados de roteiro/trocas por time; além disso, a montagem local dos jogadores agora mescla atletas confirmados convidados com a escalação já salva e parou de cortar titulares, reservas e bolinhas do campo por limite fixo de `slice`.
 - A aba `Usuários` passou a usar uma versão tabelada própria com colunas de nome, e-mail, perfil, posição, status, ações e retorno; a central de `Prêmios` também foi migrada para tabela editável de regras.
 # PROJECT_CONTEXT — POKA PRÁTIKA
 
