@@ -1178,6 +1178,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
   const [clockSeconds, setClockSeconds] = useState(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
   const [clockRunning, setClockRunning] = useState(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+  const [gameStarted, setGameStarted] = useState(match.status !== 'DRAFT' || Boolean(match.startedAt));
+  const [officialStartedAt, setOfficialStartedAt] = useState<string | null>(match.startedAt ?? null);
   const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
   const [draggedPlayerId, setDraggedPlayerId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
@@ -1194,6 +1196,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setEvents(recoveredEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
     setClockSeconds(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
     setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+    setGameStarted(match.status !== 'DRAFT' || Boolean(match.startedAt));
+    setOfficialStartedAt(match.startedAt ?? null);
     setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
     setDraggedPlayerId('');
     setDropTargetId('');
@@ -1203,8 +1207,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   useEffect(() => {
     const limitSeconds = (match.availableMinutes ?? 60) * 60;
-    if (match.status === 'RUNNING' && match.startedAt) {
-      const syncOfficialClock = () => setClockSeconds(Math.min(limitSeconds, Math.max(0, Math.floor((Date.now() - new Date(match.startedAt as string).getTime()) / 1000))));
+    if ((match.status === 'RUNNING' || (match.status === 'DRAFT' && gameStarted)) && officialStartedAt) {
+      const syncOfficialClock = () => setClockSeconds(Math.min(limitSeconds, Math.max(0, Math.floor((Date.now() - new Date(officialStartedAt).getTime()) / 1000))));
       syncOfficialClock();
       const timer = window.setInterval(syncOfficialClock, 1000);
       return () => window.clearInterval(timer);
@@ -1212,7 +1216,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     if (!clockRunning) return;
     const timer = window.setInterval(() => setClockSeconds((value) => Math.min(limitSeconds, value + 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [clockRunning, match.availableMinutes, match.startedAt, match.status]);
+  }, [clockRunning, gameStarted, match.availableMinutes, match.status, officialStartedAt]);
 
   useEffect(() => {
     if (skipAutosaveRef.current) {
@@ -1228,6 +1232,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   const playablePlayers = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
   const currentMinute = Math.floor(clockSeconds / 60);
+  const canRegisterEvents = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
+  const canRepositionPlayers = match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
 
   function normalizePlayersForBoard(list: MatchDetail['players']) {
     const ranked = [...list].sort((left, right) => {
@@ -1336,6 +1342,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function addQuickEvent(player: MatchDetail['players'][number], eventType: MatchEventDraft['eventType']) {
+    if (!canRegisterEvents) {
+      setSheetMessage('Inicie o jogo para lançar gol, assistência e cartões na súmula.');
+      return;
+    }
     if (player.team === 'PRESENTE_SEM_JOGAR') return;
     const eventMinute = Math.max(0, Math.floor(clockSeconds / 60));
     const eventTeam = player.team === 'A' ? 'A' : 'B';
@@ -1380,6 +1390,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   async function startGame() {
     if (match.status === 'RUNNING') {
+      setGameStarted(true);
       setClockRunning(true);
       setSheetMessage('O jogo já foi iniciado nesta súmula.');
       return;
@@ -1389,7 +1400,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       return;
     }
     await saveBoard(false);
-    await api.request(`/matches/${match.id}/start`, { method: 'POST' });
+    const started = await api.request<{ id: string; status: string; startedAt: string }>(`/matches/${match.id}/start`, { method: 'POST' });
+    setGameStarted(true);
+    setOfficialStartedAt(started.startedAt);
+    setClockSeconds(Math.max(0, Math.floor((Date.now() - new Date(started.startedAt).getTime()) / 1000)));
     setClockRunning(true);
     setSheetMessage('Jogo iniciado com cronômetro oficial.');
     await onSaved();
@@ -1476,17 +1490,17 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const dropTarget = dropTargetId === player.userId;
     const pending = playerIsDimmed(player);
     return (
-      <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${pending ? 'is-pending' : ''}`} key={player.userId} role="group" draggable={match.status !== 'CONFIRMED'} onDragStart={() => setDraggedPlayerId(player.userId)} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); executeDragSwap(player.userId); }}>
+      <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${pending ? 'is-pending' : ''}`} key={player.userId} role="group" draggable={canRepositionPlayers} onDragStart={() => setDraggedPlayerId(player.userId)} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canRepositionPlayers && canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); if (canRepositionPlayers) executeDragSwap(player.userId); }}>
         <div className="ops-roster-avatar">{user?.avatarDataUrl ? <img src={user.avatarDataUrl} alt={player.name} /> : <span>{player.name.slice(0, 1)}</span>}</div>
         <div className="ops-roster-copy">
           <strong>#{playerBoardNumber(player, index)} {player.name}</strong>
-          <small>{rosterSubtitle(player)}{pending ? ' • não confirmado' : ''}{match.status !== 'CONFIRMED' ? ' • arraste para trocar' : ''}</small>
+          <small>{rosterSubtitle(player)}{pending ? ' • não confirmado' : ''}{canRepositionPlayers ? ' • arraste para trocar' : ''}</small>
         </div>
         <div className="ops-roster-actions">
-          <button type="button" className="ops-icon-card is-yellow" title="Cartão amarelo" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
-          <button type="button" className="ops-icon-card is-red" title="Cartão vermelho" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>🟥</button>
-          <button type="button" className="ops-icon-card is-goal" title="Gol" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
-          <button type="button" className="ops-icon-card is-more" title="Assistência" onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>A</button>
+          <button type="button" className="ops-icon-card is-yellow" title={canRegisterEvents ? 'Cartão amarelo' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
+          <button type="button" className="ops-icon-card is-red" title={canRegisterEvents ? 'Cartão vermelho' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>🟥</button>
+          <button type="button" className="ops-icon-card is-goal" title={canRegisterEvents ? 'Gol' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
+          <button type="button" className="ops-icon-card is-more" title={canRegisterEvents ? 'Assistência' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>A</button>
         </div>
       </div>
     );
