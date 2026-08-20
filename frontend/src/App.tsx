@@ -1648,13 +1648,13 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function rosterRow(player: MatchDetail['players'][number], index: number, reserve = false) {
-    const user = usersById.get(player.userId);
     const dragged = draggedPlayerId === player.userId;
     const dropTarget = dropTargetId === player.userId;
     const pending = playerIsDimmed(player);
+    const rosterNumber = player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index);
     return (
       <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${pending ? 'is-pending' : ''}`} key={player.userId} role="group" draggable={canRepositionPlayers} onDragStart={() => setDraggedPlayerId(player.userId)} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canRepositionPlayers && canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); if (canRepositionPlayers) executeDragSwap(player.userId); }}>
-        <div className="ops-roster-avatar">{user?.avatarDataUrl ? <img src={user.avatarDataUrl} alt={player.name} /> : <span>{player.name.slice(0, 1)}</span>}</div>
+        <div className="ops-roster-avatar"><span>{rosterNumber}</span></div>
         <div className="ops-roster-copy">
           <strong>#{playerBoardNumber(player, index)} {player.name}</strong>
           <small>{rosterSubtitle(player)}{pending ? ' • não confirmado' : ''}{canRepositionPlayers ? ' • arraste para trocar' : ''}</small>
