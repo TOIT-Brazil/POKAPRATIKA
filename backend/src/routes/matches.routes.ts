@@ -8,14 +8,40 @@ import { asyncHandler, httpError, validate } from '../utils/http';
 
 export const matchesRouter = Router();
 
+const athletePositionSchema = z.enum(['GO', 'ZG', 'LD', 'LE', 'MD', 'MC', 'MA', 'AT']);
+const guestIdentityPattern = /^guest:[a-z0-9-]{6,}$/i;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const guestPlayersMigrationFile = 'migrations/17_convidados_temporarios_sumula.sql';
+
 const playerSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.string().min(1),
+  name: z.string().min(2).max(120).optional(),
+  position: athletePositionSchema.nullable().optional(),
+  isGuest: z.boolean().optional(),
   team: z.enum(['A', 'B', 'PRESENTE_SEM_JOGAR']),
   roleInMatch: z.enum(['GOLEIRO', 'LINHA', 'PRESENTE_SEM_JOGAR']),
   drawOrder: z.number().int().min(1).nullable().optional(),
   rotationOrder: z.number().int().min(1).nullable().optional(),
   startsOnBench: z.boolean().default(false),
   present: z.boolean().default(true)
+}).superRefine((player, ctx) => {
+  const guest = player.isGuest === true || guestIdentityPattern.test(player.userId);
+  if (guest) {
+    if (!guestIdentityPattern.test(player.userId)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Convidado temporário precisa usar identificador guest:*.' });
+    }
+    if (!player.name?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Convidado temporário precisa ter nome.' });
+    }
+    if (!player.position) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Convidado temporário precisa ter posição original.' });
+    }
+    return;
+  }
+
+  if (!uuidPattern.test(player.userId)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Atleta fixo da súmula precisa ter UUID válido.' });
+  }
 });
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Informe horário no formato HH:mm.');
@@ -37,7 +63,7 @@ const createMatchBaseSchema = z.object({
 const createMatchSchema = createMatchBaseSchema.refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
 const lineupSchema = createMatchBaseSchema.omit({ seasonId: true }).partial({ matchDate: true, title: true, teamAName: true, teamBName: true, scheduledStart: true, scheduledEnd: true }).extend({ players: z.array(playerSchema).default([]) }).refine((body) => !body.scheduledStart || !body.scheduledEnd || body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' });
 
-const eventSchema = z.object({ userId: z.string().uuid(), relatedUserId: z.string().uuid().nullable().optional(), eventType: z.enum(['GOL', 'GOL_CONTRA', 'ASSISTENCIA', 'CARTAO_AMARELO', 'CARTAO_VERMELHO', 'CARTAO_AZUL']), minute: z.number().int().min(0).max(180), team: z.enum(['A', 'B']), occurredAt: z.string().datetime().nullable().optional() });
+const eventSchema = z.object({ userId: z.string().min(1), relatedUserId: z.string().min(1).nullable().optional(), eventType: z.enum(['GOL', 'GOL_CONTRA', 'ASSISTENCIA', 'CARTAO_AMARELO', 'CARTAO_VERMELHO', 'CARTAO_AZUL']), minute: z.number().int().min(0).max(180), team: z.enum(['A', 'B']), occurredAt: z.string().datetime().nullable().optional() });
 const scoreSchema = z.object({ teamAScore: z.number().int().min(0), teamBScore: z.number().int().min(0), events: z.array(eventSchema).default([]) });
 const correctionSchema = scoreSchema.extend({ reason: z.string().min(5).max(500) });
 const draftSchema = scoreSchema.extend({ clockSeconds: z.number().int().min(0).max(10800).default(0), clockRunning: z.boolean().default(false) });
@@ -62,6 +88,10 @@ const recurringScheduleSchema = manualScheduleBaseSchema.omit({ matchDate: true 
   endDate: z.string().date()
 }).refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.endDate >= body.startDate, { message: 'A data final precisa ser maior ou igual à inicial.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
 const schedulePatchSchema = manualScheduleBaseSchema.omit({ seasonId: true }).partial().refine((body) => !body.scheduledStart || !body.scheduledEnd || body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' });
+
+type MatchPlayerInput = z.infer<typeof playerSchema>;
+type MatchEventInput = z.infer<typeof eventSchema>;
+type QueryExecutor = <T = any>(text: string, params?: any[]) => Promise<{ rows: T[]; rowCount: number }>;
 
 function buildConfirmationOpenAt(matchDate: string, scheduledStart: string, hoursBefore: number): string {
   const startsAt = new Date(`${matchDate}T${scheduledStart}:00-03:00`).getTime();
@@ -99,13 +129,26 @@ function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-async function getMatchColumns(): Promise<Set<string>> {
+function isGuestIdentity(value: string | null | undefined): boolean {
+  return Boolean(value && guestIdentityPattern.test(value));
+}
+
+function isGuestPlayer(player: Pick<MatchPlayerInput, 'userId' | 'isGuest'>): boolean {
+  return player.isGuest === true || isGuestIdentity(player.userId);
+}
+
+async function getTableColumns(tableName: string): Promise<Set<string>> {
   const result = await query<{ column_name: string }>(
     `SELECT column_name
      FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = 'matches'`
+     WHERE table_schema = 'public' AND table_name = $1`,
+    [tableName]
   );
   return new Set(result.rows.map((row) => row.column_name));
+}
+
+async function getMatchColumns(): Promise<Set<string>> {
+  return getTableColumns('matches');
 }
 
 async function tableExists(tableName: string): Promise<boolean> {
@@ -120,6 +163,148 @@ async function tableExists(tableName: string): Promise<boolean> {
   return result.rows[0]?.exists === true;
 }
 
+function hasGuestPlayerSupport(columns: Set<string>): boolean {
+  return columns.has('guest_key') && columns.has('guest_name') && columns.has('guest_position');
+}
+
+function hasGuestEventSupport(columns: Set<string>): boolean {
+  return columns.has('guest_key') && columns.has('related_guest_key');
+}
+
+function ensureGuestPlayerSupport(players: MatchPlayerInput[], enabled: boolean): void {
+  if (players.some(isGuestPlayer) && !enabled) {
+    throw httpError(409, `Convidados temporários indisponíveis: execute ${guestPlayersMigrationFile} no PostgreSQL da Railway.`);
+  }
+}
+
+function ensureGuestEventSupport(events: MatchEventInput[], enabled: boolean): void {
+  const usesGuest = events.some((event) => isGuestIdentity(event.userId) || isGuestIdentity(event.relatedUserId ?? null));
+  if (usesGuest && !enabled) {
+    throw httpError(409, `Eventos com convidados temporários indisponíveis: execute ${guestPlayersMigrationFile} no PostgreSQL da Railway.`);
+  }
+}
+
+function playerIdentitySql(alias = ''): string {
+  const prefix = alias ? `${alias}.` : '';
+  return `COALESCE(${prefix}user_id::text, ${prefix}guest_key)`;
+}
+
+function relatedIdentitySql(alias = ''): string {
+  const prefix = alias ? `${alias}.` : '';
+  return `COALESCE(${prefix}related_user_id::text, ${prefix}related_guest_key)`;
+}
+
+function mapPlayerForPersistence(player: MatchPlayerInput): { userId: string | null; guestKey: string | null; guestName: string | null; guestPosition: string | null } {
+  if (isGuestPlayer(player)) {
+    return {
+      userId: null,
+      guestKey: player.userId,
+      guestName: player.name?.trim() ?? null,
+      guestPosition: player.position ?? null
+    };
+  }
+
+  return {
+    userId: player.userId,
+    guestKey: null,
+    guestName: null,
+    guestPosition: null
+  };
+}
+
+function mapEventForPersistence(event: MatchEventInput): { userId: string | null; guestKey: string | null; relatedUserId: string | null; relatedGuestKey: string | null } {
+  return {
+    userId: isGuestIdentity(event.userId) ? null : event.userId,
+    guestKey: isGuestIdentity(event.userId) ? event.userId : null,
+    relatedUserId: isGuestIdentity(event.relatedUserId ?? null) ? null : event.relatedUserId ?? null,
+    relatedGuestKey: isGuestIdentity(event.relatedUserId ?? null) ? event.relatedUserId ?? null : null
+  };
+}
+
+async function insertMatchPlayerRecord(execute: QueryExecutor, matchId: string, player: MatchPlayerInput, guestPlayerEnabled: boolean): Promise<void> {
+  const persisted = mapPlayerForPersistence(player);
+  if (guestPlayerEnabled) {
+    await execute(
+      `INSERT INTO match_players (match_id, user_id, guest_key, guest_name, guest_position, team, role_in_match, draw_order, rotation_order, starts_on_bench, present)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [matchId, persisted.userId, persisted.guestKey, persisted.guestName, persisted.guestPosition, player.team, player.roleInMatch, player.drawOrder ?? null, player.rotationOrder ?? null, player.startsOnBench, player.present]
+    );
+    return;
+  }
+
+  await execute(
+    `INSERT INTO match_players (match_id, user_id, team, role_in_match, draw_order, rotation_order, starts_on_bench, present)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [matchId, persisted.userId, player.team, player.roleInMatch, player.drawOrder ?? null, player.rotationOrder ?? null, player.startsOnBench, player.present]
+  );
+}
+
+async function insertMatchEventRecord(execute: QueryExecutor, matchId: string, event: MatchEventInput, guestEventEnabled: boolean): Promise<void> {
+  const persisted = mapEventForPersistence(event);
+  if (guestEventEnabled) {
+    await execute(
+      `INSERT INTO match_events (match_id, user_id, guest_key, related_user_id, related_guest_key, event_type, minute, team, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::TIMESTAMPTZ, now()))`,
+      [matchId, persisted.userId, persisted.guestKey, persisted.relatedUserId, persisted.relatedGuestKey, event.eventType, event.minute, event.team, event.occurredAt ?? null]
+    );
+    return;
+  }
+
+  await execute(
+    'INSERT INTO match_events (match_id, user_id, related_user_id, event_type, minute, team, created_at) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::TIMESTAMPTZ, now()))',
+    [matchId, persisted.userId, persisted.relatedUserId, event.eventType, event.minute, event.team, event.occurredAt ?? null]
+  );
+}
+
+async function getPersistedMatchPlayers(matchId: string): Promise<Array<{ userId: string; team: string; roleInMatch: string; present: boolean }>> {
+  const columns = await getTableColumns('match_players');
+  const result = hasGuestPlayerSupport(columns)
+    ? await query<{ userId: string; team: string; roleInMatch: string; present: boolean }>(
+      `SELECT ${playerIdentitySql()} AS "userId", team, role_in_match AS "roleInMatch", present
+       FROM match_players
+       WHERE match_id = $1`,
+      [matchId]
+    )
+    : await query<{ userId: string; team: string; roleInMatch: string; present: boolean }>(
+      'SELECT user_id AS "userId", team, role_in_match AS "roleInMatch", present FROM match_players WHERE match_id = $1',
+      [matchId]
+    );
+  return result.rows;
+}
+
+async function getPersistedMatchEvents(matchId: string): Promise<Array<{ userId: string; relatedUserId: string | null; team: string }>> {
+  const columns = await getTableColumns('match_events');
+  const result = hasGuestEventSupport(columns)
+    ? await query<{ userId: string; relatedUserId: string | null; team: string }>(
+      `SELECT ${playerIdentitySql()} AS "userId", ${relatedIdentitySql()} AS "relatedUserId", team
+       FROM match_events
+       WHERE match_id = $1`,
+      [matchId]
+    )
+    : await query<{ userId: string; relatedUserId: string | null; team: string }>(
+      'SELECT user_id AS "userId", related_user_id AS "relatedUserId", team FROM match_events WHERE match_id = $1',
+      [matchId]
+    );
+  return result.rows;
+}
+
+async function getMatchEventTimeline(matchId: string): Promise<Array<{ userId: string; relatedUserId: string | null; eventType: string; minute: number; team: string; createdAt: string }>> {
+  const columns = await getTableColumns('match_events');
+  const result = hasGuestEventSupport(columns)
+    ? await query<{ userId: string; relatedUserId: string | null; eventType: string; minute: number; team: string; createdAt: string }>(
+      `SELECT ${playerIdentitySql()} AS "userId", ${relatedIdentitySql()} AS "relatedUserId", event_type AS "eventType", minute, team, created_at AS "createdAt"
+       FROM match_events
+       WHERE match_id = $1
+       ORDER BY minute ASC, created_at ASC`,
+      [matchId]
+    )
+    : await query<{ userId: string; relatedUserId: string | null; eventType: string; minute: number; team: string; createdAt: string }>(
+      'SELECT user_id AS "userId", related_user_id AS "relatedUserId", event_type AS "eventType", minute, team, created_at AS "createdAt" FROM match_events WHERE match_id = $1 ORDER BY minute ASC, created_at ASC',
+      [matchId]
+    );
+  return result.rows;
+}
+
 async function ensureScheduleAvailable(): Promise<void> {
   const matchColumns = await getMatchColumns();
   if (!matchColumns.has('confirmation_open_at') || !matchColumns.has('confirmation_opens_hours_before') || !matchColumns.has('confirmation_opened_at') || !matchColumns.has('confirmation_close_at') || !matchColumns.has('confirmation_closes_hours_before') || !await tableExists('match_schedule_rules')) {
@@ -127,12 +312,14 @@ async function ensureScheduleAvailable(): Promise<void> {
   }
 }
 
-async function validatePlayersInput(players: z.infer<typeof playerSchema>[]): Promise<void> {
+async function validatePlayersInput(players: MatchPlayerInput[]): Promise<void> {
   const userIds = players.map((player) => player.userId);
   if (new Set(userIds).size !== userIds.length) throw httpError(400, 'A súmula não pode repetir o mesmo atleta.');
-  if (!userIds.length) return;
-  const activeUsers = await query<{ id: string }>('SELECT id FROM users WHERE id = ANY($1::UUID[]) AND active = TRUE', [userIds]);
-  if (activeUsers.rowCount !== userIds.length) throw httpError(400, 'Todos os atletas da súmula precisam estar ativos.');
+  const fixedUserIds = players.filter((player) => !isGuestPlayer(player)).map((player) => player.userId);
+  if (fixedUserIds.length) {
+    const activeUsers = await query<{ id: string }>('SELECT id FROM users WHERE id = ANY($1::UUID[]) AND active = TRUE', [fixedUserIds]);
+    if (activeUsers.rowCount !== fixedUserIds.length) throw httpError(400, 'Todos os atletas fixos da súmula precisam estar ativos.');
+  }
   for (const player of players) {
     if (player.team === 'PRESENTE_SEM_JOGAR' && player.roleInMatch !== 'PRESENTE_SEM_JOGAR') throw httpError(400, 'Atleta presente sem jogar precisa ter papel PRESENTE_SEM_JOGAR.');
     if (player.team !== 'PRESENTE_SEM_JOGAR' && player.roleInMatch === 'PRESENTE_SEM_JOGAR') throw httpError(400, 'Atleta escalado em time precisa ser GOLEIRO ou LINHA.');
@@ -140,25 +327,25 @@ async function validatePlayersInput(players: z.infer<typeof playerSchema>[]): Pr
 }
 
 async function validateLineupReady(matchId: string): Promise<void> {
-  const players = await query<{ team: string; role_in_match: string; present: boolean }>('SELECT team, role_in_match, present FROM match_players WHERE match_id = $1', [matchId]);
-  const playable = players.rows.filter((player) => player.present && (player.team === 'A' || player.team === 'B'));
+  const players = await getPersistedMatchPlayers(matchId);
+  const playable = players.filter((player) => player.present && (player.team === 'A' || player.team === 'B'));
   for (const team of ['A', 'B']) {
     const teamPlayers = playable.filter((player) => player.team === team);
-    const goalkeepers = teamPlayers.filter((player) => player.role_in_match === 'GOLEIRO').length;
-    const linePlayers = teamPlayers.filter((player) => player.role_in_match === 'LINHA').length;
+    const goalkeepers = teamPlayers.filter((player) => player.roleInMatch === 'GOLEIRO').length;
+    const linePlayers = teamPlayers.filter((player) => player.roleInMatch === 'LINHA').length;
     if (goalkeepers !== 1) throw httpError(400, `O time ${team} precisa ter exatamente 1 goleiro antes de iniciar o jogo.`);
     if (linePlayers < 6) throw httpError(400, `O time ${team} precisa ter pelo menos 6 jogadores de linha antes de iniciar o jogo.`);
   }
 }
 
-async function validateLineupAgainstEvents(matchId: string, players: z.infer<typeof playerSchema>[]): Promise<void> {
-  const events = await query<{ user_id: string; related_user_id: string | null; team: string }>('SELECT user_id, related_user_id, team FROM match_events WHERE match_id = $1', [matchId]);
-  if (!events.rowCount) return;
+async function validateLineupAgainstEvents(matchId: string, players: MatchPlayerInput[]): Promise<void> {
+  const events = await getPersistedMatchEvents(matchId);
+  if (!events.length) return;
   const playerMap = new Map(players.map((player) => [player.userId, player]));
-  for (const event of events.rows) {
-    const player = playerMap.get(event.user_id);
+  for (const event of events) {
+    const player = playerMap.get(event.userId);
     if (!player || player.team === 'PRESENTE_SEM_JOGAR' || player.team !== event.team) throw httpError(409, 'Não é possível salvar escalação incompatível com eventos já lançados na súmula.');
-    if (event.related_user_id && !playerMap.has(event.related_user_id)) throw httpError(409, 'Não é possível remover atleta relacionado a evento já lançado.');
+    if (event.relatedUserId && !playerMap.has(event.relatedUserId)) throw httpError(409, 'Não é possível remover atleta relacionado a evento já lançado.');
   }
 }
 
@@ -168,8 +355,11 @@ async function validateDraftSafety(matchId: string, body: z.infer<typeof draftSc
   if (match.rows[0].status === 'CONFIRMED') throw httpError(409, 'Súmula confirmada não recebe rascunho operacional. Use correção auditada.');
   if (match.rows[0].status === 'CANCELLED') throw httpError(409, 'Súmula cancelada não recebe rascunho operacional.');
 
-  const players = await query<{ user_id: string; team: string; present: boolean }>('SELECT user_id, team, present FROM match_players WHERE match_id = $1', [matchId]);
-  const playerMap = new Map(players.rows.map((player) => [player.user_id, player]));
+  const eventColumns = await getTableColumns('match_events');
+  ensureGuestEventSupport(body.events, hasGuestEventSupport(eventColumns));
+
+  const players = await getPersistedMatchPlayers(matchId);
+  const playerMap = new Map(players.map((player) => [player.userId, player]));
   for (const event of body.events) {
     const player = playerMap.get(event.userId);
     if (!player || !player.present || player.team === 'PRESENTE_SEM_JOGAR') throw httpError(400, 'O rascunho contém evento de atleta que não está escalado para jogar.');
@@ -192,9 +382,12 @@ async function validateScoreSheet(matchId: string, body: z.infer<typeof scoreSch
   if (!allowConfirmed && !match.rows[0].started_at) throw httpError(409, 'A súmula precisa ter início oficial registrado antes da submissão.');
   await validateLineupReady(matchId);
 
-  const players = await query<{ user_id: string; team: string; present: boolean }>('SELECT user_id, team, present FROM match_players WHERE match_id = $1', [matchId]);
-  const playerMap = new Map(players.rows.map((player) => [player.user_id, player]));
-  const playableTeams = new Set(players.rows.filter((player) => player.present && (player.team === 'A' || player.team === 'B')).map((player) => player.team));
+  const eventColumns = await getTableColumns('match_events');
+  ensureGuestEventSupport(body.events, hasGuestEventSupport(eventColumns));
+
+  const players = await getPersistedMatchPlayers(matchId);
+  const playerMap = new Map(players.map((player) => [player.userId, player]));
+  const playableTeams = new Set(players.filter((player) => player.present && (player.team === 'A' || player.team === 'B')).map((player) => player.team));
   if (!playableTeams.has('A') || !playableTeams.has('B')) throw httpError(400, 'A súmula precisa ter atletas presentes nos times A e B.');
 
   for (const event of body.events) {
@@ -222,7 +415,7 @@ async function createAutomaticSuspensions(matchId: string): Promise<void> {
     `INSERT INTO athlete_suspensions (user_id, season_id, trigger_match_id, reason)
      SELECT DISTINCT user_id, $2, $1, 'CARTAO_VERMELHO'
      FROM match_events
-     WHERE match_id = $1 AND event_type = 'CARTAO_VERMELHO'
+     WHERE match_id = $1 AND event_type = 'CARTAO_VERMELHO' AND user_id IS NOT NULL
      ON CONFLICT (user_id, trigger_match_id, reason) DO NOTHING`,
     [matchId, seasonId]
   );
@@ -230,7 +423,7 @@ async function createAutomaticSuspensions(matchId: string): Promise<void> {
   const yellowCandidates = await query<{ user_id: string }>(
     `SELECT DISTINCT me.user_id
      FROM match_events me
-     WHERE me.match_id = $1 AND me.event_type = 'CARTAO_AMARELO'`,
+     WHERE me.match_id = $1 AND me.event_type = 'CARTAO_AMARELO' AND me.user_id IS NOT NULL`,
     [matchId]
   );
 
@@ -380,6 +573,9 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
   const body = validate(createMatchSchema, req.body);
   const players = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: player.present ?? true }));
   await validatePlayersInput(players);
+  const matchPlayerColumns = await getTableColumns('match_players');
+  const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+  ensureGuestPlayerSupport(players, guestPlayerEnabled);
   const seasonResult = body.seasonId ? await query('SELECT id FROM seasons WHERE id = $1 AND status = \'OPEN\'', [body.seasonId]) : { rowCount: 0 };
   const seasonId = seasonResult.rowCount ? body.seasonId : null;
   const matchColumns = await getMatchColumns();
@@ -406,11 +602,7 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
   );
 
   for (const player of players) {
-    await query(
-      `INSERT INTO match_players (match_id, user_id, team, role_in_match, draw_order, rotation_order, starts_on_bench, present)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [match.rows[0].id, player.userId, player.team, player.roleInMatch, player.drawOrder ?? null, player.rotationOrder ?? null, player.startsOnBench, player.present]
-    );
+    await insertMatchPlayerRecord(query, match.rows[0].id, player, guestPlayerEnabled);
   }
 
   res.status(201).json({ id: match.rows[0].id });
@@ -420,6 +612,9 @@ matchesRouter.patch('/:id/lineup', requireRoles('ADMIN', 'COORDENADOR'), asyncHa
   const body = validate(lineupSchema, req.body);
   const players = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: player.present ?? true }));
   await validatePlayersInput(players);
+  const matchPlayerColumns = await getTableColumns('match_players');
+  const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+  ensureGuestPlayerSupport(players, guestPlayerEnabled);
   await validateLineupAgainstEvents(req.params.id, players);
 
   const client = await pool.connect();
@@ -443,11 +638,7 @@ matchesRouter.patch('/:id/lineup', requireRoles('ADMIN', 'COORDENADOR'), asyncHa
     );
     await client.query('DELETE FROM match_players WHERE match_id = $1', [req.params.id]);
     for (const player of players) {
-      await client.query(
-        `INSERT INTO match_players (match_id, user_id, team, role_in_match, draw_order, rotation_order, starts_on_bench, present)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [req.params.id, player.userId, player.team, player.roleInMatch, player.drawOrder ?? null, player.rotationOrder ?? null, player.startsOnBench, player.present]
-      );
+      await insertMatchPlayerRecord(client.query.bind(client), req.params.id, player, guestPlayerEnabled);
     }
     await client.query('COMMIT');
   } catch (err) {
@@ -611,6 +802,9 @@ matchesRouter.post('/:id/open-confirmation', requireRoles('ADMIN', 'COORDENADOR'
 matchesRouter.get('/:id', asyncHandler(async (req, res) => {
   const params = validate(idParamSchema, req.params);
   const matchColumns = await getMatchColumns();
+  const matchPlayerColumns = await getTableColumns('match_players');
+  const matchEventColumns = await getTableColumns('match_events');
+  const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
   const confirmationOpenExpression = confirmationWindowExpression(matchColumns);
   const draftSelect = [
     matchColumns.has('draft_team_a_score') ? 'draft_team_a_score AS "draftTeamAScore"' : 'team_a_score AS "draftTeamAScore"',
@@ -651,14 +845,27 @@ matchesRouter.get('/:id', asyncHandler(async (req, res) => {
     [params.id]
   );
   if (!match.rowCount) throw httpError(404, 'Súmula não encontrada.');
-  const players = await query(
-    `SELECT mp.id, mp.user_id AS "userId", u.name, u.avatar_data_url AS "avatarDataUrl", mp.team, mp.role_in_match AS "roleInMatch",
-      mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder", mp.starts_on_bench AS "startsOnBench", mp.present
-     FROM match_players mp JOIN users u ON u.id = mp.user_id
-     WHERE mp.match_id = $1 ORDER BY mp.team, mp.role_in_match, mp.rotation_order NULLS LAST, u.name`,
-    [params.id]
-  );
-  const events = await query('SELECT id, user_id AS "userId", related_user_id AS "relatedUserId", event_type AS "eventType", minute, team, created_at AS "createdAt" FROM match_events WHERE match_id = $1 ORDER BY minute ASC, created_at ASC', [params.id]);
+  const players = guestPlayerEnabled
+    ? await query(
+      `SELECT mp.id, ${playerIdentitySql('mp')} AS "userId", COALESCE(u.name, mp.guest_name) AS name, u.avatar_data_url AS "avatarDataUrl",
+        COALESCE(mp.guest_position, u.position) AS position, (mp.user_id IS NULL) AS "isGuest", mp.team, mp.role_in_match AS "roleInMatch",
+        mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder", mp.starts_on_bench AS "startsOnBench", mp.present
+       FROM match_players mp
+       LEFT JOIN users u ON u.id = mp.user_id
+       WHERE mp.match_id = $1
+       ORDER BY mp.team, mp.role_in_match, mp.rotation_order NULLS LAST, COALESCE(u.name, mp.guest_name)`,
+      [params.id]
+    )
+    : await query(
+      `SELECT mp.id, mp.user_id AS "userId", u.name, u.avatar_data_url AS "avatarDataUrl", u.position, FALSE AS "isGuest", mp.team, mp.role_in_match AS "roleInMatch",
+        mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder", mp.starts_on_bench AS "startsOnBench", mp.present
+       FROM match_players mp JOIN users u ON u.id = mp.user_id
+       WHERE mp.match_id = $1 ORDER BY mp.team, mp.role_in_match, mp.rotation_order NULLS LAST, u.name`,
+      [params.id]
+    );
+  const events = hasGuestEventSupport(matchEventColumns)
+    ? await query(`SELECT id, ${playerIdentitySql()} AS "userId", ${relatedIdentitySql()} AS "relatedUserId", event_type AS "eventType", minute, team, created_at AS "createdAt" FROM match_events WHERE match_id = $1 ORDER BY minute ASC, created_at ASC`, [params.id])
+    : await query('SELECT id, user_id AS "userId", related_user_id AS "relatedUserId", event_type AS "eventType", minute, team, created_at AS "createdAt" FROM match_events WHERE match_id = $1 ORDER BY minute ASC, created_at ASC', [params.id]);
   const corrections = await tableExists('match_corrections')
     ? await query(
       `SELECT mc.id, mc.reason, mc.previous_team_a_score AS "previousTeamAScore", mc.previous_team_b_score AS "previousTeamBScore",
@@ -778,9 +985,12 @@ matchesRouter.post('/:id/submit', requireRoles('ADMIN', 'COORDENADOR'), asyncHan
   const parsedBody = validate(scoreSchema, req.body);
   const body = { ...parsedBody, events: parsedBody.events ?? [] };
   await validateScoreSheet(req.params.id, body);
+  const matchEventColumns = await getTableColumns('match_events');
+  const guestEventEnabled = hasGuestEventSupport(matchEventColumns);
+  ensureGuestEventSupport(body.events, guestEventEnabled);
   await query('DELETE FROM match_events WHERE match_id = $1', [req.params.id]);
   for (const event of body.events ?? []) {
-    await query('INSERT INTO match_events (match_id, user_id, related_user_id, event_type, minute, team, created_at) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::TIMESTAMPTZ, now()))', [req.params.id, event.userId, event.relatedUserId ?? null, event.eventType, event.minute, event.team ?? null, event.occurredAt ?? null]);
+    await insertMatchEventRecord(query, req.params.id, event, guestEventEnabled);
   }
   const result = await query(
     `UPDATE matches SET status = 'SUBMITTED', team_a_score = $2, team_b_score = $3,
@@ -812,20 +1022,23 @@ matchesRouter.post('/:id/correct', requireRoles('ADMIN', 'COORDENADOR'), asyncHa
   const body = { ...parsedBody, events: parsedBody.events ?? [] };
   await validateScoreSheet(req.params.id, body, true);
   if (!await tableExists('match_corrections')) throw httpError(409, 'Correção auditada indisponível: execute migrations/10_correcoes_auditadas_sumula.sql no PostgreSQL da Railway.');
+  const matchEventColumns = await getTableColumns('match_events');
+  const guestEventEnabled = hasGuestEventSupport(matchEventColumns);
+  ensureGuestEventSupport(body.events, guestEventEnabled);
 
   const match = await query<{ team_a_score: number; team_b_score: number; status: string }>('SELECT team_a_score, team_b_score, status FROM matches WHERE id = $1', [req.params.id]);
   if (match.rows[0].status !== 'CONFIRMED') throw httpError(409, 'Correção auditada é exclusiva para súmulas já confirmadas.');
 
-  const previousEvents = await query('SELECT user_id, related_user_id, event_type, minute, team, created_at AS "createdAt" FROM match_events WHERE match_id = $1 ORDER BY minute ASC, created_at ASC', [req.params.id]);
+  const previousEvents = await getMatchEventTimeline(req.params.id);
   await query(
     `INSERT INTO match_corrections (match_id, corrected_by, reason, previous_team_a_score, previous_team_b_score, new_team_a_score, new_team_b_score, previous_events, new_events)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::JSONB, $9::JSONB)`,
-    [req.params.id, req.user?.id, body.reason.trim(), match.rows[0].team_a_score, match.rows[0].team_b_score, body.teamAScore, body.teamBScore, JSON.stringify(previousEvents.rows), JSON.stringify(body.events)]
+    [req.params.id, req.user?.id, body.reason.trim(), match.rows[0].team_a_score, match.rows[0].team_b_score, body.teamAScore, body.teamBScore, JSON.stringify(previousEvents), JSON.stringify(body.events)]
   );
 
   await query('DELETE FROM match_events WHERE match_id = $1', [req.params.id]);
   for (const event of body.events) {
-    await query('INSERT INTO match_events (match_id, user_id, related_user_id, event_type, minute, team, created_at) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::TIMESTAMPTZ, now()))', [req.params.id, event.userId, event.relatedUserId ?? null, event.eventType, event.minute, event.team, event.occurredAt ?? null]);
+    await insertMatchEventRecord(query, req.params.id, event, guestEventEnabled);
   }
   await query('DELETE FROM athlete_suspensions WHERE trigger_match_id = $1', [req.params.id]);
   await query('UPDATE matches SET team_a_score = $2, team_b_score = $3, updated_at = now() WHERE id = $1', [req.params.id, body.teamAScore, body.teamBScore]);

@@ -40,7 +40,7 @@ type MyVote = { categoryCode: string; voteSlot: number; votedUserId: string };
 type AwardResult = { categoryCode: string; label: string; voteSlot: number; userId: string; name: string; votes: number };
 type AwardLeaderboard = { code: string; label: string; metricCode: MetricCode; sortDirection: 'ASC' | 'DESC'; winnersCount: number; minGames: number; badgeIcon: string; badgeColor: string; rows: Array<{ userId: string; name: string; value: string | number; gamesPlayed: number; totalPoints: number; position: number }> };
 type StandingImportResult = { imported: Array<{ name: string; email: string; totalPoints: number }>; skipped: Array<{ identifier: string; reason: string }> };
-type MatchDraftPlayer = { userId: string; name: string; email: string; position: AthletePosition; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: 'GOLEIRO' | 'LINHA' | 'PRESENTE_SEM_JOGAR'; drawOrder: string; startsOnBench: boolean; present: boolean };
+type MatchDraftPlayer = { userId: string; name: string; email: string; position: AthletePosition; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: 'GOLEIRO' | 'LINHA' | 'PRESENTE_SEM_JOGAR'; drawOrder: string; startsOnBench: boolean; present: boolean; isGuest?: boolean };
 type PositionBalanceGroup = 'GO' | 'DEFESA' | 'MEIO' | 'ATAQUE';
 type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
@@ -59,7 +59,7 @@ type MatchDetail = MatchListItem & {
   draftClockSeconds?: number;
   draftClockRunning?: boolean;
   draftSavedAt?: string | null;
-  players: Array<{ userId: string; name: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: string; drawOrder?: number | null; rotationOrder?: number | null; startsOnBench: boolean; present?: boolean }>;
+  players: Array<{ userId: string; name: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: string; drawOrder?: number | null; rotationOrder?: number | null; startsOnBench: boolean; present?: boolean; position?: AthletePosition | null; avatarDataUrl?: string | null; isGuest?: boolean }>;
   events: Array<{ userId: string; relatedUserId?: string | null; eventType: string; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null }>;
   corrections: MatchCorrection[];
   attendance: MatchAttendanceResponse[];
@@ -300,14 +300,14 @@ function buildRegisteredRosterSeed(users: User[], attendance: MatchAttendanceRes
   const attendanceById = new Map(attendance.map((item) => [item.userId, item]));
   const baseRoster = users
     .filter((user) => user.active !== false && user.role === 'ATLETA')
-    .map((user) => ({ id: user.id, name: user.name, email: user.email, position: user.position ?? 'MC' }))
+    .map((user) => ({ id: user.id, name: user.name, email: user.email, position: user.position ?? 'MC', isGuest: false }))
     .sort(comparePlayersByOriginalPosition);
   const baseRosterIds = new Set(baseRoster.map((user) => user.id));
   const savedExtras = savedPlayers
     .filter((player) => !baseRosterIds.has(player.userId))
     .map((player) => {
       const user = usersById.get(player.userId);
-      return { id: player.userId, name: user?.name ?? player.name, email: user?.email ?? '', position: user?.position ?? 'MC' };
+      return { id: player.userId, name: user?.name ?? player.name, email: user?.email ?? '', position: player.position ?? user?.position ?? 'MC', isGuest: player.isGuest === true };
     });
   const fullRoster = [...baseRoster, ...savedExtras].sort(comparePlayersByOriginalPosition);
 
@@ -322,7 +322,8 @@ function buildRegisteredRosterSeed(users: User[], attendance: MatchAttendanceRes
       roleInMatch: user.position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const,
       drawOrder: '0',
       startsOnBench: false,
-      present: attendanceById.get(user.id)?.responseStatus === 'JOGAR'
+      present: attendanceById.get(user.id)?.responseStatus === 'JOGAR',
+      isGuest: user.isGuest === true
     })), false);
   const distributedById = new Map(distributedBase.map((player) => [player.userId, player]));
 
@@ -340,7 +341,8 @@ function buildRegisteredRosterSeed(users: User[], attendance: MatchAttendanceRes
         roleInMatch: 'PRESENTE_SEM_JOGAR' as const,
         drawOrder: String(saved?.drawOrder ?? 0),
         startsOnBench: false,
-        present: true
+        present: true,
+        isGuest: user.isGuest === true
       };
     }
 
@@ -355,7 +357,8 @@ function buildRegisteredRosterSeed(users: User[], attendance: MatchAttendanceRes
       roleInMatch: saved?.roleInMatch === 'GOLEIRO' ? 'GOLEIRO' as const : fallback?.roleInMatch ?? (user.position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const),
       drawOrder: String(saved?.drawOrder ?? fallback?.drawOrder ?? 0),
       startsOnBench: saved?.startsOnBench ?? fallback?.startsOnBench ?? false,
-      present: attendanceStatus === 'JOGAR' ? true : attendanceStatus === 'AUSENTE' ? false : saved?.present === true
+      present: attendanceStatus === 'JOGAR' ? true : attendanceStatus === 'AUSENTE' ? false : saved?.present === true,
+      isGuest: user.isGuest === true || saved?.isGuest === true
     };
   });
 
@@ -1226,7 +1229,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         drawOrder: Number(player.drawOrder ?? index + 1),
         rotationOrder,
         startsOnBench: player.startsOnBench,
-        present: player.present
+        present: player.present,
+        position: player.position,
+        isGuest: player.isGuest === true
       };
     });
   }
@@ -1242,6 +1247,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
   const [draggedPlayerId, setDraggedPlayerId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
+  const [guestTeam, setGuestTeam] = useState<'A' | 'B'>('A');
   const usersById = new Map(users.map((item) => [item.id, item]));
   const attendanceStatusByUserId = new Map(match.attendance.map((item) => [item.userId, item.responseStatus]));
   const skipAutosaveRef = useRef(true);
@@ -1260,6 +1268,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
     setDraggedPlayerId('');
     setDropTargetId('');
+    setGuestName('');
+    setGuestPosition('MC');
+    setGuestTeam('A');
     skipAutosaveRef.current = true;
     appliedAutoSwapMinutesRef.current = { A: [], B: [] };
   }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users]);
@@ -1300,8 +1311,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       const teamRank = (team: MatchDetail['players'][number]['team']) => team === 'A' ? 0 : team === 'B' ? 1 : 2;
       const teamDiff = teamRank(left.team) - teamRank(right.team);
       if (teamDiff !== 0) return teamDiff;
-      const leftPosition = usersById.get(left.userId)?.position ?? 'MC';
-      const rightPosition = usersById.get(right.userId)?.position ?? 'MC';
+      const leftPosition = left.position ?? usersById.get(left.userId)?.position ?? 'MC';
+      const rightPosition = right.position ?? usersById.get(right.userId)?.position ?? 'MC';
       const positionDiff = positionSequenceOrder(leftPosition) - positionSequenceOrder(rightPosition);
       if (positionDiff !== 0) return positionDiff;
       const leftOrder = left.rotationOrder ?? left.drawOrder ?? 999;
@@ -1318,14 +1329,14 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
     for (const team of ['A', 'B'] as const) {
       const teamPlayers = normalized.filter((player) => player.team === team).sort((left, right) => {
-        const leftPosition = usersById.get(left.userId)?.position ?? 'MC';
-        const rightPosition = usersById.get(right.userId)?.position ?? 'MC';
+        const leftPosition = left.position ?? usersById.get(left.userId)?.position ?? 'MC';
+        const rightPosition = right.position ?? usersById.get(right.userId)?.position ?? 'MC';
         return positionSequenceOrder(leftPosition) - positionSequenceOrder(rightPosition);
       });
       if (!teamPlayers.length) continue;
 
       const goalkeeperCandidate = teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO')
-        ?? teamPlayers.find((player) => usersById.get(player.userId)?.position === 'GO')
+        ?? teamPlayers.find((player) => (player.position ?? usersById.get(player.userId)?.position) === 'GO')
         ?? null;
 
       for (const player of teamPlayers) {
@@ -1452,6 +1463,47 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return Boolean(firstPlayer && secondPlayer && firstPlayer.userId !== secondPlayer.userId && firstPlayer.team !== 'PRESENTE_SEM_JOGAR' && secondPlayer.team !== 'PRESENTE_SEM_JOGAR' && ((firstPlayer.team === secondPlayer.team && firstPlayer.startsOnBench !== secondPlayer.startsOnBench) || firstPlayer.team !== secondPlayer.team));
   }
 
+  function addGuestPlayer() {
+    const normalizedName = guestName.trim().replace(/\s+/g, ' ');
+    if (!normalizedName) {
+      setSheetMessage('Informe o nome do convidado antes de adicionar na súmula.');
+      return;
+    }
+    const guestId = `guest:${window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`}`;
+    setPlayers((current) => normalizeOperationalLineup([
+      ...current,
+      {
+        userId: guestId,
+        name: normalizedName,
+        team: guestTeam,
+        roleInMatch: guestPosition === 'GO' ? 'GOLEIRO' : 'LINHA',
+        drawOrder: current.length + 1,
+        rotationOrder: null,
+        startsOnBench: true,
+        present: true,
+        position: guestPosition,
+        isGuest: true,
+        avatarDataUrl: null
+      }
+    ]));
+    setGuestName('');
+    setGuestPosition('MC');
+    setSheetMessage(`${normalizedName} entrou como convidado temporário no time ${guestTeam}.`);
+  }
+
+  function removeGuestPlayer(playerId: string) {
+    const guest = players.find((player) => player.userId === playerId && player.isGuest);
+    if (!guest) return;
+    if (events.some((event) => event.userId === playerId || event.relatedUserId === playerId)) {
+      setSheetMessage('Não é possível remover convidado que já possui evento lançado na súmula.');
+      return;
+    }
+    setPlayers((current) => normalizeOperationalLineup(current.filter((player) => player.userId !== playerId)));
+    if (draggedPlayerId === playerId) setDraggedPlayerId('');
+    if (dropTargetId === playerId) setDropTargetId('');
+    setSheetMessage(`${guest.name} foi removido da súmula.`);
+  }
+
   async function saveBoard(showFeedback = true) {
     const normalizedPlayers = normalizeOperationalLineup(players);
     const lineupAdjusted = normalizedPlayers.some((player, index) => {
@@ -1471,6 +1523,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         teamBName: match.teamBName,
         players: normalizedPlayers.map((player, index) => ({
           userId: player.userId,
+          name: player.name,
+          position: player.position ?? 'MC',
+          isGuest: player.isGuest === true,
           team: player.team,
           roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch,
           drawOrder: player.drawOrder ?? index + 1,
@@ -1562,6 +1617,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function playerIsDimmed(player: MatchDetail['players'][number]) {
+    if (player.isGuest) return false;
     const status = attendanceStatusByUserId.get(player.userId);
     return player.present === false || !status || status === 'AUSENTE';
   }
@@ -1583,8 +1639,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   function rosterSubtitle(player: MatchDetail['players'][number]) {
     const user = usersById.get(player.userId);
+    const position = player.position ?? user?.position ?? 'MC';
     if (player.roleInMatch === 'GOLEIRO') return '# • Goleiro';
-    return user?.position ?? 'MC';
+    return `${position}${player.isGuest ? ' • convidado' : ''}`;
   }
 
   function rosterRow(player: MatchDetail['players'][number], index: number, reserve = false) {
@@ -1600,6 +1657,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <small>{rosterSubtitle(player)}{pending ? ' • não confirmado' : ''}{canRepositionPlayers ? ' • arraste para trocar' : ''}</small>
         </div>
         <div className="ops-roster-actions">
+          {player.isGuest && canRepositionPlayers && <button type="button" className="ghost small" title="Remover convidado" onClick={(event) => { event.stopPropagation(); removeGuestPlayer(player.userId); }}>Remover</button>}
           <button type="button" className="ops-icon-card is-yellow" title={canRegisterEvents ? 'Cartão amarelo' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
           <button type="button" className="ops-icon-card is-red" title={canRegisterEvents ? 'Cartão vermelho' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>🟥</button>
           <button type="button" className="ops-icon-card is-goal" title={canRegisterEvents ? 'Gol' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
@@ -1627,6 +1685,32 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
             <div><b>{match.teamBName}</b><small>{teamBScore}</small></div>
           </div>
         </section>
+        {match.status !== 'CONFIRMED' && match.status !== 'CANCELLED' && <section className="sheet-guest-card">
+          <div className="sheet-guest-headline">
+            <strong>Suplente convidado</strong>
+            <small>Válido só nesta súmula, sem criar atleta fixo.</small>
+          </div>
+          <div className="sheet-guest-grid">
+            <label className="field-shell">
+              <span>Nome</span>
+              <input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do convidado" maxLength={120} />
+            </label>
+            <label className="field-shell">
+              <span>Posição</span>
+              <select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>
+                {athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label className="field-shell">
+              <span>Time inicial</span>
+              <select value={guestTeam} onChange={(event) => setGuestTeam(event.target.value as 'A' | 'B')}>
+                <option value="A">{match.teamAName}</option>
+                <option value="B">{match.teamBName}</option>
+              </select>
+            </label>
+            <button type="button" className="primary sheet-guest-add-button" onClick={addGuestPlayer}>Adicionar convidado</button>
+          </div>
+        </section>}
       </div>
 
       <div className="sheet-preview-arena">
