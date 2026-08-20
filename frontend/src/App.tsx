@@ -1247,6 +1247,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
   const [draggedPlayerId, setDraggedPlayerId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
+  const [guestModalOpen, setGuestModalOpen] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
   const [guestTeam, setGuestTeam] = useState<'A' | 'B'>('A');
@@ -1268,6 +1269,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
     setDraggedPlayerId('');
     setDropTargetId('');
+    setGuestModalOpen(false);
     setGuestName('');
     setGuestPosition('MC');
     setGuestTeam('A');
@@ -1488,6 +1490,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     ]));
     setGuestName('');
     setGuestPosition('MC');
+    setGuestModalOpen(false);
     setSheetMessage(`${normalizedName} entrou como convidado temporário no time ${guestTeam}.`);
   }
 
@@ -1668,6 +1671,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   const clockLabel = `${String(Math.floor(clockSeconds / 60)).padStart(2, '0')}:${String(clockSeconds % 60).padStart(2, '0')}`;
+  const canManageGuests = match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const summaryLines = events.slice().sort((left, right) => {
     const leftTime = left.occurredAt ?? left.createdAt ? new Date(left.occurredAt ?? left.createdAt ?? '').getTime() : left.minute * 60000;
     const rightTime = right.occurredAt ?? right.createdAt ? new Date(right.occurredAt ?? right.createdAt ?? '').getTime() : right.minute * 60000;
@@ -1685,32 +1689,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
             <div><b>{match.teamBName}</b><small>{teamBScore}</small></div>
           </div>
         </section>
-        {match.status !== 'CONFIRMED' && match.status !== 'CANCELLED' && <section className="sheet-guest-card">
-          <div className="sheet-guest-headline">
-            <strong>Suplente convidado</strong>
-            <small>Válido só nesta súmula, sem criar atleta fixo.</small>
-          </div>
-          <div className="sheet-guest-grid">
-            <label className="field-shell">
-              <span>Nome</span>
-              <input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do convidado" maxLength={120} />
-            </label>
-            <label className="field-shell">
-              <span>Posição</span>
-              <select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>
-                {athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
-            <label className="field-shell">
-              <span>Time inicial</span>
-              <select value={guestTeam} onChange={(event) => setGuestTeam(event.target.value as 'A' | 'B')}>
-                <option value="A">{match.teamAName}</option>
-                <option value="B">{match.teamBName}</option>
-              </select>
-            </label>
-            <button type="button" className="primary sheet-guest-add-button" onClick={addGuestPlayer}>Adicionar convidado</button>
-          </div>
-        </section>}
       </div>
 
       <div className="sheet-preview-arena">
@@ -1722,16 +1700,36 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <div className="ops-roster-list reserve-list">{reservesForTeam('A').length ? reservesForTeam('A').map((player, index) => rosterRow(player, index, true)) : <small className="muted">Sem reservas definidos.</small>}</div>
         </section>
 
-        <section className="ops-pitch-card sheet-pitch-panel">
-          <div className="ops-pitch-surface sheet-pitch-surface">
-            <div className="ops-pitch-center-circle" />
-            <div className="ops-pitch-midline" />
-            <div className="ops-pitch-box ops-pitch-box-a" />
-            <div className="ops-pitch-box ops-pitch-box-b" />
-            {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
-            {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+        <div className="sheet-center-column">
+          <section className="ops-pitch-card sheet-pitch-panel">
+            <div className="ops-pitch-surface sheet-pitch-surface">
+              <div className="ops-pitch-center-circle" />
+              <div className="ops-pitch-midline" />
+              <div className="ops-pitch-box ops-pitch-box-a" />
+              <div className="ops-pitch-box ops-pitch-box-b" />
+              {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+              {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+            </div>
+          </section>
+
+          <div className="sheet-preview-bottom">
+            <section className="sheet-log-panel is-sheet-main">
+              <div className="match-control-feed-head">
+                <div>
+                  <strong>Log da súmula</strong>
+                  <small>{match.matchDate ? new Date(match.matchDate).toLocaleDateString('pt-BR') : 'Sem data'}</small>
+                </div>
+                <small>{sheetMessage}</small>
+              </div>
+              <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`log-${item.userId}-${item.eventType}-${index}`}><b>{summaryTime(item)}</b><small>{summaryText(item).split(' - ').slice(1).join(' - ')}</small></span>)}</div>
+              <div className="sheet-footer-actions">
+                {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
+                {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}
+                {canManageGuests && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => setGuestModalOpen(true)}>Suplente convidado</button>}
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
 
         <section className="ops-roster-column sheet-roster-panel">
           <div className="ops-roster-head team-b-head"><div className="sheet-crest-pair small"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div><strong>{match.teamBName}</strong></div>
@@ -1742,19 +1740,43 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         </section>
       </div>
 
-      <div className="sheet-preview-bottom">
-        <section className="sheet-log-panel is-sheet-main">
-          <div className="match-control-feed-head">
+      {guestModalOpen && canManageGuests && <div className="modal match-modal sheet-guest-modal" onClick={() => setGuestModalOpen(false)}>
+        <section className="modal-card sheet-guest-modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="card-head">
             <div>
-              <strong>Log da súmula</strong>
-              <small>{match.matchDate ? new Date(match.matchDate).toLocaleDateString('pt-BR') : 'Sem data'}</small>
+              <h2>Suplente convidado</h2>
+              <p className="muted">Adicione um convidado só para esta súmula.</p>
             </div>
-            <small>{sheetMessage}</small>
+            <button type="button" className="ghost modal-close-button" aria-label="Fechar modal de convidado" title="Fechar" onClick={() => setGuestModalOpen(false)}>X</button>
           </div>
-          <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`log-${item.userId}-${item.eventType}-${index}`}><b>{summaryTime(item)}</b><small>{summaryText(item).split(' - ').slice(1).join(' - ')}</small></span>)}</div>
-          <div className="sheet-footer-actions">{match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}{match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}</div>
+          <div className="sheet-guest-card">
+            <div className="sheet-guest-headline">
+              <strong>Dados do convidado</strong>
+              <small>Ele entra no time escolhido sem criar cadastro permanente.</small>
+            </div>
+            <div className="sheet-guest-grid">
+              <label className="field-shell">
+                <span>Nome</span>
+                <input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do convidado" maxLength={120} />
+              </label>
+              <label className="field-shell">
+                <span>Posição</span>
+                <select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>
+                  {athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label className="field-shell">
+                <span>Time inicial</span>
+                <select value={guestTeam} onChange={(event) => setGuestTeam(event.target.value as 'A' | 'B')}>
+                  <option value="A">{match.teamAName}</option>
+                  <option value="B">{match.teamBName}</option>
+                </select>
+              </label>
+              <button type="button" className="primary sheet-guest-add-button" onClick={addGuestPlayer}>Adicionar convidado</button>
+            </div>
+          </div>
         </section>
-      </div>
+      </div>}
     </div>
   );
 }
