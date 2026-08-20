@@ -12,59 +12,56 @@ export type TeamRotationPlan = {
   exchangeSize: number;
   schedule: Array<{
     minute: number;
+    second: number;
     label: string;
     entering: string[];
     leaving: string[];
   }>;
 };
 
-const legacySheetSchedules: Record<number, number[]> = {
-  1: [8, 16, 24, 32, 40, 48, 56],
-  2: [9, 18, 27, 36, 41, 46, 51, 56],
-  3: [10, 20, 30, 39, 48, 57]
-};
-
-const legacyCycleMinutes: Record<number, { first: number; second: number }> = {
-  1: { first: 8, second: 0 },
-  2: { first: 9, second: 5 },
-  3: { first: 10, second: 9 }
-};
-
-function chunk<T>(items: T[], size: number): T[][] {
-  if (size <= 0) return [];
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
+function greatestCommonDivisor(left: number, right: number): number {
+  let currentLeft = Math.abs(left);
+  let currentRight = Math.abs(right);
+  while (currentRight !== 0) {
+    const next = currentLeft % currentRight;
+    currentLeft = currentRight;
+    currentRight = next;
   }
-  return chunks;
+  return Math.max(1, currentLeft);
 }
 
 export function buildTeamRotationPlan(players: LinePlayerRotationInput[], availableMinutes: number): TeamRotationPlan {
   const ordered = [...players].sort((a, b) => a.rotationOrder - b.rotationOrder);
-  const bench = ordered.filter((player) => player.startsOnBench);
-  const reserves = Math.max(0, ordered.length - 6);
-  const exchangeSize = Math.max(1, bench.length);
+  const activeSlots = Math.min(6, ordered.length);
+  const reserves = Math.max(0, ordered.length - activeSlots);
 
-  if (reserves === 0 || bench.length === 0) {
+  if (reserves === 0 || ordered.length <= activeSlots) {
     return { reserves, firstCycleMinutes: 0, secondCycleMinutes: 0, exchangeSize: 0, schedule: [] };
   }
 
-  const groups = chunk(ordered, exchangeSize);
-  const scheduleMinutes = legacySheetSchedules[reserves] ?? Array.from({ length: Math.max(1, Math.floor(availableMinutes / 8)) }, (_, index) => Math.min(availableMinutes - 1, (index + 1) * 8));
-  const cycle = legacyCycleMinutes[reserves] ?? { first: Math.min(10, Math.max(6, Math.floor(availableMinutes / Math.max(4, groups.length * 2)))), second: 5 };
+  const cycleShift = reserves;
+  const cycleCount = ordered.length / greatestCommonDivisor(ordered.length, cycleShift);
+  const availableSeconds = Math.max(60, availableMinutes * 60);
+  const intervalSeconds = availableSeconds / cycleCount;
+  const windowForStep = (stepIndex: number) => {
+    const startIndex = (stepIndex * cycleShift) % ordered.length;
+    return new Set(Array.from({ length: activeSlots }, (_item, index) => ordered[(startIndex + index) % ordered.length].id));
+  };
 
-  const schedule = scheduleMinutes
-    .filter((minute) => minute < availableMinutes)
-    .map((minute, index) => {
-      const enteringGroup = groups[index % groups.length];
-      const leavingGroup = groups[(index + 1) % groups.length];
-      return {
-        minute,
-        label: `${index + 1}ª troca`,
-        entering: enteringGroup.map((player) => player.name),
-        leaving: leavingGroup.map((player) => player.name)
-      };
-    });
+  const schedule = Array.from({ length: Math.max(0, cycleCount - 1) }, (_item, index) => {
+    const currentWindow = windowForStep(index);
+    const nextWindow = windowForStep(index + 1);
+    const enteringPlayers = ordered.filter((player) => nextWindow.has(player.id) && !currentWindow.has(player.id));
+    const leavingPlayers = ordered.filter((player) => currentWindow.has(player.id) && !nextWindow.has(player.id));
+    const switchAtSeconds = Math.round(intervalSeconds * (index + 1));
+    return {
+      minute: Math.min(Math.max(0, availableMinutes - 1), Math.floor(switchAtSeconds / 60)),
+      second: switchAtSeconds,
+      label: `${index + 1}ª troca`,
+      entering: enteringPlayers.map((player) => player.name),
+      leaving: leavingPlayers.map((player) => player.name)
+    };
+  });
 
-  return { reserves, firstCycleMinutes: cycle.first, secondCycleMinutes: cycle.second, exchangeSize, schedule };
+  return { reserves, firstCycleMinutes: Number((intervalSeconds / 60).toFixed(1)), secondCycleMinutes: 0, exchangeSize: reserves, schedule };
 }

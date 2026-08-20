@@ -683,8 +683,8 @@ matchesRouter.get('/:id', asyncHandler(async (req, res) => {
       [params.id]
     )
     : { rows: [] };
-  const lineA = players.rows.filter((player: any) => player.team === 'A' && player.roleInMatch === 'LINHA' && player.rotationOrder);
-  const lineB = players.rows.filter((player: any) => player.team === 'B' && player.roleInMatch === 'LINHA' && player.rotationOrder);
+  const lineA = players.rows.filter((player: any) => player.team === 'A' && player.roleInMatch === 'LINHA' && player.rotationOrder && player.present !== false);
+  const lineB = players.rows.filter((player: any) => player.team === 'B' && player.roleInMatch === 'LINHA' && player.rotationOrder && player.present !== false);
 
   res.json({
     ...match.rows[0],

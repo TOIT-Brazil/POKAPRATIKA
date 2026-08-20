@@ -40,7 +40,7 @@ type MyVote = { categoryCode: string; voteSlot: number; votedUserId: string };
 type AwardResult = { categoryCode: string; label: string; voteSlot: number; userId: string; name: string; votes: number };
 type AwardLeaderboard = { code: string; label: string; metricCode: MetricCode; sortDirection: 'ASC' | 'DESC'; winnersCount: number; minGames: number; badgeIcon: string; badgeColor: string; rows: Array<{ userId: string; name: string; value: string | number; gamesPlayed: number; totalPoints: number; position: number }> };
 type StandingImportResult = { imported: Array<{ name: string; email: string; totalPoints: number }>; skipped: Array<{ identifier: string; reason: string }> };
-type MatchDraftPlayer = { userId: string; name: string; email: string; position: AthletePosition; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: 'GOLEIRO' | 'LINHA' | 'PRESENTE_SEM_JOGAR'; drawOrder: string; startsOnBench: boolean };
+type MatchDraftPlayer = { userId: string; name: string; email: string; position: AthletePosition; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: 'GOLEIRO' | 'LINHA' | 'PRESENTE_SEM_JOGAR'; drawOrder: string; startsOnBench: boolean; present: boolean };
 type PositionBalanceGroup = 'GO' | 'DEFESA' | 'MEIO' | 'ATAQUE';
 type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
@@ -59,67 +59,70 @@ type MatchDetail = MatchListItem & {
   draftClockSeconds?: number;
   draftClockRunning?: boolean;
   draftSavedAt?: string | null;
-  players: Array<{ userId: string; name: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: string; drawOrder?: number | null; rotationOrder?: number | null; startsOnBench: boolean }>;
+  players: Array<{ userId: string; name: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: string; drawOrder?: number | null; rotationOrder?: number | null; startsOnBench: boolean; present?: boolean }>;
   events: Array<{ userId: string; relatedUserId?: string | null; eventType: string; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null }>;
   corrections: MatchCorrection[];
   attendance: MatchAttendanceResponse[];
   rotation: Record<'A' | 'B', { reserves: number; firstCycleMinutes: number; secondCycleMinutes: number; schedule: Array<{ minute: number; label: string; entering: string[]; leaving: string[] }> }>;
 };
 
-type SheetRotationStep = { minute: number; label: string; enteringIds: string[]; leavingIds: string[]; entering: string[]; leaving: string[] };
+type SheetRotationStep = { minute: number; second: number; label: string; enteringIds: string[]; leavingIds: string[]; entering: string[]; leaving: string[] };
 type SheetRotationPlan = { reserves: number; firstCycleMinutes: number; secondCycleMinutes: number; exchangeSize: number; schedule: SheetRotationStep[] };
 
 const storageKey = 'pokapratika.auth';
 
-const sheetLegacySchedules: Record<number, number[]> = {
-  1: [8, 16, 24, 32, 40, 48, 56],
-  2: [9, 18, 27, 36, 41, 46, 51, 56],
-  3: [10, 20, 30, 39, 48, 57]
-};
-
-const sheetLegacyCycleMinutes: Record<number, { first: number; second: number }> = {
-  1: { first: 8, second: 0 },
-  2: { first: 9, second: 5 },
-  3: { first: 10, second: 9 }
-};
-
-function chunkRotationItems<T>(items: T[], size: number): T[][] {
-  if (size <= 0) return [];
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
-  return chunks;
+function greatestCommonDivisor(left: number, right: number): number {
+  let currentLeft = Math.abs(left);
+  let currentRight = Math.abs(right);
+  while (currentRight !== 0) {
+    const next = currentLeft % currentRight;
+    currentLeft = currentRight;
+    currentRight = next;
+  }
+  return Math.max(1, currentLeft);
 }
 
 function buildSheetRotationPlan(players: Array<{ userId: string; name: string; rotationOrder: number; startsOnBench: boolean }>, availableMinutes: number): SheetRotationPlan {
   const ordered = [...players].sort((left, right) => left.rotationOrder - right.rotationOrder);
-  const bench = ordered.filter((player) => player.startsOnBench);
-  const reserves = Math.max(0, ordered.length - 6);
-  const exchangeSize = Math.max(1, bench.length);
-
-  if (reserves === 0 || bench.length === 0) {
+  const activeSlots = Math.min(6, ordered.length);
+  const reserves = Math.max(0, ordered.length - activeSlots);
+  if (reserves === 0 || ordered.length <= activeSlots) {
     return { reserves, firstCycleMinutes: 0, secondCycleMinutes: 0, exchangeSize: 0, schedule: [] };
   }
 
-  const groups = chunkRotationItems(ordered, exchangeSize);
-  const scheduleMinutes = sheetLegacySchedules[reserves] ?? Array.from({ length: Math.max(1, Math.floor(availableMinutes / 8)) }, (_, index) => Math.min(availableMinutes - 1, (index + 1) * 8));
-  const cycle = sheetLegacyCycleMinutes[reserves] ?? { first: Math.min(10, Math.max(6, Math.floor(availableMinutes / Math.max(4, groups.length * 2)))), second: 5 };
+  const cycleShift = reserves;
+  const cycleCount = ordered.length / greatestCommonDivisor(ordered.length, cycleShift);
+  const availableSeconds = Math.max(60, availableMinutes * 60);
+  const intervalSeconds = availableSeconds / cycleCount;
+  const windowForStep = (stepIndex: number) => {
+    const startIndex = (stepIndex * cycleShift) % ordered.length;
+    return new Set(Array.from({ length: activeSlots }, (_item, index) => ordered[(startIndex + index) % ordered.length].userId));
+  };
 
-  const schedule = scheduleMinutes
-    .filter((minute) => minute < availableMinutes)
-    .map((minute, index) => {
-      const enteringGroup = groups[index % groups.length];
-      const leavingGroup = groups[(index + 1) % groups.length];
-      return {
-        minute,
-        label: `${index + 1}ª troca`,
-        enteringIds: enteringGroup.map((player) => player.userId),
-        leavingIds: leavingGroup.map((player) => player.userId),
-        entering: enteringGroup.map((player) => player.name),
-        leaving: leavingGroup.map((player) => player.name)
-      };
-    });
+  const schedule = Array.from({ length: Math.max(0, cycleCount - 1) }, (_item, index) => {
+    const currentWindow = windowForStep(index);
+    const nextWindow = windowForStep(index + 1);
+    const enteringPlayers = ordered.filter((player) => nextWindow.has(player.userId) && !currentWindow.has(player.userId));
+    const leavingPlayers = ordered.filter((player) => currentWindow.has(player.userId) && !nextWindow.has(player.userId));
+    const switchAtSeconds = Math.round(intervalSeconds * (index + 1));
+    return {
+      minute: Math.min(Math.max(0, availableMinutes - 1), Math.floor(switchAtSeconds / 60)),
+      second: switchAtSeconds,
+      label: `${index + 1}ª troca`,
+      enteringIds: enteringPlayers.map((player) => player.userId),
+      leavingIds: leavingPlayers.map((player) => player.userId),
+      entering: enteringPlayers.map((player) => player.name),
+      leaving: leavingPlayers.map((player) => player.name)
+    };
+  });
 
-  return { reserves, firstCycleMinutes: cycle.first, secondCycleMinutes: cycle.second, exchangeSize, schedule };
+  return {
+    reserves,
+    firstCycleMinutes: Number((intervalSeconds / 60).toFixed(1)),
+    secondCycleMinutes: 0,
+    exchangeSize: reserves,
+    schedule
+  };
 }
 
 const athletePositionOptions: Array<{ value: AthletePosition; label: string }> = [
@@ -217,43 +220,154 @@ function positionBalanceGroup(position: AthletePosition): PositionBalanceGroup {
   return 'ATAQUE';
 }
 
-function shuffleRows<T>(rows: T[]): T[] {
-  return rows.map((row) => ({ row, sort: Math.random() })).sort((left, right) => left.sort - right.sort).map((item) => item.row);
+function positionSequenceOrder(position?: AthletePosition | null): number {
+  if (position === 'GO') return 0;
+  if (position === 'LD') return 1;
+  if (position === 'LE') return 2;
+  if (position === 'ZG') return 3;
+  if (position === 'MD') return 4;
+  if (position === 'MC') return 5;
+  if (position === 'MA') return 6;
+  return 7;
 }
 
-function drawBalancedTeams(players: MatchDraftPlayer[]): MatchDraftPlayer[] {
-  const playable = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
-  const presentOnly = players.filter((player) => player.team === 'PRESENTE_SEM_JOGAR');
+function comparePlayersByOriginalPosition(left: { position: AthletePosition; name: string; drawOrder?: string | number | null }, right: { position: AthletePosition; name: string; drawOrder?: string | number | null }) {
+  const positionDiff = positionSequenceOrder(left.position) - positionSequenceOrder(right.position);
+  if (positionDiff !== 0) return positionDiff;
+  const leftOrder = Number(left.drawOrder ?? Number.MAX_SAFE_INTEGER);
+  const rightOrder = Number(right.drawOrder ?? Number.MAX_SAFE_INTEGER);
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+  return left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' });
+}
+
+function normalizeDraftPlayersForLineup(list: MatchDraftPlayer[]): MatchDraftPlayer[] {
+  const teamBuckets: MatchDraftPlayer[] = [];
+
+  for (const team of ['A', 'B'] as const) {
+    const teamPlayers = [...list.filter((player) => player.team === team)].sort(comparePlayersByOriginalPosition);
+    const explicitGoalkeeper = teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO');
+    const naturalGoalkeeper = teamPlayers.find((player) => player.position === 'GO');
+    const goalkeeperId = explicitGoalkeeper?.userId ?? naturalGoalkeeper?.userId ?? null;
+    let activeLineIndex = 0;
+
+    for (const player of teamPlayers) {
+      const isGoalkeeper = goalkeeperId === player.userId;
+      teamBuckets.push({
+        ...player,
+        roleInMatch: isGoalkeeper ? 'GOLEIRO' : 'LINHA',
+        startsOnBench: isGoalkeeper ? false : activeLineIndex++ >= 6
+      });
+    }
+  }
+
+  const presentOnly = [...list.filter((player) => player.team === 'PRESENTE_SEM_JOGAR')]
+    .sort(comparePlayersByOriginalPosition)
+    .map((player) => ({ ...player, roleInMatch: 'PRESENTE_SEM_JOGAR' as const, startsOnBench: false }));
+
+  return [...teamBuckets, ...presentOnly].map((player, index) => ({ ...player, drawOrder: String(index + 1) }));
+}
+
+function distributePlayersByPosition(list: MatchDraftPlayer[], randomize = true): MatchDraftPlayer[] {
+  const playable = list.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
+  const presentOnly = list.filter((player) => player.team === 'PRESENTE_SEM_JOGAR');
   const teams: Record<'A' | 'B', MatchDraftPlayer[]> = { A: [], B: [] };
   const counts: Record<'A' | 'B', Record<PositionBalanceGroup, number>> = { A: { GO: 0, DEFESA: 0, MEIO: 0, ATAQUE: 0 }, B: { GO: 0, DEFESA: 0, MEIO: 0, ATAQUE: 0 } };
 
   for (const group of ['GO', 'DEFESA', 'MEIO', 'ATAQUE'] as PositionBalanceGroup[]) {
-    for (const player of shuffleRows(playable.filter((item) => positionBalanceGroup(item.position) === group))) {
-      const target = counts.A[group] < counts.B[group] ? 'A' : counts.B[group] < counts.A[group] ? 'B' : teams.A.length < teams.B.length ? 'A' : teams.B.length < teams.A.length ? 'B' : Math.random() < 0.5 ? 'A' : 'B';
+    const groupPlayers = playable.filter((player) => positionBalanceGroup(player.position) === group).sort(comparePlayersByOriginalPosition);
+    const orderedGroup = randomize ? shuffleRows(groupPlayers) : groupPlayers;
+    for (const player of orderedGroup) {
+      const target = counts.A[group] < counts.B[group]
+        ? 'A'
+        : counts.B[group] < counts.A[group]
+          ? 'B'
+          : teams.A.length < teams.B.length
+            ? 'A'
+            : teams.B.length < teams.A.length
+              ? 'B'
+              : 'A';
       teams[target].push({ ...player, team: target });
       counts[target][group] += 1;
     }
   }
 
-  let drawOrder = 1;
-  const decorateTeam = (team: 'A' | 'B') => {
-    let goalkeepers = 0;
-    let linePlayers = 0;
-    return teams[team].map((player) => {
-      const goalkeeper = player.position === 'GO' && goalkeepers === 0;
-      const roleInMatch: MatchDraftPlayer['roleInMatch'] = goalkeeper ? 'GOLEIRO' : 'LINHA';
-      if (goalkeeper) goalkeepers += 1;
-      const startsOnBench = roleInMatch === 'LINHA' && linePlayers >= 6;
-      if (roleInMatch === 'LINHA') linePlayers += 1;
-      return { ...player, roleInMatch, startsOnBench, drawOrder: String(drawOrder++) };
-    });
-  };
+  return normalizeDraftPlayersForLineup([...teams.A, ...teams.B, ...presentOnly]);
+}
 
-  return [
-    ...decorateTeam('A'),
-    ...decorateTeam('B'),
-    ...presentOnly.map((player) => ({ ...player, roleInMatch: 'PRESENTE_SEM_JOGAR' as const, startsOnBench: false, drawOrder: String(drawOrder++) }))
-  ];
+function buildRegisteredRosterSeed(users: User[], attendance: MatchAttendanceResponse[], savedPlayers: MatchDetail['players']): MatchDraftPlayer[] {
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const savedById = new Map(savedPlayers.map((player) => [player.userId, player]));
+  const attendanceById = new Map(attendance.map((item) => [item.userId, item]));
+  const baseRoster = users
+    .filter((user) => user.active !== false && user.role === 'ATLETA')
+    .map((user) => ({ id: user.id, name: user.name, email: user.email, position: user.position ?? 'MC' }))
+    .sort(comparePlayersByOriginalPosition);
+  const baseRosterIds = new Set(baseRoster.map((user) => user.id));
+  const savedExtras = savedPlayers
+    .filter((player) => !baseRosterIds.has(player.userId))
+    .map((player) => {
+      const user = usersById.get(player.userId);
+      return { id: player.userId, name: user?.name ?? player.name, email: user?.email ?? '', position: user?.position ?? 'MC' };
+    });
+  const fullRoster = [...baseRoster, ...savedExtras].sort(comparePlayersByOriginalPosition);
+
+  const distributedBase = distributePlayersByPosition(fullRoster
+    .filter((user) => attendanceById.get(user.id)?.responseStatus !== 'PRESENTE_SEM_JOGAR')
+    .map((user) => ({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      position: user.position,
+      team: 'A' as const,
+      roleInMatch: user.position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const,
+      drawOrder: '0',
+      startsOnBench: false,
+      present: attendanceById.get(user.id)?.responseStatus === 'JOGAR'
+    })), false);
+  const distributedById = new Map(distributedBase.map((player) => [player.userId, player]));
+
+  const seededPlayers = fullRoster.map((user) => {
+    const attendanceStatus = attendanceById.get(user.id)?.responseStatus;
+    const saved = savedById.get(user.id);
+
+    if (attendanceStatus === 'PRESENTE_SEM_JOGAR') {
+      return {
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        position: user.position,
+        team: 'PRESENTE_SEM_JOGAR' as const,
+        roleInMatch: 'PRESENTE_SEM_JOGAR' as const,
+        drawOrder: String(saved?.drawOrder ?? 0),
+        startsOnBench: false,
+        present: true
+      };
+    }
+
+    const fallback = distributedById.get(user.id);
+    const savedTeam = saved?.team === 'A' || saved?.team === 'B' ? saved.team : fallback?.team ?? 'A';
+    return {
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      position: user.position,
+      team: savedTeam,
+      roleInMatch: saved?.roleInMatch === 'GOLEIRO' ? 'GOLEIRO' as const : fallback?.roleInMatch ?? (user.position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const),
+      drawOrder: String(saved?.drawOrder ?? fallback?.drawOrder ?? 0),
+      startsOnBench: saved?.startsOnBench ?? fallback?.startsOnBench ?? false,
+      present: attendanceStatus === 'JOGAR' ? true : attendanceStatus === 'AUSENTE' ? false : saved?.present === true
+    };
+  });
+
+  return normalizeDraftPlayersForLineup(seededPlayers);
+}
+
+function shuffleRows<T>(rows: T[]): T[] {
+  return rows.map((row) => ({ row, sort: Math.random() })).sort((left, right) => left.sort - right.sort).map((item) => item.row);
+}
+
+function drawBalancedTeams(players: MatchDraftPlayer[]): MatchDraftPlayer[] {
+  return distributePlayersByPosition(players, true);
 }
 
 function formatCardReason(reason: string) {
@@ -1099,68 +1213,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
 function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; match: MatchDetail; users: User[]; onSaved: () => Promise<void> }) {
   const initialEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
   function seededPlayers(): MatchDetail['players'] {
-    const attendancePlayers: MatchDraftPlayer[] = match.attendance
-      .filter((item) => item.responseStatus !== 'AUSENTE')
-      .map((item, index) => {
-        const user = users.find((current) => current.id === item.userId);
-        const position = user?.position ?? item.position ?? 'MC';
-        const presentOnly = item.responseStatus === 'PRESENTE_SEM_JOGAR';
-        return {
-          userId: item.userId,
-          name: item.name,
-          email: user?.email ?? '',
-          position,
-          team: presentOnly ? 'PRESENTE_SEM_JOGAR' as const : 'A' as const,
-          roleInMatch: presentOnly ? 'PRESENTE_SEM_JOGAR' as const : position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const,
-          drawOrder: String(index + 1),
-          startsOnBench: false
-        };
-      });
-
-    if (match.players.length) {
-      const mergedPlayers = match.players.map((player) => ({ ...player }));
-      const existingIds = new Set(mergedPlayers.map((player) => player.userId));
-      let nextDrawOrder = mergedPlayers.reduce((highest, player) => Math.max(highest, player.drawOrder ?? 0), 0) + 1;
-
-      for (const attendancePlayer of attendancePlayers) {
-        if (existingIds.has(attendancePlayer.userId)) continue;
-        if (attendancePlayer.team === 'PRESENTE_SEM_JOGAR') {
-          mergedPlayers.push({
-            userId: attendancePlayer.userId,
-            name: attendancePlayer.name,
-            team: 'PRESENTE_SEM_JOGAR',
-            roleInMatch: 'PRESENTE_SEM_JOGAR',
-            drawOrder: nextDrawOrder++,
-            rotationOrder: null,
-            startsOnBench: false
-          });
-          existingIds.add(attendancePlayer.userId);
-          continue;
-        }
-
-        const teamAPlayers = mergedPlayers.filter((player) => player.team === 'A');
-        const teamBPlayers = mergedPlayers.filter((player) => player.team === 'B');
-        const targetTeam: 'A' | 'B' = teamAPlayers.length <= teamBPlayers.length ? 'A' : 'B';
-        const targetTeamStarters = mergedPlayers.filter((player) => player.team === targetTeam && !player.startsOnBench);
-        const missingGoalkeeper = attendancePlayer.position === 'GO' && !targetTeamStarters.some((player) => player.roleInMatch === 'GOLEIRO');
-        mergedPlayers.push({
-          userId: attendancePlayer.userId,
-          name: attendancePlayer.name,
-          team: targetTeam,
-          roleInMatch: missingGoalkeeper ? 'GOLEIRO' : 'LINHA',
-          drawOrder: nextDrawOrder++,
-          rotationOrder: null,
-          startsOnBench: targetTeamStarters.length >= 7 && !missingGoalkeeper
-        });
-        existingIds.add(attendancePlayer.userId);
-      }
-
-      return normalizePlayersForBoard(mergedPlayers);
-    }
-
-    if (!attendancePlayers.length) return [];
-
-    const balanced = drawBalancedTeams(attendancePlayers);
+    const balanced = buildRegisteredRosterSeed(users, match.attendance, match.players);
     const teamOrders = { A: 0, B: 0 };
 
     return balanced.map((player, index) => {
@@ -1172,7 +1225,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         roleInMatch: player.roleInMatch,
         drawOrder: Number(player.drawOrder ?? index + 1),
         rotationOrder,
-        startsOnBench: player.startsOnBench
+        startsOnBench: player.startsOnBench,
+        present: player.present
       };
     });
   }
@@ -1243,10 +1297,17 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   function normalizePlayersForBoard(list: MatchDetail['players']) {
     const ranked = [...list].sort((left, right) => {
+      const teamRank = (team: MatchDetail['players'][number]['team']) => team === 'A' ? 0 : team === 'B' ? 1 : 2;
+      const teamDiff = teamRank(left.team) - teamRank(right.team);
+      if (teamDiff !== 0) return teamDiff;
+      const leftPosition = usersById.get(left.userId)?.position ?? 'MC';
+      const rightPosition = usersById.get(right.userId)?.position ?? 'MC';
+      const positionDiff = positionSequenceOrder(leftPosition) - positionSequenceOrder(rightPosition);
+      if (positionDiff !== 0) return positionDiff;
       const leftOrder = left.rotationOrder ?? left.drawOrder ?? 999;
       const rightOrder = right.rotationOrder ?? right.drawOrder ?? 999;
-      if (left.team !== right.team) return left.team.localeCompare(right.team);
-      return leftOrder - rightOrder;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      return left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' });
     });
     const teamOrders = { A: 0, B: 0 };
     return ranked.map((player) => player.team === 'A' || player.team === 'B' ? { ...player, rotationOrder: ++teamOrders[player.team] } : { ...player, rotationOrder: player.rotationOrder ?? null });
@@ -1256,19 +1317,20 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const normalized = list.map((player) => ({ ...player }));
 
     for (const team of ['A', 'B'] as const) {
-      const teamPlayers = normalized.filter((player) => player.team === team);
+      const teamPlayers = normalized.filter((player) => player.team === team).sort((left, right) => {
+        const leftPosition = usersById.get(left.userId)?.position ?? 'MC';
+        const rightPosition = usersById.get(right.userId)?.position ?? 'MC';
+        return positionSequenceOrder(leftPosition) - positionSequenceOrder(rightPosition);
+      });
       if (!teamPlayers.length) continue;
 
-      const goalkeeperCandidate = teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO' && !player.startsOnBench)
-        ?? teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO')
-        ?? teamPlayers.find((player) => usersById.get(player.userId)?.position === 'GO' && !player.startsOnBench)
+      const goalkeeperCandidate = teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO')
         ?? teamPlayers.find((player) => usersById.get(player.userId)?.position === 'GO')
-        ?? teamPlayers[0];
+        ?? null;
 
       for (const player of teamPlayers) {
-        if (player.userId === goalkeeperCandidate.userId) {
+        if (goalkeeperCandidate && player.userId === goalkeeperCandidate.userId) {
           player.roleInMatch = 'GOLEIRO';
-          player.startsOnBench = false;
         } else {
           player.roleInMatch = 'LINHA';
         }
@@ -1337,8 +1399,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   const sheetRotationPlans = useMemo(() => ({
-    A: buildSheetRotationPlan(playersForTeam('A').filter((player) => player.roleInMatch === 'LINHA').map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60),
-    B: buildSheetRotationPlan(playersForTeam('B').filter((player) => player.roleInMatch === 'LINHA').map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60)
+    A: buildSheetRotationPlan(playersForTeam('A').filter((player) => player.roleInMatch === 'LINHA' && player.present !== false).map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60),
+    B: buildSheetRotationPlan(playersForTeam('B').filter((player) => player.roleInMatch === 'LINHA' && player.present !== false).map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60)
   }), [players, match.availableMinutes]);
 
   useEffect(() => {
@@ -1346,7 +1408,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const dueSteps: Array<{ team: 'A' | 'B'; step: SheetRotationStep }> = [];
     for (const team of ['A', 'B'] as const) {
       for (const step of sheetRotationPlans[team].schedule) {
-        if (step.minute <= currentMinute && !appliedAutoSwapMinutesRef.current[team].includes(step.minute)) dueSteps.push({ team, step });
+        if (step.second <= clockSeconds && !appliedAutoSwapMinutesRef.current[team].includes(step.second)) dueSteps.push({ team, step });
       }
     }
     if (!dueSteps.length) return;
@@ -1357,10 +1419,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       }
       return normalizePlayersForBoard(next);
     });
-    for (const { team, step } of dueSteps) appliedAutoSwapMinutesRef.current[team].push(step.minute);
+    for (const { team, step } of dueSteps) appliedAutoSwapMinutesRef.current[team].push(step.second);
     const labels = dueSteps.map(({ team, step }) => `Time ${team} ${step.label.toLowerCase()}`).join(' • ');
     setSheetMessage(`Troca automática aplicada: ${labels}.`);
-  }, [currentMinute, matchIsOperationallyRunning, sheetRotationPlans]);
+  }, [clockSeconds, currentMinute, matchIsOperationallyRunning, sheetRotationPlans]);
 
   function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
     if (eventType === 'GOL') {
@@ -1394,7 +1456,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const normalizedPlayers = normalizeOperationalLineup(players);
     const lineupAdjusted = normalizedPlayers.some((player, index) => {
       const current = players[index];
-      return current && (current.userId !== player.userId || current.team !== player.team || current.roleInMatch !== player.roleInMatch || current.startsOnBench !== player.startsOnBench || current.rotationOrder !== player.rotationOrder);
+      return current && (current.userId !== player.userId || current.team !== player.team || current.roleInMatch !== player.roleInMatch || current.startsOnBench !== player.startsOnBench || current.rotationOrder !== player.rotationOrder || current.present !== player.present);
     });
     if (lineupAdjusted) setPlayers(normalizedPlayers);
     const teamAPlayers = normalizedPlayers.filter((player) => player.team === 'A');
@@ -1414,7 +1476,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           drawOrder: player.drawOrder ?? index + 1,
           rotationOrder: player.team === 'A' ? teamAPlayers.findIndex((item) => item.userId === player.userId) + 1 : player.team === 'B' ? teamBPlayers.findIndex((item) => item.userId === player.userId) + 1 : null,
           startsOnBench: player.startsOnBench,
-          present: true
+          present: player.present !== false
         }))
       })
     });
@@ -1501,7 +1563,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   function playerIsDimmed(player: MatchDetail['players'][number]) {
     const status = attendanceStatusByUserId.get(player.userId);
-    return !status || status === 'AUSENTE';
+    return player.present === false || !status || status === 'AUSENTE';
   }
 
   function summaryTime(item: MatchEventDraft) {
@@ -2178,48 +2240,15 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
   const [query, setQuery] = useState('');
   const [message, setMessage] = useState('');
 
-  function playersFromAttendance(): MatchDraftPlayer[] {
-    const attendancePlayers = match.attendance.filter((item) => item.responseStatus !== 'AUSENTE').map((item, index) => {
-      const user = users.find((current) => current.id === item.userId);
-      const position = user?.position ?? item.position ?? 'MC';
-      const presentOnly = item.responseStatus === 'PRESENTE_SEM_JOGAR';
-      return {
-        userId: item.userId,
-        name: item.name,
-        email: user?.email ?? '',
-        position,
-        team: presentOnly ? 'PRESENTE_SEM_JOGAR' as const : 'A' as const,
-        roleInMatch: presentOnly ? 'PRESENTE_SEM_JOGAR' as const : position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const,
-        drawOrder: String(index + 1),
-        startsOnBench: false
-      };
-    });
-    return drawBalancedTeams(attendancePlayers);
-  }
-
   useEffect(() => {
     setTitle(match.title);
     setDate(match.matchDate.slice(0, 10));
     setRefereeName(match.refereeName ?? '');
     setTeamAName(match.teamAName);
     setTeamBName(match.teamBName);
-    const savedPlayers: MatchDraftPlayer[] = match.players.map((player, index) => {
-      const user = users.find((item) => item.id === player.userId);
-      const team = player.team as MatchDraftPlayer['team'];
-      return {
-        userId: player.userId,
-        name: player.name,
-        email: user?.email ?? '',
-        position: user?.position ?? 'MC',
-        team,
-        roleInMatch: team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch === 'GOLEIRO' ? 'GOLEIRO' : 'LINHA',
-        drawOrder: String(player.drawOrder ?? index + 1),
-        startsOnBench: player.startsOnBench
-      };
-    });
-    const attendancePlayers = playersFromAttendance();
-    setPlayers(savedPlayers.length ? savedPlayers : attendancePlayers);
-    setMessage(savedPlayers.length || !attendancePlayers.length ? '' : `${attendancePlayers.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR').length} atleta(s) para jogo e ${attendancePlayers.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} apenas presente(s) carregados das confirmações. Revise e salve a escalação antes de iniciar.`);
+    const seededPlayers = buildRegisteredRosterSeed(users, match.attendance, match.players);
+    setPlayers(seededPlayers);
+    setMessage(`${seededPlayers.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && player.present).length} confirmado(s) para jogar, ${seededPlayers.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} só presença e ${seededPlayers.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && !player.present).length} atleta(s) pendente(s) carregados pela posição original.`);
   }, [match.id, match.title, match.matchDate, match.refereeName, match.teamAName, match.teamBName, match.players, match.attendance, users]);
 
   const assignedIds = new Set(players.map((player) => player.userId));
@@ -2230,50 +2259,33 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
   const presentOnly = players.filter((player) => player.team === 'PRESENTE_SEM_JOGAR');
 
   function payload() {
-    const currentTeamA = players.filter((player) => player.team === 'A');
-    const currentTeamB = players.filter((player) => player.team === 'B');
-    return players.map((player) => ({
+    const normalizedPlayers = normalizeDraftPlayersForLineup(players);
+    const currentTeamA = normalizedPlayers.filter((player) => player.team === 'A');
+    const currentTeamB = normalizedPlayers.filter((player) => player.team === 'B');
+    return normalizedPlayers.map((player) => ({
       userId: player.userId,
       team: player.team,
       roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch,
       drawOrder: player.drawOrder ? Number(player.drawOrder) : null,
       rotationOrder: player.team === 'A' ? currentTeamA.findIndex((item) => item.userId === player.userId) + 1 : player.team === 'B' ? currentTeamB.findIndex((item) => item.userId === player.userId) + 1 : null,
       startsOnBench: player.startsOnBench,
-      present: true
+      present: player.present
     }));
   }
 
   function addPlayer(user: User, team: MatchDraftPlayer['team']) {
     const position = user.position ?? 'MC';
-    setPlayers((list) => [...list, { userId: user.id, name: user.name, email: user.email, position, team, roleInMatch: team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : position === 'GO' ? 'GOLEIRO' : 'LINHA', drawOrder: String(list.length + 1), startsOnBench: false }]);
+    setPlayers((list) => normalizeDraftPlayersForLineup([...list, { userId: user.id, name: user.name, email: user.email, position, team, roleInMatch: team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : position === 'GO' ? 'GOLEIRO' : 'LINHA', drawOrder: String(list.length + 1), startsOnBench: false, present: team !== 'PRESENTE_SEM_JOGAR' }]));
     setQuery('');
   }
 
   function updatePlayer(userId: string, patch: Partial<MatchDraftPlayer>) {
-    setPlayers((list) => list.map((player) => player.userId === userId ? { ...player, ...patch } : player));
-  }
-
-  function movePlayer(userId: string, direction: -1 | 1) {
-    setPlayers((list) => {
-      const player = list.find((item) => item.userId === userId);
-      if (!player || player.team === 'PRESENTE_SEM_JOGAR') return list;
-      const teamRows = list.filter((item) => item.team === player.team);
-      const index = teamRows.findIndex((item) => item.userId === userId);
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= teamRows.length) return list;
-      const reordered = [...teamRows];
-      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-      return list.filter((item) => item.team !== player.team).concat(reordered);
-    });
+    setPlayers((list) => normalizeDraftPlayersForLineup(list.map((player) => player.userId === userId ? { ...player, ...patch } : player)));
   }
 
   function balanceTeamsByPosition() {
-    setPlayers((list) => drawBalancedTeams(list.map((player) => ({
-      ...player,
-      team: player.team === 'PRESENTE_SEM_JOGAR' ? 'A' : player.team,
-      roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'LINHA' : player.roleInMatch
-    }))));
-    setMessage('Times reequilibrados pelas posições oficiais. Revise banco e goleiros antes de salvar.');
+    setPlayers((list) => distributePlayersByPosition(list, false));
+    setMessage('Times reorganizados pela posição original, com banco automático e sequência fixa para trocas iguais.');
   }
 
   function removePlayer(userId: string) {
@@ -2281,9 +2293,9 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
   }
 
   function applyAttendanceLineup() {
-    const next = playersFromAttendance();
+    const next = buildRegisteredRosterSeed(users, match.attendance, match.players);
     setPlayers(next);
-    setMessage(`${next.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR').length} atleta(s) para jogo e ${next.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} apenas presente(s) reaplicados das confirmações.`);
+    setMessage(`${next.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && player.present).length} confirmado(s) para jogar, ${next.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} só presença e ${next.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && !player.present).length} pendente(s) reaplicados da lista completa.`);
   }
 
   async function save() {
@@ -2316,21 +2328,14 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
             <span className="drag-handle">#{index + 1}</span>
             <div className="player-meta">
               <b>{player.name}</b>
-              <small>{positionLabel(player.position)}</small>
+              <small>{positionLabel(player.position)}{player.present ? '' : ' • não confirmado'}</small>
             </div>
             <select value={player.roleInMatch} onChange={(event) => updatePlayer(player.userId, { roleInMatch: event.target.value as MatchDraftPlayer['roleInMatch'] })}>
               <option value="LINHA">Linha</option>
               <option value="GOLEIRO">Goleiro</option>
             </select>
-            <label className="bench">
-              <input type="checkbox" checked={player.startsOnBench} onChange={(event) => updatePlayer(player.userId, { startsOnBench: event.target.checked })} />
-              Banco
-            </label>
-            <div className="actions compact-actions">
-              <button type="button" className="ghost small" onClick={() => movePlayer(player.userId, -1)}>↑</button>
-              <button type="button" className="ghost small" onClick={() => movePlayer(player.userId, 1)}>↓</button>
-              <button type="button" className="ghost small" onClick={() => removePlayer(player.userId)}>X</button>
-            </div>
+            <span className="chip">{player.startsOnBench ? 'Banco auto' : 'Titular auto'}</span>
+            <button type="button" className="ghost small" onClick={() => removePlayer(player.userId)}>X</button>
           </div>
         ))}
       </div>
@@ -2399,7 +2404,7 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
                       <b>{player.name}</b>
                       <small>{positionLabel(player.position)}</small>
                     </div>
-                    <button type="button" className="ghost small" onClick={() => updatePlayer(player.userId, { team: 'A', roleInMatch: player.position === 'GO' ? 'GOLEIRO' : 'LINHA' })}>Vai pro jogo</button>
+                    <button type="button" className="ghost small" onClick={() => updatePlayer(player.userId, { team: 'A', roleInMatch: player.position === 'GO' ? 'GOLEIRO' : 'LINHA', present: true })}>Vai pro jogo</button>
                     <button type="button" className="ghost small" onClick={() => removePlayer(player.userId)}>Remover</button>
                   </div>
                 ))}
@@ -2920,7 +2925,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
 
   function addParticipant(user: User) {
     const position = user.position ?? 'MC';
-    setPlayers((list) => [...list, { userId: user.id, name: user.name, email: user.email, position, team: 'PRESENTE_SEM_JOGAR', roleInMatch: 'PRESENTE_SEM_JOGAR', drawOrder: String(list.length + 1), startsOnBench: false }]);
+    setPlayers((list) => [...list, { userId: user.id, name: user.name, email: user.email, position, team: 'PRESENTE_SEM_JOGAR', roleInMatch: 'PRESENTE_SEM_JOGAR', drawOrder: String(list.length + 1), startsOnBench: false, present: true }]);
     setQuery('');
   }
 
