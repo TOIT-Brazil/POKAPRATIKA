@@ -1329,6 +1329,30 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return () => window.clearTimeout(timer);
   }, [players, teamAScore, teamBScore, events, match.status]);
 
+  useEffect(() => {
+    if (!pitchDrag) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== pitchDrag.pointerId) return;
+      updateDraggedPlayerPosition(pitchDrag, event.clientX, event.clientY);
+    };
+
+    const finishDrag = (event: PointerEvent) => {
+      if (event.pointerId !== pitchDrag.pointerId) return;
+      setPitchDrag(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', finishDrag);
+    window.addEventListener('pointercancel', finishDrag);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', finishDrag);
+      window.removeEventListener('pointercancel', finishDrag);
+    };
+  }, [pitchDrag]);
+
   const playablePlayers = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
   const currentMinute = Math.floor(clockSeconds / 60);
   const matchIsOperationallyRunning = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
@@ -1353,6 +1377,17 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return ranked.map((player) => player.team === 'A' || player.team === 'B' ? { ...player, rotationOrder: ++teamOrders[player.team] } : { ...player, rotationOrder: player.rotationOrder ?? null });
   }
 
+  function selectOperationalGoalkeeper(teamPlayers: MatchDetail['players']) {
+    const starters = teamPlayers.filter((player) => !player.startsOnBench);
+    return starters.find((player) => player.roleInMatch === 'GOLEIRO')
+      ?? starters.find((player) => (player.position ?? usersById.get(player.userId)?.position ?? 'MC') === 'GO')
+      ?? starters[0]
+      ?? teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO')
+      ?? teamPlayers.find((player) => (player.position ?? usersById.get(player.userId)?.position ?? 'MC') === 'GO')
+      ?? teamPlayers[0]
+      ?? null;
+  }
+
   function normalizeOperationalLineup(list: MatchDetail['players']) {
     const normalized = list.map((player) => ({ ...player }));
 
@@ -1364,9 +1399,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       });
       if (!teamPlayers.length) continue;
 
-      const goalkeeperCandidate = teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO')
-        ?? teamPlayers.find((player) => (player.position ?? usersById.get(player.userId)?.position) === 'GO')
-        ?? null;
+      const goalkeeperCandidate = selectOperationalGoalkeeper(teamPlayers);
 
       for (const player of teamPlayers) {
         if (goalkeeperCandidate && player.userId === goalkeeperCandidate.userId) {
@@ -1636,16 +1669,32 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setSheetMessage('Arraste um titular sobre um reserva do mesmo time para trocar automaticamente.');
       return;
     }
+    const sameTeamSwap = draggedPlayer?.team === targetPlayer?.team;
+    const outgoingStarter = sameTeamSwap ? (draggedPlayer?.startsOnBench ? targetPlayer : draggedPlayer) : null;
+    const outgoingFieldLeft = outgoingStarter?.fieldLeft ?? null;
+    const outgoingFieldTop = outgoingStarter?.fieldTop ?? null;
     setPlayers((list) => {
       const next = list.map((player) => {
         if (player.userId === draggedPlayerId) {
-          return draggedPlayer?.team === targetPlayer?.team
-            ? { ...player, startsOnBench: targetPlayer?.startsOnBench ?? player.startsOnBench }
+          return sameTeamSwap
+            ? {
+                ...player,
+                startsOnBench: targetPlayer?.startsOnBench ?? player.startsOnBench,
+                roleInMatch: targetPlayer?.roleInMatch ?? player.roleInMatch,
+                fieldLeft: targetPlayer?.startsOnBench ? null : outgoingFieldLeft,
+                fieldTop: targetPlayer?.startsOnBench ? null : outgoingFieldTop
+              }
             : { ...player, team: targetPlayer?.team ?? player.team, roleInMatch: targetPlayer?.roleInMatch ?? player.roleInMatch, startsOnBench: targetPlayer?.startsOnBench ?? player.startsOnBench, fieldLeft: null, fieldTop: null };
         }
         if (player.userId === targetPlayerId) {
-          return draggedPlayer?.team === targetPlayer?.team
-            ? { ...player, startsOnBench: draggedPlayer?.startsOnBench ?? player.startsOnBench }
+          return sameTeamSwap
+            ? {
+                ...player,
+                startsOnBench: draggedPlayer?.startsOnBench ?? player.startsOnBench,
+                roleInMatch: draggedPlayer?.roleInMatch ?? player.roleInMatch,
+                fieldLeft: draggedPlayer?.startsOnBench ? null : outgoingFieldLeft,
+                fieldTop: draggedPlayer?.startsOnBench ? null : outgoingFieldTop
+              }
             : { ...player, team: draggedPlayer?.team ?? player.team, roleInMatch: draggedPlayer?.roleInMatch ?? player.roleInMatch, startsOnBench: draggedPlayer?.startsOnBench ?? player.startsOnBench, fieldLeft: null, fieldTop: null };
         }
         return player;
@@ -1665,31 +1714,31 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return player.present === false || !status || status === 'AUSENTE';
   }
 
-  function updateDraggedPlayerPosition(clientX: number, clientY: number) {
-    if (!pitchDrag) return;
+  function updateDraggedPlayerPosition(dragState: { userId: string; team: 'A' | 'B'; pointerId: number }, clientX: number, clientY: number) {
     const surface = pitchSurfaceRef.current;
     if (!surface) return;
     const bounds = surface.getBoundingClientRect();
     if (!bounds.width || !bounds.height) return;
     const relativeLeft = ((clientX - bounds.left) / bounds.width) * 100;
     const relativeTop = ((clientY - bounds.top) / bounds.height) * 100;
-    const slot = clampPitchSlot(pitchDrag.team, relativeLeft, relativeTop);
-    setPlayers((current) => current.map((player) => player.userId === pitchDrag.userId ? { ...player, fieldLeft: slot.left, fieldTop: slot.top } : player));
+    const slot = clampPitchSlot(dragState.team, relativeLeft, relativeTop);
+    setPlayers((current) => current.map((player) => player.userId === dragState.userId ? { ...player, fieldLeft: slot.left, fieldTop: slot.top } : player));
   }
 
   function beginPitchDrag(event: ReactPointerEvent<HTMLDivElement>, player: MatchDetail['players'][number]) {
     if (!canRepositionPlayers || player.team !== 'A' && player.team !== 'B') return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    setPitchDrag({ userId: player.userId, team: player.team, pointerId: event.pointerId });
-    updateDraggedPlayerPosition(event.clientX, event.clientY);
+    const dragState = { userId: player.userId, team: player.team, pointerId: event.pointerId };
+    setPitchDrag(dragState);
+    updateDraggedPlayerPosition(dragState, event.clientX, event.clientY);
     setSheetMessage(`Arraste ${player.name} dentro do campo para ajustar a posição.`);
   }
 
   function movePitchDrag(event: ReactPointerEvent<HTMLDivElement>, player: MatchDetail['players'][number]) {
     if (!pitchDrag || pitchDrag.userId !== player.userId || pitchDrag.pointerId !== event.pointerId) return;
     event.preventDefault();
-    updateDraggedPlayerPosition(event.clientX, event.clientY);
+    updateDraggedPlayerPosition(pitchDrag, event.clientX, event.clientY);
   }
 
   function endPitchDrag(event: ReactPointerEvent<HTMLDivElement>, player: MatchDetail['players'][number]) {
@@ -1717,6 +1766,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const user = usersById.get(player.userId);
     const position = player.position ?? user?.position ?? 'MC';
     if (player.roleInMatch === 'GOLEIRO') return 'GO • Goleiro';
+    if (position === 'GO') return 'GO • Linha';
     return positionLabel(position);
   }
 
