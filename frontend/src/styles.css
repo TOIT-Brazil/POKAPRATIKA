@@ -126,6 +126,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .compact-bench { justify-content: flex-start; min-height: 34px; padding-inline: 8px; font-size: .72rem; }
 .compact-actions { flex-wrap: wrap; }
 .users-management-table { min-width: 980px; }
+.users-management-table .management-main-cell,
+.users-management-table .user-email-cell { text-align: left; }
 .award-board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
 .award-board { display: grid; align-content: start; gap: 7px; padding: 10px; border-radius: 16px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.085); }
 .board-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 6px 8px; border-radius: 11px; background: rgba(255,255,255,.055); font-size: .78rem; }

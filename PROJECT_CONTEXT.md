@@ -1,3 +1,5 @@
+- A tabela de `Usuários` teve o alinhamento das colunas textuais ajustado: nome e e-mail agora ficam explicitamente à esquerda na grade administrativa, evitando aparência centralizada fora do respectivo cabeçalho.
+- O servico de e-mail foi redesenhado: convites de ativacao e recuperacao de senha agora usam um template HTML mais apresentavel, com hero visual, CTA destacado, bloco de instrucoes e fallback seguro quando a URL do frontend nao estiver disponivel.
 - O `config.` agora exibe `Temporadas`, `Usuários` e `Pontuação` em tabelas com filtros por coluna; a Central de `Prêmios` também ganhou filtros laterais em cada coluna da tabela editável.
 - O modal `Agenda` foi ampliado e a lista de jogos pré-definidos virou tabela com filtros por coluna, exibindo data, jogo, horário, confirmação, janela e presenças de forma mais legível.
 - O modal `Agenda` foi alargado novamente e a tabela interna passou a ocupar 100% da largura útil, removendo a necessidade de barra de rolagem lateral em desktop.

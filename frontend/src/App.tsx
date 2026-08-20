@@ -4011,7 +4011,7 @@ function UserAdminTableRow({ api, user, isAdmin, onReload }: { api: ApiClient; u
     <>
       <tr>
         <td className="management-main-cell"><strong>{user.name}</strong></td>
-        <td>{user.email}</td>
+        <td className="user-email-cell">{user.email}</td>
         <td>{user.role}</td>
         <td>{positionLabel(user.position)}</td>
         <td><span className={`status ${active ? 'open' : 'danger'}`}>{active ? 'ativo' : 'inativo'}</span></td>
