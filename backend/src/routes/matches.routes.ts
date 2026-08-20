@@ -12,6 +12,7 @@ const athletePositionSchema = z.enum(['GO', 'ZG', 'LD', 'LE', 'MD', 'MC', 'MA', 
 const guestIdentityPattern = /^guest:[a-z0-9-]{6,}$/i;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const guestPlayersMigrationFile = 'migrations/17_convidados_temporarios_sumula.sql';
+const matchFieldLayoutMigrationFile = 'migrations/18_posicionamento_manual_sumula.sql';
 
 const playerSchema = z.object({
   userId: z.string().min(1),
@@ -22,6 +23,8 @@ const playerSchema = z.object({
   roleInMatch: z.enum(['GOLEIRO', 'LINHA', 'PRESENTE_SEM_JOGAR']),
   drawOrder: z.number().int().min(1).nullable().optional(),
   rotationOrder: z.number().int().min(1).nullable().optional(),
+  fieldLeft: z.number().min(0).max(100).nullable().optional(),
+  fieldTop: z.number().min(0).max(100).nullable().optional(),
   startsOnBench: z.boolean().default(false),
   present: z.boolean().default(true)
 }).superRefine((player, ctx) => {
@@ -171,6 +174,10 @@ function hasGuestEventSupport(columns: Set<string>): boolean {
   return columns.has('guest_key') && columns.has('related_guest_key');
 }
 
+function hasFieldLayoutSupport(columns: Set<string>): boolean {
+  return columns.has('field_left') && columns.has('field_top');
+}
+
 function ensureGuestPlayerSupport(players: MatchPlayerInput[], enabled: boolean): void {
   if (players.some(isGuestPlayer) && !enabled) {
     throw httpError(409, `Convidados temporários indisponíveis: execute ${guestPlayersMigrationFile} no PostgreSQL da Railway.`);
@@ -184,6 +191,13 @@ function ensureGuestEventSupport(events: MatchEventInput[], enabled: boolean): v
   }
 }
 
+function ensureFieldLayoutSupport(players: MatchPlayerInput[], enabled: boolean): void {
+  const usesManualLayout = players.some((player) => player.fieldLeft != null || player.fieldTop != null);
+  if (usesManualLayout && !enabled) {
+    throw httpError(409, `Posicionamento manual da súmula indisponível: execute ${matchFieldLayoutMigrationFile} no PostgreSQL da Railway.`);
+  }
+}
+
 function playerIdentitySql(alias = ''): string {
   const prefix = alias ? `${alias}.` : '';
   return `COALESCE(${prefix}user_id::text, ${prefix}guest_key)`;
@@ -194,13 +208,15 @@ function relatedIdentitySql(alias = ''): string {
   return `COALESCE(${prefix}related_user_id::text, ${prefix}related_guest_key)`;
 }
 
-function mapPlayerForPersistence(player: MatchPlayerInput): { userId: string | null; guestKey: string | null; guestName: string | null; guestPosition: string | null } {
+function mapPlayerForPersistence(player: MatchPlayerInput): { userId: string | null; guestKey: string | null; guestName: string | null; guestPosition: string | null; fieldLeft: number | null; fieldTop: number | null } {
   if (isGuestPlayer(player)) {
     return {
       userId: null,
       guestKey: player.userId,
       guestName: player.name?.trim() ?? null,
-      guestPosition: player.position ?? null
+      guestPosition: player.position ?? null,
+      fieldLeft: player.fieldLeft ?? null,
+      fieldTop: player.fieldTop ?? null
     };
   }
 
@@ -208,7 +224,9 @@ function mapPlayerForPersistence(player: MatchPlayerInput): { userId: string | n
     userId: player.userId,
     guestKey: null,
     guestName: null,
-    guestPosition: null
+    guestPosition: null,
+    fieldLeft: player.fieldLeft ?? null,
+    fieldTop: player.fieldTop ?? null
   };
 }
 
@@ -221,13 +239,31 @@ function mapEventForPersistence(event: MatchEventInput): { userId: string | null
   };
 }
 
-async function insertMatchPlayerRecord(execute: QueryExecutor, matchId: string, player: MatchPlayerInput, guestPlayerEnabled: boolean): Promise<void> {
+async function insertMatchPlayerRecord(execute: QueryExecutor, matchId: string, player: MatchPlayerInput, guestPlayerEnabled: boolean, fieldLayoutEnabled: boolean): Promise<void> {
   const persisted = mapPlayerForPersistence(player);
+  if (guestPlayerEnabled && fieldLayoutEnabled) {
+    await execute(
+      `INSERT INTO match_players (match_id, user_id, guest_key, guest_name, guest_position, team, role_in_match, draw_order, rotation_order, field_left, field_top, starts_on_bench, present)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [matchId, persisted.userId, persisted.guestKey, persisted.guestName, persisted.guestPosition, player.team, player.roleInMatch, player.drawOrder ?? null, player.rotationOrder ?? null, persisted.fieldLeft, persisted.fieldTop, player.startsOnBench, player.present]
+    );
+    return;
+  }
+
   if (guestPlayerEnabled) {
     await execute(
       `INSERT INTO match_players (match_id, user_id, guest_key, guest_name, guest_position, team, role_in_match, draw_order, rotation_order, starts_on_bench, present)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [matchId, persisted.userId, persisted.guestKey, persisted.guestName, persisted.guestPosition, player.team, player.roleInMatch, player.drawOrder ?? null, player.rotationOrder ?? null, player.startsOnBench, player.present]
+    );
+    return;
+  }
+
+  if (fieldLayoutEnabled) {
+    await execute(
+      `INSERT INTO match_players (match_id, user_id, team, role_in_match, draw_order, rotation_order, field_left, field_top, starts_on_bench, present)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [matchId, persisted.userId, player.team, player.roleInMatch, player.drawOrder ?? null, player.rotationOrder ?? null, persisted.fieldLeft, persisted.fieldTop, player.startsOnBench, player.present]
     );
     return;
   }
@@ -575,7 +611,9 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
   await validatePlayersInput(players);
   const matchPlayerColumns = await getTableColumns('match_players');
   const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+  const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
   ensureGuestPlayerSupport(players, guestPlayerEnabled);
+  ensureFieldLayoutSupport(players, fieldLayoutEnabled);
   const seasonResult = body.seasonId ? await query('SELECT id FROM seasons WHERE id = $1 AND status = \'OPEN\'', [body.seasonId]) : { rowCount: 0 };
   const seasonId = seasonResult.rowCount ? body.seasonId : null;
   const matchColumns = await getMatchColumns();
@@ -602,7 +640,7 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
   );
 
   for (const player of players) {
-    await insertMatchPlayerRecord(query, match.rows[0].id, player, guestPlayerEnabled);
+    await insertMatchPlayerRecord(query, match.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
   }
 
   res.status(201).json({ id: match.rows[0].id });
@@ -614,7 +652,9 @@ matchesRouter.patch('/:id/lineup', requireRoles('ADMIN', 'COORDENADOR'), asyncHa
   await validatePlayersInput(players);
   const matchPlayerColumns = await getTableColumns('match_players');
   const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+  const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
   ensureGuestPlayerSupport(players, guestPlayerEnabled);
+  ensureFieldLayoutSupport(players, fieldLayoutEnabled);
   await validateLineupAgainstEvents(req.params.id, players);
 
   const client = await pool.connect();
@@ -638,7 +678,7 @@ matchesRouter.patch('/:id/lineup', requireRoles('ADMIN', 'COORDENADOR'), asyncHa
     );
     await client.query('DELETE FROM match_players WHERE match_id = $1', [req.params.id]);
     for (const player of players) {
-      await insertMatchPlayerRecord(client.query.bind(client), req.params.id, player, guestPlayerEnabled);
+      await insertMatchPlayerRecord(client.query.bind(client), req.params.id, player, guestPlayerEnabled, fieldLayoutEnabled);
     }
     await client.query('COMMIT');
   } catch (err) {
@@ -849,7 +889,7 @@ matchesRouter.get('/:id', asyncHandler(async (req, res) => {
     ? await query(
       `SELECT mp.id, ${playerIdentitySql('mp')} AS "userId", COALESCE(u.name, mp.guest_name) AS name, u.avatar_data_url AS "avatarDataUrl",
         COALESCE(mp.guest_position, u.position) AS position, (mp.user_id IS NULL) AS "isGuest", mp.team, mp.role_in_match AS "roleInMatch",
-        mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder", mp.starts_on_bench AS "startsOnBench", mp.present
+        mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder", mp.field_left AS "fieldLeft", mp.field_top AS "fieldTop", mp.starts_on_bench AS "startsOnBench", mp.present
        FROM match_players mp
        LEFT JOIN users u ON u.id = mp.user_id
        WHERE mp.match_id = $1
@@ -858,7 +898,7 @@ matchesRouter.get('/:id', asyncHandler(async (req, res) => {
     )
     : await query(
       `SELECT mp.id, mp.user_id AS "userId", u.name, u.avatar_data_url AS "avatarDataUrl", u.position, FALSE AS "isGuest", mp.team, mp.role_in_match AS "roleInMatch",
-        mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder", mp.starts_on_bench AS "startsOnBench", mp.present
+        mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder", mp.field_left AS "fieldLeft", mp.field_top AS "fieldTop", mp.starts_on_bench AS "startsOnBench", mp.present
        FROM match_players mp JOIN users u ON u.id = mp.user_id
        WHERE mp.match_id = $1 ORDER BY mp.team, mp.role_in_match, mp.rotation_order NULLS LAST, u.name`,
       [params.id]

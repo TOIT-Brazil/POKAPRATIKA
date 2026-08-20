@@ -513,7 +513,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .advanced-score summary { color: #a9b9af; font-size: .78rem; font-weight: 900; cursor: pointer; }
 .advanced-score .event-form { margin-top: 7px; }
 .event-form { display: grid; grid-template-columns: 1fr 1fr 1fr 72px .75fr auto; gap: 6px; }
-.sheet-modal-card { width: min(1600px, calc(100vw - 12px)); max-height: min(97dvh, 1080px); overflow: auto; background: linear-gradient(180deg, #f8fcf8 0%, #edf5ee 100%); border-color: rgba(188, 208, 191, .95); }
+.sheet-modal-card { width: min(1720px, calc(100vw - 8px)); max-height: none; overflow: visible; background: linear-gradient(180deg, #f8fcf8 0%, #edf5ee 100%); border-color: rgba(188, 208, 191, .95); }
 .sheet-modal-card .card-head h2 { color: #16261e; }
 .sheet-modal-card .card-head .muted { color: #5f7168; }
 .sheet-preview-board { display: grid; gap: 10px; color: #141414; }
@@ -552,6 +552,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-roster-row .ops-icon-card { width: 28px; min-width: 28px; height: 28px; }
 .sheet-pitch-panel { padding: 0; background: transparent; border: 0; box-shadow: none; }
 .sheet-pitch-surface { min-height: 410px; }
+.sheet-pitch-surface .ops-pitch-player { cursor: grab; user-select: none; touch-action: none; }
+.sheet-pitch-surface .ops-pitch-player.is-dragging { cursor: grabbing; z-index: 3; transform: translate(-50%, -50%) scale(1.05); }
 .ops-pitch-player.is-goalkeeper span { background: linear-gradient(180deg, #7ad6b5 0%, #399b77 100%); color: #083327; }
 .ops-pitch-player.is-pending { opacity: .45; filter: saturate(.7) grayscale(.12); }
 .ops-pitch-player.is-pending small { color: rgba(255,255,255,.78); }
