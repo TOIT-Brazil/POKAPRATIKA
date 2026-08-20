@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { QueryResult, QueryResultRow } from 'pg';
 import { z } from 'zod';
 import { pool, query } from '../db/pool';
 import { requireAuth, requireRoles } from '../security/auth';
@@ -94,7 +95,7 @@ const schedulePatchSchema = manualScheduleBaseSchema.omit({ seasonId: true }).pa
 
 type MatchPlayerInput = z.infer<typeof playerSchema>;
 type MatchEventInput = z.infer<typeof eventSchema>;
-type QueryExecutor = <T = any>(text: string, params?: any[]) => Promise<{ rows: T[]; rowCount: number }>;
+type QueryExecutor = <T extends QueryResultRow = QueryResultRow>(text: string, params?: unknown[]) => Promise<QueryResult<T>>;
 
 function buildConfirmationOpenAt(matchDate: string, scheduledStart: string, hoursBefore: number): string {
   const startsAt = new Date(`${matchDate}T${scheduledStart}:00-03:00`).getTime();
