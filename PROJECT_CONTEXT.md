@@ -1,3 +1,4 @@
+- A modal principal de `Criar jogo` passou a aceitar `Jogo recorrente`: checkbox no passo de dados, frequência semanal, escolha explícita do dia da semana e data final; ao salvar a súmula do jogo base, o sistema agenda automaticamente os próximos jogos do período usando a recorrência existente do backend.
 - A tabela de `Usuários` teve o alinhamento das colunas textuais ajustado: nome e e-mail agora ficam explicitamente à esquerda na grade administrativa, evitando aparência centralizada fora do respectivo cabeçalho.
 - O servico de e-mail foi redesenhado: convites de ativacao e recuperacao de senha agora usam um template HTML mais apresentavel, com hero visual, CTA destacado, bloco de instrucoes e fallback seguro quando a URL do frontend nao estiver disponivel.
 - O `config.` agora exibe `Temporadas`, `Usuários` e `Pontuação` em tabelas com filtros por coluna; a Central de `Prêmios` também ganhou filtros laterais em cada coluna da tabela editável.

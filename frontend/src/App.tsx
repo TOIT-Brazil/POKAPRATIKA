@@ -302,6 +302,11 @@ function addDaysInput(days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+function weekdayFromInputDate(value: string): number {
+  const date = new Date(`${value}T12:00:00-03:00`);
+  return Number.isNaN(date.getTime()) ? 3 : date.getUTCDay();
+}
+
 function matchDateLabel(match: MatchListItem): string {
   const date = match.matchDate?.slice(0, 10) ?? 'sem data';
   const start = match.scheduledStart?.slice(0, 5) ?? '20:00';
@@ -2846,6 +2851,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
   const [saveStatus, setSaveStatus] = useState('');
   const [title, setTitle] = useState('Futebol de quarta');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<'WEEKLY'>('WEEKLY');
+  const [recurringWeekday, setRecurringWeekday] = useState(weekdayFromInputDate(todayInputValue()));
+  const [recurringEndDate, setRecurringEndDate] = useState(addDaysInput(90));
   const [refereeName, setRefereeName] = useState('');
   const [teamAName, setTeamAName] = useState('Time A');
   const [teamBName, setTeamBName] = useState('Time B');
@@ -2860,6 +2869,11 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
   const teamA = players.filter((player) => player.team === 'A');
   const teamB = players.filter((player) => player.team === 'B');
   const teamsDrawn = teamA.length > 0 && teamB.length > 0 && pendingPlayers.length === 0;
+  const recurringWeekdayLabel = weekdayOptions.find((item) => item.value === recurringWeekday)?.label ?? 'Quarta-feira';
+
+  useEffect(() => {
+    if (isRecurring && recurringEndDate < date) setRecurringEndDate(date);
+  }, [date, isRecurring, recurringEndDate]);
 
   function selectedPlayersPayload(list = players) {
     const currentTeamA = list.filter((player) => player.team === 'A');
@@ -2942,12 +2956,48 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
       setSaveStatus('Faça o sorteio/divisão automática das equipes antes de salvar a súmula.');
       return;
     }
-    await saveLineup();
-    setOpen(false);
-    setConfirmDrawOpen(false);
-    setDraftMatchId('');
-    setPlayers([]);
-    await onDone();
+    if (isRecurring && weekdayFromInputDate(date) !== recurringWeekday) {
+      setSaveStatus('Para jogo recorrente, a data base precisa cair no mesmo dia escolhido na recorrência. Ex.: quarta-feira com repetição às quartas.');
+      return;
+    }
+    if (isRecurring && recurringEndDate < date) {
+      setSaveStatus('A data final da recorrência precisa ser igual ou posterior à data do jogo base.');
+      return;
+    }
+    try {
+      setSaveStatus(isRecurring ? 'Salvando súmula e gerando recorrência...' : 'Salvando súmula final...');
+      await saveLineup();
+      if (isRecurring) {
+        const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', {
+          method: 'POST',
+          body: JSON.stringify({
+            seasonId: activeSeasonId || null,
+            weekday: recurringWeekday,
+            startDate: date,
+            endDate: recurringEndDate,
+            title,
+            refereeName: refereeName || null,
+            scheduledStart: '20:00',
+            scheduledEnd: '21:00',
+            confirmationOpensHoursBefore: 48,
+            confirmationClosesHoursBefore: 2,
+            teamAName,
+            teamBName
+          })
+        });
+        const extraDuplicates = Math.max(0, result.skipped - 1);
+        setSaveStatus(`Súmula salva. Recorrência semanal configurada: ${result.generated} jogo(s) futuro(s) criado(s)${extraDuplicates ? ` e ${extraDuplicates} data(s) já existiam.` : '.'}`);
+      } else {
+        setSaveStatus('Súmula salva no banco.');
+      }
+      setOpen(false);
+      setConfirmDrawOpen(false);
+      setDraftMatchId('');
+      setPlayers([]);
+      await onDone();
+    } catch (err) {
+      setSaveStatus(err instanceof Error ? err.message : 'Falha ao salvar a súmula.');
+    }
   }
 
   function DrawIcon({ kind, className, tone = 'neutral' }: { kind: 'pitch' | 'playerPlus' | 'roster' | 'goalkeeper' | 'defense' | 'midfield' | 'attack' | 'results' | 'dice' | 'shirt'; className?: string; tone?: 'neutral' | 'a' | 'b' }) {
@@ -3107,6 +3157,49 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                   <textarea value={refereeName} onChange={(event) => setRefereeName(event.target.value)} placeholder="Árbitro" rows={3} />
                 </label>
 
+                <label className="draw-recurring-toggle">
+                  <input
+                    type="checkbox"
+                    checked={isRecurring}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setIsRecurring(checked);
+                      if (checked) {
+                        setRecurringWeekday(weekdayFromInputDate(date));
+                        if (recurringEndDate < date) setRecurringEndDate(date);
+                      }
+                    }}
+                  />
+                  <div className="draw-recurring-copy">
+                    <strong>Jogo recorrente</strong>
+                    <small>Marque para transformar este jogo em uma série automática. Exemplo: toda quarta-feira no mesmo horário.</small>
+                  </div>
+                </label>
+
+                {isRecurring && (
+                  <div className="draw-recurring-panel">
+                    <label className="field-shell">
+                      <span>Frequência</span>
+                      <select value={recurrenceFrequency} onChange={(event) => setRecurrenceFrequency(event.target.value as 'WEEKLY')}>
+                        <option value="WEEKLY">Toda semana</option>
+                      </select>
+                    </label>
+                    <div className="draw-recurring-grid">
+                      <label className="field-shell">
+                        <span>Repetir toda</span>
+                        <select value={recurringWeekday} onChange={(event) => setRecurringWeekday(Number(event.target.value))}>
+                          {weekdayOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="field-shell">
+                        <span>Até</span>
+                        <input type="date" value={recurringEndDate} min={date} onChange={(event) => setRecurringEndDate(event.target.value)} />
+                      </label>
+                    </div>
+                    <p className="draw-card-note">O jogo atual vira a data base e o sistema agenda automaticamente os próximos {recurringWeekdayLabel.toLowerCase()} até {new Date(`${recurringEndDate}T12:00:00-03:00`).toLocaleDateString('pt-BR')}.</p>
+                  </div>
+                )}
+
                 <div className="draw-position-list">
                   <div className="draw-position-row draw-position-total">
                     <span className="draw-position-label"><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Elenco</span>
@@ -3185,8 +3278,8 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
             <div className="draw-sheet-footer">
               <button type="button" className="ghost" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }}>Cancelar</button>
               <div className="draw-footer-save">
-                <button className="primary" disabled={!teamsDrawn}>SALVAR SÚMULA FINAL</button>
-                <small>O salvamento final só libera após o sorteio.</small>
+                <button className="primary" disabled={!teamsDrawn}>{isRecurring ? 'SALVAR SÚMULA + RECORRÊNCIA' : 'SALVAR SÚMULA FINAL'}</button>
+                <small>{isRecurring ? `O jogo base será salvo e os próximos ${recurringWeekdayLabel.toLowerCase()} serão gerados automaticamente.` : 'O salvamento final só libera após o sorteio.'}</small>
               </div>
             </div>
           </form>
