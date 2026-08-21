@@ -2755,13 +2755,14 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 18px;
 }
 
 .account-menu-close {
   flex: 0 0 auto;
+  width: 34px;
   align-self: flex-start;
-  font-size: 1.45rem;
+  font-size: 1.7rem;
   line-height: 1;
   text-transform: lowercase;
 }
@@ -2771,6 +2772,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: 2px;
 }
 
 .account-menu-profile img,

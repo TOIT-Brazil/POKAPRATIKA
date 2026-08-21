@@ -1,3 +1,4 @@
+- O topo do drawer foi ajustado novamente: o `x` ganhou mais tamanho e largura própria no lado esquerdo, e o bloco `Pedro Dey / Admin` foi empurrado um pouco mais para a direita para aliviar o cabeçalho.
 - O gatilho do menu hambúrguer no header foi ampliado visualmente, com ícone maior e área de respiro adicional, sem alterar o tamanho do `x` de fechamento do drawer.
 - O topo do drawer lateral foi refinado: o `x` de fechar ficou maior e o bloco de identidade do usuário foi compactado lateralmente, com avatar e tipografia menores para consumir menos largura.
 - O drawer lateral foi invertido para abrir do mesmo lado do hambúrguer atual; no topo do painel o bloco do usuário voltou a aparecer de forma explícita e o fechamento passou a usar apenas um `x` pequeno posicionado à esquerda.
