@@ -397,9 +397,11 @@ async function normalizePersistedOperationalRoles(matchId: string): Promise<void
       startsOnBench: boolean;
       present: boolean;
       position: string | null;
+      drawOrder: number | null;
+      rotationOrder: number | null;
     }>(
       `SELECT ${playerIdentitySql('mp')} AS "userId", mp.team, mp.role_in_match AS "roleInMatch", mp.starts_on_bench AS "startsOnBench", mp.present,
-              COALESCE(mp.guest_position, u.position) AS position
+              COALESCE(mp.guest_position, u.position) AS position, mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder"
        FROM match_players mp
        LEFT JOIN users u ON u.id = mp.user_id
        WHERE mp.match_id = $1`,
@@ -412,26 +414,37 @@ async function normalizePersistedOperationalRoles(matchId: string): Promise<void
       startsOnBench: boolean;
       present: boolean;
       position: string | null;
+      drawOrder: number | null;
+      rotationOrder: number | null;
     }>(
-      `SELECT mp.user_id AS "userId", mp.team, mp.role_in_match AS "roleInMatch", mp.starts_on_bench AS "startsOnBench", mp.present, u.position
+      `SELECT mp.user_id AS "userId", mp.team, mp.role_in_match AS "roleInMatch", mp.starts_on_bench AS "startsOnBench", mp.present, u.position,
+              mp.draw_order AS "drawOrder", mp.rotation_order AS "rotationOrder"
        FROM match_players mp
        JOIN users u ON u.id = mp.user_id
        WHERE mp.match_id = $1`,
       [matchId]
     );
 
-  const updates: Array<{ userId: string; roleInMatch: 'GOLEIRO' | 'LINHA' }> = [];
+  const updates: Array<{ userId: string; roleInMatch: 'GOLEIRO' | 'LINHA'; startsOnBench: boolean }> = [];
+
+  const compareOperationalOrder = (
+    left: { startsOnBench: boolean; position: string | null; rotationOrder: number | null; drawOrder: number | null; userId: string },
+    right: { startsOnBench: boolean; position: string | null; rotationOrder: number | null; drawOrder: number | null; userId: string }
+  ) => {
+    const starterDiff = Number(left.startsOnBench) - Number(right.startsOnBench);
+    if (starterDiff !== 0) return starterDiff;
+    const leftRotation = left.rotationOrder ?? left.drawOrder ?? Number.MAX_SAFE_INTEGER;
+    const rightRotation = right.rotationOrder ?? right.drawOrder ?? Number.MAX_SAFE_INTEGER;
+    if (leftRotation !== rightRotation) return leftRotation - rightRotation;
+    const positionDiff = positionSequenceOrder(left.position) - positionSequenceOrder(right.position);
+    if (positionDiff !== 0) return positionDiff;
+    return left.userId.localeCompare(right.userId);
+  };
 
   for (const team of ['A', 'B'] as const) {
     const teamPlayers = players.rows
       .filter((player) => player.team === team && player.present)
-      .sort((left, right) => {
-        const starterDiff = Number(left.startsOnBench) - Number(right.startsOnBench);
-        if (starterDiff !== 0) return starterDiff;
-        const positionDiff = positionSequenceOrder(left.position) - positionSequenceOrder(right.position);
-        if (positionDiff !== 0) return positionDiff;
-        return left.userId.localeCompare(right.userId);
-      });
+      .sort(compareOperationalOrder);
 
     if (!teamPlayers.length) continue;
 
@@ -443,8 +456,20 @@ async function normalizePersistedOperationalRoles(matchId: string): Promise<void
       ?? teamPlayers.find((player) => player.position === 'GO')
       ?? teamPlayers[0];
 
+    const lineCandidates = teamPlayers
+      .filter((player) => player.userId !== goalkeeperCandidate?.userId)
+      .sort(compareOperationalOrder);
+    const starterIds = new Set<string>([
+      ...(goalkeeperCandidate ? [goalkeeperCandidate.userId] : []),
+      ...lineCandidates.slice(0, 6).map((player) => player.userId)
+    ]);
+
     for (const player of teamPlayers) {
-      updates.push({ userId: player.userId, roleInMatch: player.userId === goalkeeperCandidate?.userId ? 'GOLEIRO' : 'LINHA' });
+      updates.push({
+        userId: player.userId,
+        roleInMatch: player.userId === goalkeeperCandidate?.userId ? 'GOLEIRO' : 'LINHA',
+        startsOnBench: !starterIds.has(player.userId)
+      });
     }
   }
 
@@ -457,16 +482,18 @@ async function normalizePersistedOperationalRoles(matchId: string): Promise<void
       if (guestPlayerEnabled && isGuestIdentity(update.userId)) {
         await client.query(
           `UPDATE match_players
-           SET role_in_match = $3
+           SET role_in_match = $3,
+               starts_on_bench = $4
            WHERE match_id = $1 AND guest_key = $2`,
-          [matchId, update.userId, update.roleInMatch]
+          [matchId, update.userId, update.roleInMatch, update.startsOnBench]
         );
       } else {
         await client.query(
           `UPDATE match_players
-           SET role_in_match = $3
+           SET role_in_match = $3,
+               starts_on_bench = $4
            WHERE match_id = $1 AND user_id = $2::UUID`,
-          [matchId, update.userId, update.roleInMatch]
+          [matchId, update.userId, update.roleInMatch, update.startsOnBench]
         );
       }
     }
