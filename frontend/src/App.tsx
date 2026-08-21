@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { MdFilterList, MdMenu, MdOutlineRestaurantMenu, MdSportsSoccer } from 'react-icons/md';
 import SoccerLineUp from 'react-soccer-lineup';
@@ -6,6 +6,7 @@ import { ApiClient } from './api';
 import { AthletePosition, MatchListItem, PointSetting, Season, Standing, User } from './types';
 
 const logoUrl = '/logo_pokapratika.png';
+const paymentMonthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 type View = 'temporada' | 'pagamentos' | 'premios' | 'usuarios' | 'admin';
 type AuthPayload = { token: string; user: User };
@@ -30,6 +31,7 @@ type CareerProfile = {
 };
 type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'LATE' | 'WAIVED';
 type PaymentRecord = { id?: string; userId?: string; userName?: string; referenceMonth: string; dueDate: string; amountCents: number; paidAmountCents?: number; balanceCents?: number; status: PaymentStatus; paidAt?: string | null; earnsPoint: boolean; notes?: string | null };
+type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; matchingPayments: PaymentRecord[]; upcomingPayments: PaymentRecord[]; recentPayments: PaymentRecord[]; totalAmountCents: number; totalPaidCents: number; totalBalanceCents: number; openCount: number; lateCount: number; paidCount: number; waivedCount: number };
 type PaymentSummary = { totalCents: number; paidCents: number; openCents: number; total: number; paid: number; pending: number; late: number; waived: number; earlyPoints: number };
 type CashEntryType = 'REVENUE' | 'EXPENSE';
 type CashEntry = { id: string; entryType: CashEntryType; entryDate: string; description: string; amountCents: number; paymentId?: string | null; recordedByName?: string | null; createdAt?: string; updatedAt?: string };
@@ -3814,6 +3816,7 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   const [cashFilters, setCashFilters] = useState({ date: '', type: '', description: '', origin: '', recordedBy: '', amount: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
+  const [expandedPaymentGroupKey, setExpandedPaymentGroupKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId && activeAthletes[0]?.id) setUserId(activeAthletes[0].id);
@@ -3870,6 +3873,21 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  function paymentMonthLabel(referenceMonth: string) {
+    const [yearValue, monthValue] = referenceMonth.slice(0, 7).split('-');
+    const monthIndex = Number(monthValue) - 1;
+    const monthName = paymentMonthNames[monthIndex] ?? referenceMonth.slice(5, 7);
+    return `${monthName} ${yearValue}`;
+  }
+
+  function paymentTimelineKey(payment: PaymentRecord) {
+    return payment.dueDate?.slice(0, 10) || `${payment.referenceMonth.slice(0, 7)}-01`;
+  }
+
+  function paymentStatusTone(paymentStatus: PaymentStatus) {
+    return paymentStatus === 'PAID' || paymentStatus === 'WAIVED' ? 'open' : paymentStatus === 'LATE' ? 'danger' : '';
+  }
+
   function centsFromInput(value: string) {
     const normalized = value.replace(/\./g, '').replace(',', '.').trim();
     const parsed = Number(normalized || 0);
@@ -3892,10 +3910,33 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     setActiveFilterMenu((current) => current === key ? null : key);
   }
 
+  function paymentMatchesFilters(payment: PaymentRecord) {
+    const name = normalizeTableFilterValue(payment.userName ?? 'Minha mensalidade');
+    const monthValue = normalizeTableFilterValue(`${paymentMonthLabel(payment.referenceMonth)} ${payment.referenceMonth.slice(0, 7)}`);
+    const dueDateValue = normalizeTableFilterValue(payment.dueDate?.slice(0, 10) ?? '');
+    const amountValue = normalizeTableFilterValue(money(payment.amountCents));
+    const paidValue = normalizeTableFilterValue(money(payment.paidAmountCents ?? 0));
+    const balanceValue = normalizeTableFilterValue(money(payment.balanceCents ?? 0));
+    const statusValue = normalizeTableFilterValue(statusLabel(payment.status));
+    const paidAtValue = normalizeTableFilterValue(payment.paidAt ? payment.paidAt.slice(0, 10) : 'Nao informado');
+    const pointValue = normalizeTableFilterValue(payment.earnsPoint ? 'Com ponto' : 'Sem ponto');
+    const notesValue = normalizeTableFilterValue(payment.notes ?? '');
+    return name.includes(normalizeTableFilterValue(paymentFilters.name))
+      && monthValue.includes(normalizeTableFilterValue(paymentFilters.month))
+      && dueDateValue.includes(normalizeTableFilterValue(paymentFilters.dueDate))
+      && amountValue.includes(normalizeTableFilterValue(paymentFilters.amount))
+      && paidValue.includes(normalizeTableFilterValue(paymentFilters.paid))
+      && balanceValue.includes(normalizeTableFilterValue(paymentFilters.balance))
+      && statusValue.includes(normalizeTableFilterValue(paymentFilters.status))
+      && paidAtValue.includes(normalizeTableFilterValue(paymentFilters.paidAt))
+      && pointValue.includes(normalizeTableFilterValue(paymentFilters.point))
+      && notesValue.includes(normalizeTableFilterValue(paymentFilters.notes));
+  }
+
   function paymentFilterOptions(key: keyof typeof paymentFilters) {
     const values = organizedPayments.map((payment) => {
       if (key === 'name') return payment.userName ?? 'Minha mensalidade';
-      if (key === 'month') return payment.referenceMonth.slice(0, 7);
+      if (key === 'month') return paymentMonthLabel(payment.referenceMonth);
       if (key === 'dueDate') return payment.dueDate?.slice(0, 10) ?? '-';
       if (key === 'amount') return money(payment.amountCents);
       if (key === 'paid') return money(payment.paidAmountCents ?? 0);
@@ -3953,28 +3994,47 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     if (monthCompare !== 0) return monthCompare;
     return (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
   }), [payments]);
-  const filteredPayments = useMemo(() => organizedPayments.filter((payment) => {
-    const name = (payment.userName ?? 'Minha mensalidade').toLowerCase();
-    const monthValue = payment.referenceMonth.slice(0, 7).toLowerCase();
-    const dueDateValue = (payment.dueDate?.slice(0, 10) ?? '').toLowerCase();
-    const amountValue = money(payment.amountCents).toLowerCase();
-    const paidValue = money(payment.paidAmountCents ?? 0).toLowerCase();
-    const balanceValue = money(payment.balanceCents ?? 0).toLowerCase();
-    const statusValue = statusLabel(payment.status).toLowerCase();
-    const paidAtValue = payment.paidAt ? payment.paidAt.slice(0, 10).toLowerCase() : 'nao informado';
-    const pointValue = payment.earnsPoint ? 'com ponto' : 'sem ponto';
-    const notesValue = (payment.notes ?? '').toLowerCase();
-    return name.includes(paymentFilters.name.trim().toLowerCase())
-      && monthValue.includes(paymentFilters.month.trim().toLowerCase())
-      && dueDateValue.includes(paymentFilters.dueDate.trim().toLowerCase())
-      && amountValue.includes(paymentFilters.amount.trim().toLowerCase())
-      && paidValue.includes(paymentFilters.paid.trim().toLowerCase())
-      && balanceValue.includes(paymentFilters.balance.trim().toLowerCase())
-      && statusValue.includes(paymentFilters.status.trim().toLowerCase())
-      && paidAtValue.includes(paymentFilters.paidAt.trim().toLowerCase())
-      && pointValue.includes(paymentFilters.point.trim().toLowerCase())
-      && notesValue.includes(paymentFilters.notes.trim().toLowerCase());
-  }), [organizedPayments, paymentFilters]);
+  const filteredPayments = useMemo(() => organizedPayments.filter(paymentMatchesFilters), [organizedPayments, paymentFilters]);
+  const paymentGroups = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const groupsMap = new Map<string, { key: string; userId?: string; userName: string; payments: PaymentRecord[] }>();
+    organizedPayments.forEach((payment) => {
+      const key = payment.userId ?? payment.userName ?? 'me';
+      const current = groupsMap.get(key);
+      if (current) {
+        current.payments.push(payment);
+        return;
+      }
+      groupsMap.set(key, { key, userId: payment.userId, userName: payment.userName ?? 'Minha mensalidade', payments: [payment] });
+    });
+    return [...groupsMap.values()].map((group): PaymentAthleteGroup | null => {
+      const chronologicalPayments = [...group.payments].sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
+      const reversedPayments = [...chronologicalPayments].reverse();
+      const matchingPayments = reversedPayments.filter(paymentMatchesFilters);
+      if (!matchingPayments.length) return null;
+      return {
+        key: group.key,
+        userId: group.userId,
+        userName: group.userName,
+        payments: reversedPayments,
+        matchingPayments,
+        upcomingPayments: chronologicalPayments.filter((payment) => paymentTimelineKey(payment) >= todayKey).slice(0, 3),
+        recentPayments: reversedPayments.slice(0, 12),
+        totalAmountCents: reversedPayments.reduce((total, payment) => total + payment.amountCents, 0),
+        totalPaidCents: reversedPayments.reduce((total, payment) => total + (payment.paidAmountCents ?? 0), 0),
+        totalBalanceCents: reversedPayments.reduce((total, payment) => total + (payment.balanceCents ?? 0), 0),
+        openCount: reversedPayments.filter((payment) => payment.status === 'PENDING' || payment.status === 'PARTIAL' || payment.status === 'LATE').length,
+        lateCount: reversedPayments.filter((payment) => payment.status === 'LATE').length,
+        paidCount: reversedPayments.filter((payment) => payment.status === 'PAID').length,
+        waivedCount: reversedPayments.filter((payment) => payment.status === 'WAIVED').length
+      };
+    }).filter((group): group is PaymentAthleteGroup => group !== null).sort((left, right) => left.userName.localeCompare(right.userName, 'pt-BR', { sensitivity: 'base' }));
+  }, [organizedPayments, paymentFilters]);
+  const hasPaymentFilters = Object.values(paymentFilters).some((value) => value.trim().length > 0);
+
+  useEffect(() => {
+    if (expandedPaymentGroupKey && !paymentGroups.some((group) => group.key === expandedPaymentGroupKey)) setExpandedPaymentGroupKey(null);
+  }, [expandedPaymentGroupKey, paymentGroups]);
   const organizedCashEntries = useMemo(() => [...cashEntries].sort((left, right) => {
     const dateCompare = (right.entryDate ?? '').localeCompare(left.entryDate ?? '');
     if (dateCompare !== 0) return dateCompare;
@@ -4007,7 +4067,18 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
       {canCoordinate && (summary || cashSummary) && <div className="stat-grid payments-overview-strip">{summary && <><span><b>R$ {(summary.paidCents / 100).toFixed(2)}</b> recebido</span><span><b>R$ {(summary.openCents / 100).toFixed(2)}</b> aberto</span><span><b>{summary.pending}</b> pendente(s)</span><span><b>{summary.late}</b> atraso(s)</span><span><b>{summary.earlyPoints}</b> ponto(s) antecipados</span></>}{cashSummary && <><span><b>{money(cashSummary.revenueCents)}</b> receitas</span><span><b>{money(cashSummary.expenseCents)}</b> despesas</span><span><b>{money(cashSummary.balanceCents)}</b> saldo caixa</span></>}</div>}
       {!canCoordinate && <p className="muted">Você visualiza apenas sua mensalidade e se ela gerou ponto por pagamento antecipado.</p>}
       {message && <p className="muted">{message}</p>}
+      {organizedPayments.length > 0 && <>
+        <div className="payments-group-toolbar">
+          {renderFilterHeader('Atleta', 'payments-name', paymentFilters.name, paymentFilterOptions('name'), (value) => setPaymentFilters((current) => ({ ...current, name: value })), () => setPaymentFilters((current) => ({ ...current, name: '' })), 'Pesquisar atleta')}
+          {renderFilterHeader('Mês/ano', 'payments-month', paymentFilters.month, paymentFilterOptions('month'), (value) => setPaymentFilters((current) => ({ ...current, month: value })), () => setPaymentFilters((current) => ({ ...current, month: '' })), 'Pesquisar mês e ano')}
+          {renderFilterHeader('Status', 'payments-status', paymentFilters.status, paymentFilterOptions('status'), (value) => setPaymentFilters((current) => ({ ...current, status: value })), () => setPaymentFilters((current) => ({ ...current, status: '' })), 'Pesquisar status')}
+          {hasPaymentFilters && <button type="button" className="ghost small payments-toolbar-clear" onClick={() => setPaymentFilters({ name: '', month: '', dueDate: '', amount: '', paid: '', balance: '', status: '', paidAt: '', point: '', notes: '' })}>Limpar filtros</button>}
+        </div>
+        {paymentGroups.length === 0 ? <EmptyState title="Nenhuma mensalidade encontrada" text="Ajuste os filtros para localizar o atleta ou o mês desejado." /> : <div className="championship-wrap payments-table-wrap payments-group-wrap"><table className="championship-table payments-table payments-group-table"><thead><tr><th>Atleta</th><th>Próximas 3</th><th>Últimas 12</th><th>Resumo</th><th>Detalhes</th></tr></thead><tbody>{paymentGroups.map((group) => <Fragment key={group.key}><tr className={`payments-group-row ${expandedPaymentGroupKey === group.key ? 'is-open' : ''}`}><td className="payments-group-athlete-cell"><strong>{group.userName}</strong><small>{group.payments.length} mensalidade(s) registradas{group.matchingPayments.length !== group.payments.length ? ` • ${group.matchingPayments.length} no filtro` : ''}</small></td><td className="payments-group-preview-cell">{group.upcomingPayments.length ? <div className="payments-month-chip-list">{group.upcomingPayments.map((payment) => <span key={`${group.key}-upcoming-${payment.id ?? payment.referenceMonth}`} className="payments-month-chip upcoming">{paymentMonthLabel(payment.referenceMonth)}</span>)}</div> : <span className="payments-muted">Sem próximas mensalidades</span>}</td><td className="payments-group-preview-cell">{group.recentPayments.length ? <div className="payments-month-chip-list history">{group.recentPayments.map((payment) => <span key={`${group.key}-recent-${payment.id ?? payment.referenceMonth}`} className="payments-month-chip">{paymentMonthLabel(payment.referenceMonth)}</span>)}</div> : <span className="payments-muted">Sem histórico</span>}</td><td className="payments-group-summary-cell"><div className="payments-group-summary"><span><b>{money(group.totalPaidCents)}</b><small>pago</small></span><span><b>{money(group.totalBalanceCents)}</b><small>em aberto</small></span><span><b>{group.lateCount}</b><small>atraso(s)</small></span></div></td><td className="payments-group-action-cell"><button type="button" className="ghost small payments-expand-button" onClick={() => setExpandedPaymentGroupKey((current) => current === group.key ? null : group.key)}>{expandedPaymentGroupKey === group.key ? 'Ocultar mensalidades' : 'Ver mensalidades'}</button></td></tr>{expandedPaymentGroupKey === group.key && <tr className="payments-group-detail-row"><td colSpan={5}><div className="payments-group-detail"><div className="payments-group-highlight-grid"><section className="payments-history-block"><div className="payments-history-head"><strong>Próximas 3 mensalidades</strong><span>{group.upcomingPayments.length}</span></div>{group.upcomingPayments.length ? <div className="payments-history-cards compact">{group.upcomingPayments.map((payment) => <article key={`${group.key}-preview-${payment.id ?? payment.referenceMonth}`} className="payment-history-card"><div className="payment-history-card-head"><strong>{paymentMonthLabel(payment.referenceMonth)}</strong><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></div><div className="payment-history-meta"><span><small>Vencimento</small><b>{payment.dueDate?.slice(0, 10) ?? '-'}</b></span><span><small>Valor</small><b>{money(payment.amountCents)}</b></span><span><small>Saldo</small><b>{money(payment.balanceCents ?? 0)}</b></span></div></article>)}</div> : <p className="payments-muted">Nenhuma mensalidade futura cadastrada para este atleta.</p>}</section><section className="payments-history-block"><div className="payments-history-head"><strong>Últimas 12 mensalidades</strong><span>{group.recentPayments.length}</span></div><div className="payments-history-cards compact">{group.recentPayments.map((payment) => <article key={`${group.key}-recent-card-${payment.id ?? payment.referenceMonth}`} className="payment-history-card"><div className="payment-history-card-head"><strong>{paymentMonthLabel(payment.referenceMonth)}</strong><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></div><div className="payment-history-meta"><span><small>Pago</small><b>{money(payment.paidAmountCents ?? 0)}</b></span><span><small>Saldo</small><b>{money(payment.balanceCents ?? 0)}</b></span><span><small>Ponto</small><b>{payment.earnsPoint ? '+1' : '0'}</b></span></div></article>)}</div></section></div><section className="payments-history-block full"><div className="payments-history-head"><strong>Histórico completo</strong><span>{group.payments.length} registro(s)</span></div><div className="payments-history-cards full">{group.payments.map((payment) => <article key={`${group.key}-${payment.id ?? payment.referenceMonth}-${payment.dueDate ?? 'sem-vencimento'}`} className="payment-history-card"><div className="payment-history-card-head"><strong>{paymentMonthLabel(payment.referenceMonth)}</strong><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></div><div className="payment-history-meta"><span><small>Vencimento</small><b>{payment.dueDate?.slice(0, 10) ?? '-'}</b></span><span><small>Valor</small><b>{money(payment.amountCents)}</b></span><span><small>Pago</small><b>{money(payment.paidAmountCents ?? 0)}</b></span><span><small>Saldo</small><b>{money(payment.balanceCents ?? 0)}</b></span><span><small>Baixa</small><b>{payment.paidAt ? payment.paidAt.slice(0, 10) : 'Nao informado'}</b></span><span><small>Ponto</small><b>{payment.earnsPoint ? '+1 ponto' : 'Sem ponto'}</b></span></div>{payment.notes?.trim() ? <p className="payment-history-notes">{payment.notes}</p> : <p className="payment-history-notes is-muted">Sem observação.</p>}{canCoordinate && <div className="actions compact-actions payment-history-actions"><button type="button" className="ghost small" onClick={() => openRegister(payment)}>{(payment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar mensalidade'}</button></div>}</article>)}</div></section></div></td></tr>}</Fragment>)}</tbody></table></div>}
+      </>}
+      <div className="payments-legacy-table" hidden>
       {organizedPayments.length === 0 ? <EmptyState title="Sem mensalidades lançadas" text="Gere o mês ou registre uma cobrança individual para começar a acompanhar a tabela financeira." /> : <div className="championship-wrap payments-table-wrap"><table className="championship-table payments-table"><thead><tr><th>{renderFilterHeader('Nome', 'payments-name', paymentFilters.name, paymentFilterOptions('name'), (value) => setPaymentFilters((current) => ({ ...current, name: value })), () => setPaymentFilters((current) => ({ ...current, name: '' })), 'Pesquisar nomes')}</th><th>{renderFilterHeader('Mês', 'payments-month', paymentFilters.month, paymentFilterOptions('month'), (value) => setPaymentFilters((current) => ({ ...current, month: value })), () => setPaymentFilters((current) => ({ ...current, month: '' })), 'Pesquisar mês')}</th><th>{renderFilterHeader('Vencimento', 'payments-dueDate', paymentFilters.dueDate, paymentFilterOptions('dueDate'), (value) => setPaymentFilters((current) => ({ ...current, dueDate: value })), () => setPaymentFilters((current) => ({ ...current, dueDate: '' })), 'Pesquisar vencimento')}</th><th>{renderFilterHeader('Valor', 'payments-amount', paymentFilters.amount, paymentFilterOptions('amount'), (value) => setPaymentFilters((current) => ({ ...current, amount: value })), () => setPaymentFilters((current) => ({ ...current, amount: '' })), 'Pesquisar valor')}</th><th>{renderFilterHeader('Pago', 'payments-paid', paymentFilters.paid, paymentFilterOptions('paid'), (value) => setPaymentFilters((current) => ({ ...current, paid: value })), () => setPaymentFilters((current) => ({ ...current, paid: '' })), 'Pesquisar valor pago')}</th><th>{renderFilterHeader('Pendente', 'payments-balance', paymentFilters.balance, paymentFilterOptions('balance'), (value) => setPaymentFilters((current) => ({ ...current, balance: value })), () => setPaymentFilters((current) => ({ ...current, balance: '' })), 'Pesquisar saldo')}</th><th>{renderFilterHeader('Status', 'payments-status', paymentFilters.status, paymentFilterOptions('status'), (value) => setPaymentFilters((current) => ({ ...current, status: value })), () => setPaymentFilters((current) => ({ ...current, status: '' })), 'Pesquisar status')}</th><th>{renderFilterHeader('Pago em', 'payments-paidAt', paymentFilters.paidAt, paymentFilterOptions('paidAt'), (value) => setPaymentFilters((current) => ({ ...current, paidAt: value })), () => setPaymentFilters((current) => ({ ...current, paidAt: '' })), 'Pesquisar data')}</th><th>{renderFilterHeader('Ponto', 'payments-point', paymentFilters.point, paymentFilterOptions('point'), (value) => setPaymentFilters((current) => ({ ...current, point: value })), () => setPaymentFilters((current) => ({ ...current, point: '' })), 'Pesquisar pontuação')}</th><th>{renderFilterHeader('Observação', 'payments-notes', paymentFilters.notes, paymentFilterOptions('notes'), (value) => setPaymentFilters((current) => ({ ...current, notes: value })), () => setPaymentFilters((current) => ({ ...current, notes: '' })), 'Pesquisar observação')}</th>{canCoordinate && <th>Ação</th>}</tr></thead><tbody>{filteredPayments.length === 0 ? <tr><td colSpan={canCoordinate ? 11 : 10} className="table-empty-cell">Nenhuma mensalidade encontrada com os filtros atuais.</td></tr> : filteredPayments.map((payment) => <tr key={`${payment.userId ?? 'me'}-${payment.referenceMonth}`}><td className="athlete-cell payments-name-cell"><strong>{payment.userName ?? 'Minha mensalidade'}</strong></td><td>{payment.referenceMonth.slice(0, 7)}</td><td>{payment.dueDate?.slice(0, 10) ?? '-'}</td><td>{money(payment.amountCents)}</td><td>{money(payment.paidAmountCents ?? 0)}</td><td className="payments-balance-cell">{money(payment.balanceCents ?? 0)}</td><td><span className={`status ${payment.status === 'PAID' || payment.status === 'WAIVED' ? 'open' : payment.status === 'LATE' ? 'danger' : ''}`}>{statusLabel(payment.status)}</span></td><td>{payment.paidAt ? payment.paidAt.slice(0, 10) : 'Nao informado'}</td><td>{payment.earnsPoint ? <span className="status open">+1 pt</span> : <span className="payments-muted">Sem ponto</span>}</td><td className="payments-notes-cell">{payment.notes?.trim() ? payment.notes : <span className="payments-muted">-</span>}</td>{canCoordinate && <td className="payments-action-cell"><button type="button" className="ghost small" onClick={() => openRegister(payment)}>{(payment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar'}</button></td>}</tr>)}</tbody></table></div>}
+      </div>
       {canCoordinate && <section className="cash-ledger"><div className="card-head"><div><h2>Caixa do grupo</h2><p className="muted">Prestação de contas simples: receitas e despesas com data, descrição e valor.</p></div><span className="status open">{filteredCashEntries.length} de {organizedCashEntries.length} lançamento(s)</span></div>{organizedCashEntries.length === 0 ? <EmptyState title="Caixa sem lançamentos" text="Pagamentos de mensalidade entram automaticamente como receita. Despesas podem ser lançadas manualmente." /> : <div className="championship-wrap cash-table-wrap"><table className="championship-table cash-table"><thead><tr><th>{renderFilterHeader('Data', 'cash-date', cashFilters.date, cashFilterOptions('date'), (value) => setCashFilters((current) => ({ ...current, date: value })), () => setCashFilters((current) => ({ ...current, date: '' })), 'Pesquisar data')}</th><th>{renderFilterHeader('Tipo', 'cash-type', cashFilters.type, cashFilterOptions('type'), (value) => setCashFilters((current) => ({ ...current, type: value })), () => setCashFilters((current) => ({ ...current, type: '' })), 'Pesquisar tipo')}</th><th>{renderFilterHeader('Descrição', 'cash-description', cashFilters.description, cashFilterOptions('description'), (value) => setCashFilters((current) => ({ ...current, description: value })), () => setCashFilters((current) => ({ ...current, description: '' })), 'Pesquisar descrição')}</th><th>{renderFilterHeader('Origem', 'cash-origin', cashFilters.origin, cashFilterOptions('origin'), (value) => setCashFilters((current) => ({ ...current, origin: value })), () => setCashFilters((current) => ({ ...current, origin: '' })), 'Pesquisar origem')}</th><th>{renderFilterHeader('Responsável', 'cash-recordedBy', cashFilters.recordedBy, cashFilterOptions('recordedBy'), (value) => setCashFilters((current) => ({ ...current, recordedBy: value })), () => setCashFilters((current) => ({ ...current, recordedBy: '' })), 'Pesquisar responsável')}</th><th>{renderFilterHeader('Valor', 'cash-amount', cashFilters.amount, cashFilterOptions('amount'), (value) => setCashFilters((current) => ({ ...current, amount: value })), () => setCashFilters((current) => ({ ...current, amount: '' })), 'Pesquisar valor')}</th></tr></thead><tbody>{filteredCashEntries.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhum lançamento encontrado com os filtros atuais.</td></tr> : filteredCashEntries.map((entry) => <tr key={entry.id}><td>{entry.entryDate?.slice(0, 10) ?? '-'}</td><td><span className={`status ${entry.entryType === 'REVENUE' ? 'open' : 'danger'}`}>{entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa'}</span></td><td className="cash-description-cell"><strong>{entry.description}</strong></td><td>{entry.paymentId ? 'Mensalidade' : 'Manual'}</td><td>{entry.recordedByName?.trim() ? entry.recordedByName : <span className="payments-muted">-</span>}</td><td className={`cash-amount-cell ${entry.entryType === 'REVENUE' ? 'is-revenue' : 'is-expense'}`}>{entry.entryType === 'REVENUE' ? '+' : '-'} {money(entry.amountCents)}</td></tr>)}</tbody></table></div>}</section>}
       {paymentModal === 'generate' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void generateMonth().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao gerar mensalidades.')); }}><div className="card-head"><div><h2>Gerar mensalidades em lote</h2><p className="muted">Crie vários meses para todos os atletas ou para uma seleção específica.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Mês inicial</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Quantidade de meses</span><input type="number" min="1" max="24" value={monthCount} onChange={(event) => setMonthCount(Number(event.target.value))} /></label><label><span>Vencimento inicial</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Valor mensal</span><input value={bulkAmount} onChange={(event) => setBulkAmount(event.target.value)} placeholder="Ex. 120,00" /></label></div><div className="segmented"><button type="button" className={generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(true)}>Todos os atletas</button><button type="button" className={!generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(false)}>Selecionar atletas</button></div>{!generateForAll && <div className="user-select-grid">{activeAthletes.map((user) => <label className="payment-user-option" key={user.id}><input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleSelectedUser(user.id)} /> <span>{user.name}</span></label>)}</div>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação opcional" /><div className="payment-preview"><span><b>{generateForAll ? activeAthletes.length : selectedUserIds.length}</b><small>atleta(s)</small></span><span><b>{monthCount}</b><small>mês(es)</small></span><span><b>{money(centsFromInput(bulkAmount || amount || '0') * monthCount * (generateForAll ? activeAthletes.length : selectedUserIds.length))}</b><small>volume gerado</small></span></div><button className="primary" disabled={!generateForAll && selectedUserIds.length === 0}>Gerar cobranças reais</button></form></div>}
       {paymentModal === 'register' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void save().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao registrar pagamento.')); }}><div className="card-head"><div><h2>Registrar pagamento</h2><p className="muted">Baixa total ou parcial. Só pagamento total antecipado gera ponto.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Atleta</span><select value={userId} onChange={(event) => setUserId(event.target.value)}>{activeAthletes.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label><label><span>Mês</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Vencimento</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Data da baixa</span><input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} /></label><label><span>Valor da mensalidade</span><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Valor individual" /></label>{status === 'PARTIAL' && <label><span>Valor recebido agora</span><input value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)} placeholder="Valor parcial" /></label>}</div><div className="segmented payment-mode"><button type="button" className={status === 'PAID' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PAID'); setFullPayment(true); }}>Pagamento total</button><button type="button" className={status === 'PARTIAL' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PARTIAL'); setFullPayment(false); }}>Pagamento parcial</button><button type="button" className={status === 'PENDING' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PENDING'); setFullPayment(false); }}>Pendente</button><button type="button" className={status === 'LATE' ? 'primary small' : 'ghost'} onClick={() => { setStatus('LATE'); setFullPayment(false); }}>Atrasado</button><button type="button" className={status === 'WAIVED' ? 'primary small' : 'ghost'} onClick={() => { setStatus('WAIVED'); setFullPayment(false); }}>Isento</button></div><div className="payment-preview"><span><b>{money(registerAmountCents)}</b><small>valor</small></span><span><b>{money(registerPaidCents)}</b><small>pago após baixa</small></span><span><b>{money(registerBalanceCents)}</b><small>saldo restante</small></span></div>{fullPayment && status === 'PAID' && <p className="muted">Se a data da baixa for antes do vencimento, o atleta recebe +1 ponto automaticamente.</p>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação" /><button className="primary">Salvar baixa</button></form></div>}
