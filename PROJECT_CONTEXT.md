@@ -1,3 +1,4 @@
+- A visão de `Mensalidades` foi corrigida após feedback: a tabela principal voltou ao formato anterior por colunas, mantendo uma linha principal por atleta/mensalidade-base e abrindo abaixo uma sub-tabela com as demais cobranças (próximas e históricas), em vez do layout em cards.
 - A tela de `Mensalidades` passou a agrupar cobranças por atleta em uma única linha expansível, com filtro por atleta/mês-status, chips de mês+ano, prévia das próximas 3 mensalidades, últimas 12 e histórico completo em dropdown com ações por cobrança.
 - O modal `Agenda e confirmação dos jogos` foi ampliado de forma significativa no desktop, com mais área útil, mais respiro entre formulário e tabela e layout da grade liberado para evitar que as colunas fiquem espremidas.
 - A tabela de temporadas recebeu classes específicas por coluna para alinhar à esquerda os valores de ano, status, início, fim e ações, corrigindo o desencontro visual com os filtros do cabeçalho.

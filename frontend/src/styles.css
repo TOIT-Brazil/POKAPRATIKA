@@ -422,12 +422,22 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .payments-group-table th,
 .payments-group-table td { vertical-align: top; white-space: normal; }
 .payments-group-row.is-open td { background: rgba(59,130,246,.06); }
+.payments-history-toggle-cell { min-width: 120px; text-align: left; }
 .payments-group-athlete-cell { min-width: 220px; text-align: left; }
 .payments-group-athlete-cell small { display: block; margin-top: 4px; color: var(--muted); }
 .payments-group-preview-cell { min-width: 240px; text-align: left; }
 .payments-group-summary-cell { min-width: 220px; text-align: left; }
 .payments-group-action-cell { min-width: 150px; text-align: left; }
 .payments-expand-button { white-space: nowrap; }
+.payments-subtable-wrap { display: grid; gap: 10px; padding: 12px; }
+.payments-subtable-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.payments-subtable-head strong { color: #16332f; }
+.payments-subtable-head span { color: #587165; font-size: .74rem; font-weight: 800; }
+.payments-subtable { min-width: 980px; }
+.payments-subtable th { position: static; }
+.payments-subtable td,
+.payments-subtable th { white-space: nowrap; }
+.payments-subtable .payments-notes-cell { min-width: 220px; white-space: normal; }
 .payments-month-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .payments-month-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 10px; border-radius: 999px; background: rgba(15,82,87,.08); color: #27524d; font-size: .72rem; font-weight: 800; }
 .payments-month-chip.upcoming { background: rgba(59,130,246,.14); color: #1d4e89; }
@@ -3758,6 +3768,7 @@ textarea {
 
   .payments-table .payments-action-cell,
   .payments-group-action-cell,
+  .payments-history-toggle-cell,
   .cash-table .actions,
   .management-table .actions,
   .schedule-table .actions,
@@ -3785,6 +3796,10 @@ textarea {
   .payments-group-preview-cell,
   .payments-group-summary-cell {
     min-width: 180px;
+  }
+
+  .payments-subtable {
+    min-width: 820px;
   }
 
   .match-modal-card,
