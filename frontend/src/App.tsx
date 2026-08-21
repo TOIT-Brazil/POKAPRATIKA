@@ -278,9 +278,11 @@ function rebalanceNaturalGoalkeepers<T extends { userId: string; team: 'A' | 'B'
   return list;
 }
 
-function normalizeDraftPlayersForLineup(list: MatchDraftPlayer[]): MatchDraftPlayer[] {
+function normalizeDraftPlayersForLineup(list: MatchDraftPlayer[], options?: { preserveBenchAssignments?: boolean; preserveDrawOrder?: boolean }): MatchDraftPlayer[] {
   const balanced = rebalanceNaturalGoalkeepers(list);
   const teamBuckets: MatchDraftPlayer[] = [];
+  const preserveBenchAssignments = options?.preserveBenchAssignments === true;
+  const preserveDrawOrder = options?.preserveDrawOrder === true;
 
   for (const team of ['A', 'B'] as const) {
     const teamPlayers = [...balanced.filter((player) => player.team === team)].sort(comparePlayersByOriginalPosition);
@@ -294,7 +296,7 @@ function normalizeDraftPlayersForLineup(list: MatchDraftPlayer[]): MatchDraftPla
       teamBuckets.push({
         ...player,
         roleInMatch: isGoalkeeper ? 'GOLEIRO' : 'LINHA',
-        startsOnBench: isGoalkeeper ? false : activeLineIndex++ >= 6
+        startsOnBench: preserveBenchAssignments ? player.startsOnBench : isGoalkeeper ? false : activeLineIndex++ >= 6
       });
     }
   }
@@ -303,7 +305,10 @@ function normalizeDraftPlayersForLineup(list: MatchDraftPlayer[]): MatchDraftPla
     .sort(comparePlayersByOriginalPosition)
     .map((player) => ({ ...player, roleInMatch: 'PRESENTE_SEM_JOGAR' as const, startsOnBench: false }));
 
-  return [...teamBuckets, ...presentOnly].map((player, index) => ({ ...player, drawOrder: String(index + 1) }));
+  return [...teamBuckets, ...presentOnly].map((player, index) => ({
+    ...player,
+    drawOrder: preserveDrawOrder && Number.isFinite(Number(player.drawOrder)) && Number(player.drawOrder) > 0 ? String(player.drawOrder) : String(index + 1)
+  }));
 }
 
 function distributePlayersByPosition(list: MatchDraftPlayer[], randomize = true): MatchDraftPlayer[] {
@@ -407,7 +412,7 @@ function buildRegisteredRosterSeed(users: User[], attendance: MatchAttendanceRes
     };
   });
 
-  return normalizeDraftPlayersForLineup(seededPlayers);
+  return normalizeDraftPlayersForLineup(seededPlayers, { preserveBenchAssignments: savedPlayers.length > 0, preserveDrawOrder: savedPlayers.length > 0 });
 }
 
 function shuffleRows<T>(rows: T[]): T[] {
@@ -1304,13 +1309,14 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const skipAutosaveRef = useRef(true);
   const appliedAutoSwapMinutesRef = useRef<Record<'A' | 'B', number[]>>({ A: [], B: [] });
   const manualSwapOverrideRef = useRef<Record<'A' | 'B', boolean>>({ A: false, B: false });
+  const boardDirtyRef = useRef(false);
   const hydratedMatchIdRef = useRef<string | null>(null);
   const pitchSurfaceRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
     const sameMatch = hydratedMatchIdRef.current === match.id;
-    const preserveLiveBoard = sameMatch && (gameStarted || match.status === 'RUNNING' || match.status === 'SUBMITTED') && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
+    const preserveLiveBoard = sameMatch && boardDirtyRef.current && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
     hydratedMatchIdRef.current = match.id;
 
     if (preserveLiveBoard) {
@@ -1338,6 +1344,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     skipAutosaveRef.current = true;
     appliedAutoSwapMinutesRef.current = { A: [], B: [] };
     manualSwapOverrideRef.current = { A: false, B: false };
+    boardDirtyRef.current = false;
   }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users, gameStarted, officialStartedAt]);
 
   useEffect(() => {
@@ -1575,6 +1582,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       return;
     }
     const guestId = `guest:${window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`}`;
+    boardDirtyRef.current = true;
     setPlayers((current) => normalizeOperationalLineup([
       ...current,
       {
@@ -1606,6 +1614,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setSheetMessage('Não é possível remover convidado que já possui evento lançado na súmula.');
       return;
     }
+    boardDirtyRef.current = true;
     setPlayers((current) => normalizeOperationalLineup(current.filter((player) => player.userId !== playerId)));
     if (draggedPlayerId === playerId) setDraggedPlayerId('');
     if (dropTargetId === playerId) setDropTargetId('');
@@ -1649,6 +1658,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       method: 'PATCH',
       body: JSON.stringify({ teamAScore, teamBScore, events, clockSeconds, clockRunning })
     });
+    boardDirtyRef.current = false;
     if (showFeedback) setSheetMessage(lineupAdjusted ? `Escalação ajustada e rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.` : `Rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.`);
   }
 
@@ -1709,6 +1719,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const outgoingStarter = sameTeamSwap ? (draggedPlayer?.startsOnBench ? targetPlayer : draggedPlayer) : null;
     const outgoingFieldLeft = outgoingStarter?.fieldLeft ?? null;
     const outgoingFieldTop = outgoingStarter?.fieldTop ?? null;
+    boardDirtyRef.current = true;
     setPlayers((list) => {
       const next = list.map((player) => {
         if (player.userId === draggedPlayerId) {
@@ -1758,6 +1769,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const relativeLeft = ((clientX - bounds.left) / bounds.width) * 100;
     const relativeTop = ((clientY - bounds.top) / bounds.height) * 100;
     const slot = clampPitchSlot(dragState.team, relativeLeft, relativeTop);
+    boardDirtyRef.current = true;
     setPlayers((current) => current.map((player) => player.userId === dragState.userId ? { ...player, fieldLeft: slot.left, fieldTop: slot.top } : player));
   }
 
