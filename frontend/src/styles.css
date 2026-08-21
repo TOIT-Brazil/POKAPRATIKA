@@ -2664,8 +2664,16 @@ textarea {
 }
 
 .app-header {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+}
+
+.header-admin-cluster {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
 }
 
 .app-header .account-area {
@@ -2691,24 +2699,29 @@ textarea {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(15, 82, 87, .12);
 }
 
 .header-icon-button {
-  width: 34px;
-  height: 34px;
-  display: grid;
+  width: auto;
+  height: auto;
+  display: inline-grid;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--muted);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
 }
 
 .header-icon-button svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+}
+
+.header-icon-button:hover {
+  color: var(--primary-deep);
 }
 
 .dashboard-season-row {

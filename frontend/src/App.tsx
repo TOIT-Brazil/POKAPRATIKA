@@ -942,27 +942,29 @@ export function App() {
   return (
     <main className={`shell ${view === 'temporada' ? 'shell-home' : ''}`}>
       <header className="hero card glass app-header">
+        <div className="header-admin-cluster">
+          <div className="profile-pill account-area" ref={accountMenuRef}>
+            <button className="profile-trigger" onClick={() => setAccountMenuOpen((value) => !value)} title="Abrir menu do perfil">
+              {auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}
+              <div>
+                <strong>{auth.user.name}</strong>
+                <small>{auth.user.role} • menu</small>
+              </div>
+            </button>
+            {accountMenuOpen && <div className="account-menu">{canCoordinate && <><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></div>}
+          </div>
+          <div className="header-actions">
+            <button type="button" className="header-icon-button" aria-label="Arquivo do clube"><DashboardIcon name="file" /></button>
+            <button type="button" className="header-icon-button" aria-label="Configurações"><DashboardIcon name="gear" /></button>
+            <button type="button" className="header-icon-button" aria-label="Notificações"><DashboardIcon name="bell" /></button>
+          </div>
+        </div>
         <div className="brand-lockup">
           <img className="brand-logo" src={logoUrl} alt="Escudo POKA PRÁTIKA" />
           <div className="brand-copy">
             <p className="eyebrow">Balneário Camboriú • Quarta 20h</p>
             <h1>POKA PRÁTIKA</h1>
           </div>
-        </div>
-        <div className="header-actions">
-          <button type="button" className="header-icon-button" aria-label="Arquivo do clube"><DashboardIcon name="file" /></button>
-          <button type="button" className="header-icon-button" aria-label="Configurações"><DashboardIcon name="gear" /></button>
-          <button type="button" className="header-icon-button" aria-label="Notificações"><DashboardIcon name="bell" /></button>
-        </div>
-        <div className="profile-pill account-area" ref={accountMenuRef}>
-          <button className="profile-trigger" onClick={() => setAccountMenuOpen((value) => !value)} title="Abrir menu do perfil">
-            {auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}
-            <div>
-              <strong>{auth.user.name}</strong>
-              <small>{auth.user.role} • menu</small>
-            </div>
-          </button>
-          {accountMenuOpen && <div className="account-menu">{canCoordinate && <><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></div>}
         </div>
       </header>
 
