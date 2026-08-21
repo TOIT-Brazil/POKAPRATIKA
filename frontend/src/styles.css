@@ -2760,7 +2760,6 @@ textarea {
 
 .account-menu-close {
   flex: 0 0 auto;
-  width: 34px;
   align-self: flex-start;
   font-size: 1.7rem;
   line-height: 1;
