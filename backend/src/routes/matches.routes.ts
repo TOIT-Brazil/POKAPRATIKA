@@ -304,17 +304,17 @@ async function insertMatchEventRecord(execute: QueryExecutor, matchId: string, e
   );
 }
 
-async function getPersistedMatchPlayers(matchId: string): Promise<Array<{ userId: string; team: string; roleInMatch: string; present: boolean }>> {
+async function getPersistedMatchPlayers(matchId: string): Promise<Array<{ userId: string; team: string; roleInMatch: string; present: boolean; startsOnBench: boolean }>> {
   const columns = await getTableColumns('match_players');
   const result = hasGuestPlayerSupport(columns)
-    ? await query<{ userId: string; team: string; roleInMatch: string; present: boolean }>(
-      `SELECT ${playerIdentitySql()} AS "userId", team, role_in_match AS "roleInMatch", present
+    ? await query<{ userId: string; team: string; roleInMatch: string; present: boolean; startsOnBench: boolean }>(
+      `SELECT ${playerIdentitySql()} AS "userId", team, role_in_match AS "roleInMatch", present, starts_on_bench AS "startsOnBench"
        FROM match_players
        WHERE match_id = $1`,
       [matchId]
     )
-    : await query<{ userId: string; team: string; roleInMatch: string; present: boolean }>(
-      'SELECT user_id AS "userId", team, role_in_match AS "roleInMatch", present FROM match_players WHERE match_id = $1',
+    : await query<{ userId: string; team: string; roleInMatch: string; present: boolean; startsOnBench: boolean }>(
+      'SELECT user_id AS "userId", team, role_in_match AS "roleInMatch", present, starts_on_bench AS "startsOnBench" FROM match_players WHERE match_id = $1',
       [matchId]
     );
   return result.rows;
@@ -376,9 +376,9 @@ async function validatePlayersInput(players: MatchPlayerInput[]): Promise<void> 
 
 async function validateLineupReady(matchId: string): Promise<void> {
   const players = await getPersistedMatchPlayers(matchId);
-  const playable = players.filter((player) => player.present && (player.team === 'A' || player.team === 'B'));
+  const starters = players.filter((player) => player.present && !player.startsOnBench && (player.team === 'A' || player.team === 'B'));
   for (const team of ['A', 'B']) {
-    const teamPlayers = playable.filter((player) => player.team === team);
+    const teamPlayers = starters.filter((player) => player.team === team);
     const goalkeepers = teamPlayers.filter((player) => player.roleInMatch === 'GOLEIRO').length;
     const linePlayers = teamPlayers.filter((player) => player.roleInMatch === 'LINHA').length;
     if (goalkeepers !== 1) throw httpError(400, `O time ${team} precisa ter exatamente 1 goleiro antes de iniciar o jogo.`);
