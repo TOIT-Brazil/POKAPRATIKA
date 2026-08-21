@@ -415,6 +415,10 @@ function buildRegisteredRosterSeed(users: User[], attendance: MatchAttendanceRes
   return normalizeDraftPlayersForLineup(seededPlayers, { preserveBenchAssignments: savedPlayers.length > 0, preserveDrawOrder: savedPlayers.length > 0 });
 }
 
+function persistedPresenceForTeam(team: MatchDraftPlayer['team'] | MatchDetail['players'][number]['team']) {
+  return team === 'A' || team === 'B' || team === 'PRESENTE_SEM_JOGAR';
+}
+
 function shuffleRows<T>(rows: T[]): T[] {
   return rows.map((row) => ({ row, sort: Math.random() })).sort((left, right) => left.sort - right.sort).map((item) => item.row);
 }
@@ -1650,7 +1654,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           fieldLeft: player.fieldLeft ?? null,
           fieldTop: player.fieldTop ?? null,
           startsOnBench: player.startsOnBench,
-          present: player.present !== false
+          present: persistedPresenceForTeam(player.team)
         }))
       })
     });
@@ -2546,7 +2550,7 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
       drawOrder: player.drawOrder ? Number(player.drawOrder) : null,
       rotationOrder: player.team === 'A' ? currentTeamA.findIndex((item) => item.userId === player.userId) + 1 : player.team === 'B' ? currentTeamB.findIndex((item) => item.userId === player.userId) + 1 : null,
       startsOnBench: player.startsOnBench,
-      present: player.present
+      present: persistedPresenceForTeam(player.team)
     }));
   }
 
