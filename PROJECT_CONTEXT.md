@@ -1,3 +1,5 @@
+- O componente compartilhado `TableFilterHeader` foi padronizado para renderizar o ícone de filtro à esquerda do rótulo, alinhando agenda, usuários, temporadas, pontuação e demais tabelas administrativas ao mesmo layout visual.
+- Os cabeçalhos com filtro das tabelas foram refinados novamente para começar na borda esquerda da célula, com o ícone e o nome da coluna encostados no início visual da tabela.
 - Os cabeçalhos filtráveis das tabelas foram ajustados para mostrar o ícone de filtro colado à esquerda do texto da coluna em todo o frontend administrativo/financeiro.
 - A home da temporada passou a bloquear a rolagem do container inteiro (`home-stack dashboard-main`), preservando o scroll apenas nas áreas internas como a tabela/classificação.
 - As exportações do frontend deixaram de gerar CSV cru e passaram a baixar planilhas `.xlsx` com `exceljs`, cabeçalho tematizado POKA PRÁTIKA, autofiltro, colunas ajustadas e formatação automática para moeda, mês, datas e status financeiros.
