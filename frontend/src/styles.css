@@ -2674,31 +2674,18 @@ textarea {
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 0;
 }
 
-.app-header .account-area {
+.app-header .brand-lockup {
   order: 1;
   justify-self: start;
 }
 
-.app-header .header-actions {
+.app-header .header-admin-cluster {
   order: 2;
-  justify-self: start;
-}
-
-.app-header .brand-lockup {
-  order: 3;
   justify-self: end;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-left: 12px;
-  border-left: 1px solid rgba(15, 82, 87, .12);
 }
 
 .header-menu-trigger,
@@ -2847,25 +2834,6 @@ textarea {
   }
 }
 
-.header-icon-button {
-  width: auto;
-  height: auto;
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-}
-
-.header-icon-button svg {
-  width: 18px;
-  height: 18px;
-}
-
-.header-icon-button:hover {
-  color: var(--primary-deep);
-}
 
 .dashboard-season-row {
   display: grid;
@@ -3462,12 +3430,6 @@ textarea {
     padding: 8px;
     gap: 8px;
     border-radius: 12px;
-  }
-
-  .header-actions {
-    order: 3;
-    grid-column: 1 / -1;
-    justify-content: flex-end;
   }
 
   .account-menu {

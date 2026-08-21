@@ -947,11 +947,6 @@ export function App() {
           <div className="account-area">
             <button type="button" className={`header-menu-trigger ${accountMenuOpen ? 'is-open' : ''}`} onClick={() => setAccountMenuOpen((value) => !value)} aria-label="Abrir menu principal" title="Abrir menu principal"><MdMenu /></button>
           </div>
-          <div className="header-actions">
-            <button type="button" className="header-icon-button" aria-label="Arquivo do clube"><DashboardIcon name="file" /></button>
-            <button type="button" className="header-icon-button" aria-label="Configurações"><DashboardIcon name="gear" /></button>
-            <button type="button" className="header-icon-button" aria-label="Notificações"><DashboardIcon name="bell" /></button>
-          </div>
         </div>
         <div className="brand-lockup">
           <img className="brand-logo" src={logoUrl} alt="Escudo POKA PRÁTIKA" />
