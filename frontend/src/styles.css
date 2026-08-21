@@ -2668,6 +2668,26 @@ textarea {
   align-items: center;
 }
 
+.app-header .account-area {
+  order: 1;
+  justify-self: start;
+}
+
+.app-header .account-menu {
+  left: 0;
+  right: auto;
+}
+
+.app-header .header-actions {
+  order: 2;
+  justify-self: start;
+}
+
+.app-header .brand-lockup {
+  order: 3;
+  justify-self: end;
+}
+
 .header-actions {
   display: flex;
   align-items: center;

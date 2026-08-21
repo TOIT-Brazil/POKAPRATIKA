@@ -1,3 +1,4 @@
+- O header principal foi invertido no desktop: menu da conta/admin e grupo de ícones utilitários foram deslocados para a esquerda, enquanto o bloco da marca POKA PRÁTIKA passou para a direita, com o dropdown do menu reancorado para abrir corretamente desse novo lado.
 - A remoção da barra de rolagem da página inicial foi reforçada no container raiz da aplicação: a view `temporada` agora marca o `shell` principal e bloqueia o scroll global da home diretamente nesse nível, mantendo o scroll apenas nas áreas internas necessárias.
 - O componente compartilhado `TableFilterHeader` foi padronizado para renderizar o ícone de filtro à esquerda do rótulo, alinhando agenda, usuários, temporadas, pontuação e demais tabelas administrativas ao mesmo layout visual.
 - Os cabeçalhos com filtro das tabelas foram refinados novamente para começar na borda esquerda da célula, com o ícone e o nome da coluna encostados no início visual da tabela.
