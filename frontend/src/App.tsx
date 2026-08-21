@@ -254,11 +254,36 @@ function comparePlayersByOriginalPosition(left: { position: AthletePosition; nam
   return left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' });
 }
 
+function rebalanceNaturalGoalkeepers<T extends { userId: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; position?: AthletePosition | null; roleInMatch: string; startsOnBench: boolean }>(list: T[]): T[] {
+  for (const overloadedTeam of ['A', 'B'] as const) {
+    const targetTeam = overloadedTeam === 'A' ? 'B' : 'A';
+    const overloadedGoalkeepers = list.filter((player) => player.team === overloadedTeam && player.position === 'GO');
+    const targetGoalkeepers = list.filter((player) => player.team === targetTeam && player.position === 'GO');
+    if (overloadedGoalkeepers.length < 2 || targetGoalkeepers.length > 0) continue;
+
+    const movingGoalkeeper = overloadedGoalkeepers.find((player) => player.roleInMatch !== 'GOLEIRO')
+      ?? overloadedGoalkeepers.find((player) => player.startsOnBench)
+      ?? overloadedGoalkeepers[overloadedGoalkeepers.length - 1];
+    const swapCandidate = list.find((player) => player.team === targetTeam && player.position !== 'GO');
+
+    if (!movingGoalkeeper || !swapCandidate) continue;
+
+    return list.map((player) => {
+      if (player.userId === movingGoalkeeper.userId) return { ...player, team: targetTeam };
+      if (player.userId === swapCandidate.userId) return { ...player, team: overloadedTeam };
+      return player;
+    });
+  }
+
+  return list;
+}
+
 function normalizeDraftPlayersForLineup(list: MatchDraftPlayer[]): MatchDraftPlayer[] {
+  const balanced = rebalanceNaturalGoalkeepers(list);
   const teamBuckets: MatchDraftPlayer[] = [];
 
   for (const team of ['A', 'B'] as const) {
-    const teamPlayers = [...list.filter((player) => player.team === team)].sort(comparePlayersByOriginalPosition);
+    const teamPlayers = [...balanced.filter((player) => player.team === team)].sort(comparePlayersByOriginalPosition);
     const explicitGoalkeeper = teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO');
     const naturalGoalkeeper = teamPlayers.find((player) => player.position === 'GO');
     const goalkeeperId = explicitGoalkeeper?.userId ?? naturalGoalkeeper?.userId ?? null;
@@ -274,7 +299,7 @@ function normalizeDraftPlayersForLineup(list: MatchDraftPlayer[]): MatchDraftPla
     }
   }
 
-  const presentOnly = [...list.filter((player) => player.team === 'PRESENTE_SEM_JOGAR')]
+  const presentOnly = [...balanced.filter((player) => player.team === 'PRESENTE_SEM_JOGAR')]
     .sort(comparePlayersByOriginalPosition)
     .map((player) => ({ ...player, roleInMatch: 'PRESENTE_SEM_JOGAR' as const, startsOnBench: false }));
 
@@ -1279,10 +1304,21 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const skipAutosaveRef = useRef(true);
   const appliedAutoSwapMinutesRef = useRef<Record<'A' | 'B', number[]>>({ A: [], B: [] });
   const manualSwapOverrideRef = useRef<Record<'A' | 'B', boolean>>({ A: false, B: false });
+  const hydratedMatchIdRef = useRef<string | null>(null);
   const pitchSurfaceRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
+    const sameMatch = hydratedMatchIdRef.current === match.id;
+    const preserveLiveBoard = sameMatch && (gameStarted || match.status === 'RUNNING' || match.status === 'SUBMITTED') && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
+    hydratedMatchIdRef.current = match.id;
+
+    if (preserveLiveBoard) {
+      if (match.startedAt && match.startedAt !== officialStartedAt) setOfficialStartedAt(match.startedAt);
+      if (!gameStarted && (match.status !== 'DRAFT' || Boolean(match.startedAt))) setGameStarted(true);
+      return;
+    }
+
     setPlayers(normalizeOperationalLineup(seededPlayers()));
     setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
@@ -1302,7 +1338,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     skipAutosaveRef.current = true;
     appliedAutoSwapMinutesRef.current = { A: [], B: [] };
     manualSwapOverrideRef.current = { A: false, B: false };
-  }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users]);
+  }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users, gameStarted, officialStartedAt]);
 
   useEffect(() => {
     const limitSeconds = (match.availableMinutes ?? 60) * 60;
@@ -1389,7 +1425,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   function normalizeOperationalLineup(list: MatchDetail['players']) {
-    const normalized = list.map((player) => ({ ...player }));
+    const normalized = rebalanceNaturalGoalkeepers(list).map((player) => ({ ...player }));
 
     for (const team of ['A', 'B'] as const) {
       const teamPlayers = normalized.filter((player) => player.team === team).sort((left, right) => {
