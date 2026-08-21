@@ -20,4 +20,4 @@ window.__POKA_PRATIKA_CONFIG__ = {
 };
 EOF
 
-exec nginx -g 'daemon off;'
+exec nginx -g 'daemon off; error_log stderr warn;'
