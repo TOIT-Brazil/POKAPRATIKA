@@ -126,6 +126,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .users-management-table td { vertical-align: middle; }
 .users-management-table .management-main-cell,
 .users-management-table .user-email-cell { text-align: left; }
+.users-management-table .users-role-col,
+.users-management-table .users-role-cell { min-width: 130px; text-align: left; white-space: nowrap; }
 .users-management-table .users-position-col,
 .users-management-table .users-position-cell,
 .users-management-table .users-status-col,
@@ -139,6 +141,27 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .users-management-table .users-actions-col,
 .users-management-table .users-actions-cell { min-width: 220px; text-align: left; }
 .users-management-table .users-row-actions { justify-content: flex-start; align-items: center; flex-wrap: nowrap; }
+.seasons-management-table th,
+.seasons-management-table td { vertical-align: middle; }
+.seasons-management-table .management-main-cell,
+.seasons-management-table .seasons-year-cell,
+.seasons-management-table .seasons-status-cell,
+.seasons-management-table .seasons-start-cell,
+.seasons-management-table .seasons-end-cell,
+.seasons-management-table .seasons-actions-cell { text-align: left; white-space: nowrap; }
+.seasons-management-table .seasons-name-col,
+.seasons-management-table .seasons-name-cell { min-width: 220px; }
+.seasons-management-table .seasons-year-col,
+.seasons-management-table .seasons-year-cell { min-width: 90px; }
+.seasons-management-table .seasons-status-col,
+.seasons-management-table .seasons-status-cell { min-width: 130px; }
+.seasons-management-table .seasons-start-col,
+.seasons-management-table .seasons-start-cell,
+.seasons-management-table .seasons-end-col,
+.seasons-management-table .seasons-end-cell { min-width: 130px; }
+.seasons-management-table .seasons-actions-col,
+.seasons-management-table .seasons-actions-cell { min-width: 240px; }
+.seasons-management-table .seasons-row-actions { justify-content: flex-start; align-items: center; flex-wrap: nowrap; }
 .award-board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
 .award-board { display: grid; align-content: start; gap: 7px; padding: 10px; border-radius: 16px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.085); }
 .board-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 6px 8px; border-radius: 11px; background: rgba(255,255,255,.055); font-size: .78rem; }

@@ -1,3 +1,5 @@
+- A tabela de temporadas recebeu classes específicas por coluna para alinhar à esquerda os valores de ano, status, início, fim e ações, corrigindo o desencontro visual com os filtros do cabeçalho.
+- Na tabela `Usuários do grupo`, a coluna `Perfil` recebeu alinhamento isolado à esquerda, sem alterar o posicionamento das demais colunas nessa iteração.
 - Após revisão visual da tabela de usuários, as colunas de posição, status e ações foram realinhadas novamente para leitura à esquerda, removendo a centralização que havia piorado o encaixe visual na grade.
 - A tabela de usuários recebeu alinhamento específico nas colunas de posição, status e ações, com células centralizadas de forma consistente, largura mínima própria e botões de ação sem quebra para evitar desalinhamento visual.
 - O bloco de identidade do usuário no topo do drawer foi encostado no canto direito do menu, com alinhamento de texto à direita.
