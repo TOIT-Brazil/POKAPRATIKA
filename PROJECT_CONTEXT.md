@@ -1,3 +1,4 @@
+- Após revisão visual da tabela de usuários, as colunas de posição, status e ações foram realinhadas novamente para leitura à esquerda, removendo a centralização que havia piorado o encaixe visual na grade.
 - A tabela de usuários recebeu alinhamento específico nas colunas de posição, status e ações, com células centralizadas de forma consistente, largura mínima própria e botões de ação sem quebra para evitar desalinhamento visual.
 - O bloco de identidade do usuário no topo do drawer foi encostado no canto direito do menu, com alinhamento de texto à direita.
 - O botão de fechar do drawer foi simplificado novamente para ficar apenas como um `x`, sem largura fixa ou caixa visual ao redor.
