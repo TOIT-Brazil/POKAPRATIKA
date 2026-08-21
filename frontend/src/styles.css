@@ -2662,6 +2662,14 @@ textarea {
   isolation: isolate;
 }
 
+.shell > * {
+  transition: filter .26s ease, opacity .26s ease;
+}
+
+.shell.menu-open > :not(.account-menu-layer) {
+  filter: blur(12px);
+}
+
 .header-admin-cluster {
   min-width: 0;
   display: flex;
@@ -2726,8 +2734,8 @@ textarea {
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(240, 247, 243, .34);
-  backdrop-filter: blur(10px) saturate(1.04);
+  background: rgba(240, 247, 243, .24);
+  backdrop-filter: blur(14px) saturate(1.08);
   animation: account-menu-backdrop-in .24s ease;
 }
 
