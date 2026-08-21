@@ -424,6 +424,58 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .draw-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 2px; }
 .draw-footer small { margin-right: auto; color: #a9b9af; }
 .paste-box { min-height: 145px; font-size: .8rem; }
+.import-excel-modal { width: min(1220px, 100%); background: linear-gradient(180deg, #f8fcf8 0%, #eef6ef 100%); border-color: rgba(188,208,191,.95); }
+.import-excel-layout { display: grid; grid-template-columns: minmax(300px, .94fr) minmax(420px, 1.06fr); gap: 12px; align-items: start; }
+.import-excel-panel { display: grid; gap: 10px; padding: 12px; border-radius: 18px; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); border: 1px solid rgba(15,82,87,.12); box-shadow: 0 10px 24px rgba(15,82,87,.08); }
+.import-excel-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid rgba(15,82,87,.1); }
+.import-excel-panel-head strong { color: var(--primary-deep); font-size: .95rem; }
+.import-excel-panel-head span { padding: 5px 9px; border-radius: 999px; background: rgba(16,185,129,.12); color: #0f7a4c; font-size: .7rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.import-paste-box { min-height: 260px; padding: 14px; border-radius: 16px; border: 1px solid rgba(15,82,87,.14); background: linear-gradient(180deg, #fcfffd, #f5fbf6); color: var(--text); font-size: .78rem; line-height: 1.5; box-shadow: inset 0 1px 0 rgba(255,255,255,.9); }
+.import-paste-box::placeholder { color: #6b8176; }
+.import-excel-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.import-excel-stats article { display: grid; gap: 3px; padding: 10px; border-radius: 16px; background: linear-gradient(135deg, rgba(14,116,144,.08), rgba(255,255,255,.95)); border: 1px solid rgba(15,82,87,.12); }
+.import-excel-stats span { color: #5f7168; font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.import-excel-stats strong { color: var(--primary-deep); font-size: 1.45rem; line-height: 1; }
+.import-excel-stats small { color: var(--muted); font-size: .71rem; }
+.import-excel-footer { padding: 10px 12px; border-radius: 16px; background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(255,255,255,.94)); border: 1px solid rgba(16,185,129,.18); }
+.import-excel-footer small { color: #4d6458; }
+.import-table-shell { overflow: auto; border-radius: 16px; border: 1px solid rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.99), rgba(247,251,248,.99)); }
+.import-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: .76rem; }
+.import-table th { position: sticky; top: 0; z-index: 1; padding: 10px 12px; background: #f0f7f1; color: #365346; border-bottom: 1px solid rgba(15,82,87,.12); text-align: left; font-size: .69rem; letter-spacing: .06em; text-transform: uppercase; }
+.import-table td { padding: 10px 12px; border-bottom: 1px solid rgba(15,82,87,.08); color: #1f332a; vertical-align: top; }
+.import-table tbody tr:nth-child(odd) { background: rgba(16,185,129,.035); }
+.import-table tbody tr:hover { background: rgba(14,165,233,.08); }
+.import-main-cell { min-width: 180px; }
+.import-main-cell strong { color: #163126; }
+.import-points-cell { color: #8a6500; font-weight: 900; }
+.import-result-board { display: grid; gap: 12px; margin-top: 12px; }
+.import-result-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.import-result-summary article { display: grid; gap: 4px; padding: 12px; border-radius: 18px; border: 1px solid rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,250,246,.98)); }
+.import-result-summary article.is-imported { background: linear-gradient(135deg, rgba(34,197,94,.14), rgba(255,255,255,.95)); }
+.import-result-summary article.is-review { background: linear-gradient(135deg, rgba(245,158,11,.16), rgba(255,255,255,.95)); }
+.import-result-summary span { color: #5f7168; font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.import-result-summary strong { color: var(--primary-deep); font-size: 1.8rem; line-height: 1; }
+.import-result-summary small { color: var(--muted); font-size: .74rem; }
+.import-result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.import-table-success tbody tr:nth-child(odd) { background: rgba(34,197,94,.05); }
+.import-table-warning tbody tr:nth-child(odd) { background: rgba(245,158,11,.06); }
+.import-empty-state { display: grid; gap: 4px; padding: 18px; border-radius: 16px; border: 1px dashed rgba(15,82,87,.16); background: linear-gradient(180deg, #fcfffd, #f6fbf7); text-align: left; }
+.import-empty-state strong { color: var(--primary-deep); }
+.import-empty-state small { color: var(--muted); }
+.import-empty-state.is-success { border-color: rgba(22,163,74,.24); background: linear-gradient(135deg, rgba(34,197,94,.08), rgba(255,255,255,.95)); }
+@media (max-width: 960px) {
+  .import-excel-layout,
+  .import-result-grid,
+  .import-result-summary,
+  .import-excel-stats { grid-template-columns: 1fr; }
+
+  .import-table { min-width: 560px; }
+}
+
+@media (max-width: 640px) {
+  .import-excel-modal { width: min(100%, calc(100vw - 10px)); }
+  .import-paste-box { min-height: 220px; }
+}
 .player-picker { min-height: 0; overflow: auto; display: grid; gap: 6px; padding-right: 3px; }
 .player-line { display: grid; grid-template-columns: 1.1fr .9fr .75fr 80px 70px 84px; gap: 6px; align-items: center; padding: 7px; border-radius: 12px; background: rgba(255,255,255,.055); }
 .player-line strong { font-size: .82rem; }
