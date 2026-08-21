@@ -1,3 +1,4 @@
+- O drawer lateral foi invertido para abrir do mesmo lado do hambúrguer atual; no topo do painel o bloco do usuário voltou a aparecer de forma explícita e o fechamento passou a usar apenas um `x` pequeno posicionado à esquerda.
 - O header foi simplificado novamente: os ícones utilitários ao lado do hambúrguer foram removidos, e o bloco da marca POKA PRÁTIKA voltou para o lado original oposto ao menu lateral.
 - O botão `X` de fechar do drawer lateral foi desacoplado do bloco de perfil e fixado no canto superior direito do menu, deixando o topo do painel mais limpo.
 - O desfoque do menu lateral foi reforçado no nível do `shell`: ao abrir o hambúrguer, o drawer sobe como camada separada e o restante da aplicação recebe blur real de fundo, além do backdrop desfocado.

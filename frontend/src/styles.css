@@ -2729,7 +2729,7 @@ textarea {
 .account-menu {
   position: fixed;
   top: 0;
-  left: 0;
+  right: 0;
   height: 100dvh;
   width: clamp(320px, 22vw, 420px);
   display: grid;
@@ -2737,25 +2737,25 @@ textarea {
   gap: 14px;
   padding: 22px 18px;
   background: rgba(255,255,255,.98);
-  border-right: 1px solid var(--line-strong);
-  box-shadow: 18px 0 42px rgba(15,82,87,.16);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -18px 0 42px rgba(15,82,87,.16);
   overflow: auto;
   animation: account-menu-slide-in .28s cubic-bezier(.22, 1, .36, 1);
 }
 
 .account-menu-top {
-  position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding-right: 42px;
 }
 
 .account-menu-close {
-  position: absolute;
-  top: 0;
-  right: 0;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  font-size: 1rem;
+  line-height: 1;
+  text-transform: lowercase;
 }
 
 .account-menu-profile {
@@ -2800,7 +2800,7 @@ textarea {
   gap: 6px;
 }
 
-.account-menu button {
+.account-menu-actions button {
   width: 100%;
   border: 0;
   border-radius: 12px;
@@ -2812,7 +2812,7 @@ textarea {
   font-weight: 850;
 }
 
-.account-menu .danger-menu {
+.account-menu-actions .danger-menu {
   color: #b91c1c;
   background: rgba(239,68,68,.08);
   border-color: rgba(239,68,68,.16);
@@ -2826,7 +2826,7 @@ textarea {
 @keyframes account-menu-slide-in {
   from {
     opacity: 0;
-    transform: translateX(-22px);
+    transform: translateX(22px);
   }
   to {
     opacity: 1;
