@@ -213,6 +213,7 @@ Foi criada a base full-stack do sistema POKA PRÁTIKA, seguindo o padrão TOIT/R
 
 ## Validações executadas
 
+- `backend`: `npm install`, `npm run typecheck` e `npm run build` concluídos com sucesso após ajustar a validação do `start` para considerar apenas titulares em quadra e normalizar o papel operacional salvo.
 - `backend`: `npm run typecheck`, `npm run build` e `npm audit --audit-level=moderate` concluídos com sucesso após hardening P1.
 - `backend`: `npm run typecheck` e `npm run build` concluídos com sucesso após criação da migration `10` e blindagem do `GET /matches/:id` contra ausência temporária de `match_corrections`.
 - `backend`: `npm run typecheck` e `npm run build` concluídos com sucesso após corrigir a sintaxe PostgreSQL do cálculo de `availableMinutes` em `/matches/:id`.
