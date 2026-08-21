@@ -29,11 +29,6 @@ h2 { font-size: 1rem; letter-spacing: -.02em; }
 .muted { color: #a9b9af; font-size: .82rem; }
 .profile-pill { display: flex; align-items: center; gap: 7px; padding: 6px; border-radius: 999px; background: rgba(255,255,255,.07); }
 .account-area { position: relative; }
-.account-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 190px; display: grid; gap: 3px; padding: 6px; border-radius: 14px; background: rgba(7,17,31,.98); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 18px 44px rgba(0,0,0,.42); }
-.account-menu button { width: 100%; border: 0; border-radius: 10px; padding: 8px 9px; text-align: left; color: #eef8f1; background: rgba(255,255,255,.06); font-weight: 850; }
-.account-menu button:hover { background: rgba(59,130,246,.18); }
-.account-menu .danger-menu { color: #ff9a9a; background: rgba(255,87,87,.12); }
-.profile-trigger { border: 0; padding: 0; color: inherit; background: transparent; display: flex; align-items: center; gap: 9px; text-align: left; }
 .profile-pill img, .profile-pill span { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #3b82f6; color: #061631; font-weight: 900; object-fit: cover; }
 .profile-pill.big { border-radius: 18px; padding: 10px; }
 .profile-pill.big img, .profile-pill.big span { width: 48px; height: 48px; font-size: 1.2rem; }
@@ -836,12 +831,6 @@ h3 { margin: 0; font-size: .98rem; letter-spacing: -.02em; }
 .match-card-footer small,
 .match-card-headline small,
 .finished-card small { color: var(--muted); }
-
-.account-menu {
-  background: rgba(255,255,255,.98);
-  border: 1px solid var(--line-strong);
-  box-shadow: var(--shadow-md);
-}
 
 .account-menu button,
 select,
@@ -2668,6 +2657,11 @@ textarea {
   align-items: center;
 }
 
+.shell {
+  position: relative;
+  isolation: isolate;
+}
+
 .header-admin-cluster {
   min-width: 0;
   display: flex;
@@ -2679,11 +2673,6 @@ textarea {
 .app-header .account-area {
   order: 1;
   justify-self: start;
-}
-
-.app-header .account-menu {
-  left: 0;
-  right: auto;
 }
 
 .app-header .header-actions {
@@ -2702,6 +2691,144 @@ textarea {
   gap: 12px;
   padding-left: 12px;
   border-left: 1px solid rgba(15, 82, 87, .12);
+}
+
+.header-menu-trigger,
+.account-menu-close {
+  width: auto;
+  height: auto;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-deep);
+}
+
+.header-menu-trigger svg,
+.account-menu-close svg {
+  width: 22px;
+  height: 22px;
+}
+
+.header-menu-trigger:hover,
+.account-menu-close:hover {
+  color: var(--success);
+}
+
+.account-menu-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+}
+
+.account-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(240, 247, 243, .34);
+  backdrop-filter: blur(10px) saturate(1.04);
+  animation: account-menu-backdrop-in .24s ease;
+}
+
+.account-menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(360px, 100%);
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px 16px;
+  background: rgba(255,255,255,.98);
+  border-right: 1px solid var(--line-strong);
+  box-shadow: 18px 0 42px rgba(15,82,87,.16);
+  overflow: auto;
+  animation: account-menu-slide-in .28s cubic-bezier(.22, 1, .36, 1);
+}
+
+.account-menu-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-menu-profile {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-menu-profile img,
+.account-menu-profile span {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--primary-deep), var(--success));
+  color: #fff;
+  font-weight: 900;
+  object-fit: cover;
+}
+
+.account-menu-profile div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.account-menu-profile strong {
+  color: var(--text);
+  font-size: .96rem;
+}
+
+.account-menu-profile small {
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+.account-menu-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.account-menu button {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-weight: 850;
+}
+
+.account-menu .danger-menu {
+  color: #b91c1c;
+  background: rgba(239,68,68,.08);
+  border-color: rgba(239,68,68,.16);
+}
+
+@keyframes account-menu-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes account-menu-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .header-icon-button {
@@ -3325,6 +3452,11 @@ textarea {
     order: 3;
     grid-column: 1 / -1;
     justify-content: flex-end;
+  }
+
+  .account-menu {
+    width: min(320px, calc(100vw - 12px));
+    padding: 16px 14px;
   }
 
   .dashboard-season-row,

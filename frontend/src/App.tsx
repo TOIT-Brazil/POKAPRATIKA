@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { MdFilterList, MdOutlineRestaurantMenu, MdSportsSoccer } from 'react-icons/md';
+import { MdClose, MdFilterList, MdMenu, MdOutlineRestaurantMenu, MdSportsSoccer } from 'react-icons/md';
 import SoccerLineUp from 'react-soccer-lineup';
 import { ApiClient } from './api';
 import { AthletePosition, MatchListItem, PointSetting, Season, Standing, User } from './types';
@@ -943,15 +943,9 @@ export function App() {
     <main className={`shell ${view === 'temporada' ? 'shell-home' : ''}`}>
       <header className="hero card glass app-header">
         <div className="header-admin-cluster">
-          <div className="profile-pill account-area" ref={accountMenuRef}>
-            <button className="profile-trigger" onClick={() => setAccountMenuOpen((value) => !value)} title="Abrir menu do perfil">
-              {auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}
-              <div>
-                <strong>{auth.user.name}</strong>
-                <small>{auth.user.role} • menu</small>
-              </div>
-            </button>
-            {accountMenuOpen && <div className="account-menu">{canCoordinate && <><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></div>}
+          <div className="account-area" ref={accountMenuRef}>
+            <button type="button" className={`header-menu-trigger ${accountMenuOpen ? 'is-open' : ''}`} onClick={() => setAccountMenuOpen((value) => !value)} aria-label="Abrir menu principal" title="Abrir menu principal"><MdMenu /></button>
+            {accountMenuOpen && <div className="account-menu-layer"><button type="button" className="account-menu-backdrop" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)} /><aside className="account-menu" role="dialog" aria-modal="true" aria-label="Menu principal"><div className="account-menu-top"><div className="account-menu-profile">{auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}<div><strong>{auth.user.name}</strong><small>{auth.user.role}</small></div></div><button type="button" className="account-menu-close" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)}><MdClose /></button></div><nav className="account-menu-actions">{canCoordinate && <><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></nav></aside></div>}
           </div>
           <div className="header-actions">
             <button type="button" className="header-icon-button" aria-label="Arquivo do clube"><DashboardIcon name="file" /></button>
