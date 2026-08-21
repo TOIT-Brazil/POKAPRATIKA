@@ -1,3 +1,4 @@
+- O bloco de identidade do usuário no topo do drawer foi encostado no canto direito do menu, com alinhamento de texto à direita.
 - O botão de fechar do drawer foi simplificado novamente para ficar apenas como um `x`, sem largura fixa ou caixa visual ao redor.
 - O topo do drawer foi ajustado novamente: o `x` ganhou mais tamanho e largura própria no lado esquerdo, e o bloco `Pedro Dey / Admin` foi empurrado um pouco mais para a direita para aliviar o cabeçalho.
 - O gatilho do menu hambúrguer no header foi ampliado visualmente, com ícone maior e área de respiro adicional, sem alterar o tamanho do `x` de fechamento do drawer.

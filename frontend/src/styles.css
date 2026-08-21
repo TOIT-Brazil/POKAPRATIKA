@@ -2771,7 +2771,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: 2px;
+  margin-left: auto;
 }
 
 .account-menu-profile img,
@@ -2792,6 +2792,8 @@ textarea {
   min-width: 0;
   display: grid;
   gap: 1px;
+  justify-items: end;
+  text-align: right;
 }
 
 .account-menu-profile strong {
