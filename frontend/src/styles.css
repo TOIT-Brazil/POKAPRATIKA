@@ -2700,7 +2700,15 @@ textarea {
   color: var(--primary-deep);
 }
 
-.header-menu-trigger svg,
+.header-menu-trigger {
+  padding: 4px;
+}
+
+.header-menu-trigger svg {
+  width: 30px;
+  height: 30px;
+}
+
 .account-menu-close svg {
   width: 22px;
   height: 22px;
@@ -2753,7 +2761,7 @@ textarea {
 .account-menu-close {
   flex: 0 0 auto;
   align-self: flex-start;
-  font-size: 1rem;
+  font-size: 1.45rem;
   line-height: 1;
   text-transform: lowercase;
 }
@@ -2762,13 +2770,13 @@ textarea {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .account-menu-profile img,
 .account-menu-profile span {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
   border-radius: 50%;
   display: grid;
@@ -2782,17 +2790,17 @@ textarea {
 .account-menu-profile div {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: 1px;
 }
 
 .account-menu-profile strong {
   color: var(--text);
-  font-size: .96rem;
+  font-size: .88rem;
 }
 
 .account-menu-profile small {
   color: var(--muted);
-  font-size: .72rem;
+  font-size: .66rem;
 }
 
 .account-menu-actions {
