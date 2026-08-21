@@ -97,6 +97,17 @@ type MatchPlayerInput = z.infer<typeof playerSchema>;
 type MatchEventInput = z.infer<typeof eventSchema>;
 type QueryExecutor = <T extends QueryResultRow = QueryResultRow>(text: string, params?: unknown[]) => Promise<QueryResult<T>>;
 
+function positionSequenceOrder(position: string | null | undefined): number {
+  if (position === 'GO') return 0;
+  if (position === 'LD') return 1;
+  if (position === 'LE') return 2;
+  if (position === 'ZG') return 3;
+  if (position === 'MD') return 4;
+  if (position === 'MC') return 5;
+  if (position === 'MA') return 6;
+  return 7;
+}
+
 function buildConfirmationOpenAt(matchDate: string, scheduledStart: string, hoursBefore: number): string {
   const startsAt = new Date(`${matchDate}T${scheduledStart}:00-03:00`).getTime();
   return new Date(startsAt - hoursBefore * 60 * 60 * 1000).toISOString();
@@ -372,6 +383,99 @@ async function validateLineupReady(matchId: string): Promise<void> {
     const linePlayers = teamPlayers.filter((player) => player.roleInMatch === 'LINHA').length;
     if (goalkeepers !== 1) throw httpError(400, `O time ${team} precisa ter exatamente 1 goleiro antes de iniciar o jogo.`);
     if (linePlayers < 6) throw httpError(400, `O time ${team} precisa ter pelo menos 6 jogadores de linha antes de iniciar o jogo.`);
+  }
+}
+
+async function normalizePersistedOperationalRoles(matchId: string): Promise<void> {
+  const matchPlayerColumns = await getTableColumns('match_players');
+  const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+  const players = guestPlayerEnabled
+    ? await query<{
+      userId: string;
+      team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR';
+      roleInMatch: 'GOLEIRO' | 'LINHA' | 'PRESENTE_SEM_JOGAR';
+      startsOnBench: boolean;
+      present: boolean;
+      position: string | null;
+    }>(
+      `SELECT ${playerIdentitySql('mp')} AS "userId", mp.team, mp.role_in_match AS "roleInMatch", mp.starts_on_bench AS "startsOnBench", mp.present,
+              COALESCE(mp.guest_position, u.position) AS position
+       FROM match_players mp
+       LEFT JOIN users u ON u.id = mp.user_id
+       WHERE mp.match_id = $1`,
+      [matchId]
+    )
+    : await query<{
+      userId: string;
+      team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR';
+      roleInMatch: 'GOLEIRO' | 'LINHA' | 'PRESENTE_SEM_JOGAR';
+      startsOnBench: boolean;
+      present: boolean;
+      position: string | null;
+    }>(
+      `SELECT mp.user_id AS "userId", mp.team, mp.role_in_match AS "roleInMatch", mp.starts_on_bench AS "startsOnBench", mp.present, u.position
+       FROM match_players mp
+       JOIN users u ON u.id = mp.user_id
+       WHERE mp.match_id = $1`,
+      [matchId]
+    );
+
+  const updates: Array<{ userId: string; roleInMatch: 'GOLEIRO' | 'LINHA' }> = [];
+
+  for (const team of ['A', 'B'] as const) {
+    const teamPlayers = players.rows
+      .filter((player) => player.team === team && player.present)
+      .sort((left, right) => {
+        const starterDiff = Number(left.startsOnBench) - Number(right.startsOnBench);
+        if (starterDiff !== 0) return starterDiff;
+        const positionDiff = positionSequenceOrder(left.position) - positionSequenceOrder(right.position);
+        if (positionDiff !== 0) return positionDiff;
+        return left.userId.localeCompare(right.userId);
+      });
+
+    if (!teamPlayers.length) continue;
+
+    const starters = teamPlayers.filter((player) => !player.startsOnBench);
+    const goalkeeperCandidate = starters.find((player) => player.roleInMatch === 'GOLEIRO')
+      ?? starters.find((player) => player.position === 'GO')
+      ?? starters[0]
+      ?? teamPlayers.find((player) => player.roleInMatch === 'GOLEIRO')
+      ?? teamPlayers.find((player) => player.position === 'GO')
+      ?? teamPlayers[0];
+
+    for (const player of teamPlayers) {
+      updates.push({ userId: player.userId, roleInMatch: player.userId === goalkeeperCandidate?.userId ? 'GOLEIRO' : 'LINHA' });
+    }
+  }
+
+  if (!updates.length) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const update of updates) {
+      if (guestPlayerEnabled && isGuestIdentity(update.userId)) {
+        await client.query(
+          `UPDATE match_players
+           SET role_in_match = $3
+           WHERE match_id = $1 AND guest_key = $2`,
+          [matchId, update.userId, update.roleInMatch]
+        );
+      } else {
+        await client.query(
+          `UPDATE match_players
+           SET role_in_match = $3
+           WHERE match_id = $1 AND user_id = $2::UUID`,
+          [matchId, update.userId, update.roleInMatch]
+        );
+      }
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
@@ -983,6 +1087,7 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
 }));
 
 matchesRouter.post('/:id/start', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req, res) => {
+  await normalizePersistedOperationalRoles(req.params.id);
   await validateLineupReady(req.params.id);
   const result = await query("UPDATE matches SET status = 'RUNNING', started_at = clock_timestamp(), updated_at = clock_timestamp() WHERE id = $1 AND status = 'DRAFT' AND clock_timestamp() < ((match_date + scheduled_end) AT TIME ZONE 'America/Sao_Paulo') RETURNING id, status, started_at AS \"startedAt\"", [req.params.id]);
   if (!result.rowCount) throw httpError(409, 'Somente súmulas em rascunho e dentro do horário da quadra podem ser iniciadas.');
