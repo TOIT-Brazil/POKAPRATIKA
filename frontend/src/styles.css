@@ -2687,7 +2687,10 @@ textarea {
 }
 
 .dashboard-main {
+  min-height: 0;
   gap: 8px;
+  overflow: hidden;
+  padding-right: 0;
 }
 
 .dashboard-top-grid {

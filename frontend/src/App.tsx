@@ -570,17 +570,195 @@ function confirmationWindowScheduleLabel(match: MatchListItem): string {
   return `abre ${opens} • fecha ${closes}`;
 }
 
-function downloadCsv(filename: string, rows: Array<Record<string, string | number | boolean | null | undefined>>) {
+type SpreadsheetCell = string | number | boolean | null | undefined;
+
+function spreadsheetLabel(label: string) {
+  return label
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, (value) => value.toUpperCase());
+}
+
+function spreadsheetCellValue(value: SpreadsheetCell) {
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+  return value ?? '';
+}
+
+function spreadsheetCellMeta(header: string, value: SpreadsheetCell): { value: string | number | Date; kind: 'text' | 'number' | 'currency' | 'date' | 'month' | 'status' } {
+  const normalizedHeader = header.toLowerCase();
+  const isCurrencyField = normalizedHeader.includes('valor') || normalizedHeader.includes('saldo') || normalizedHeader.includes('pago');
+  const isStatusField = normalizedHeader.includes('status');
+  const isMonthField = normalizedHeader === 'mes' || normalizedHeader.includes('mês') || normalizedHeader.includes('month');
+  const isDateField = normalizedHeader.includes('data') || normalizedHeader.includes('venc') || normalizedHeader.includes('pagoem') || normalizedHeader.includes('pago em') || normalizedHeader.includes('date');
+
+  if (typeof value === 'boolean') return { value: value ? 'Sim' : 'Não', kind: 'text' };
+  if (typeof value === 'number') return { value, kind: isCurrencyField ? 'currency' : 'number' };
+  if (typeof value !== 'string') return { value: value ?? '', kind: 'text' };
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return { value: '', kind: 'text' };
+
+  if (isMonthField && /^\d{4}-\d{2}$/.test(trimmedValue)) {
+    const [year, month] = trimmedValue.split('-').map(Number);
+    return { value: new Date(year, month - 1, 1), kind: 'month' };
+  }
+
+  if (isDateField && /^\d{4}-\d{2}-\d{2}$/.test(trimmedValue)) {
+    const [year, month, day] = trimmedValue.split('-').map(Number);
+    return { value: new Date(year, month - 1, day), kind: 'date' };
+  }
+
+  if (isCurrencyField && /^-?\d+(?:\.\d+)?$/.test(trimmedValue)) {
+    return { value: Number(trimmedValue), kind: 'currency' };
+  }
+
+  if (isStatusField) {
+    return { value: trimmedValue, kind: 'status' };
+  }
+
+  return { value: trimmedValue, kind: 'text' };
+}
+
+async function downloadStyledWorkbook(filename: string, sheetName: string, title: string, rows: Array<Record<string, SpreadsheetCell>>) {
   if (!rows.length) return;
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'POKA PRÁTIKA';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+
+  const worksheet = workbook.addWorksheet(sheetName, {
+    properties: { defaultRowHeight: 22 },
+    views: [{ state: 'frozen', ySplit: 4 }]
+  });
+
   const headers = Object.keys(rows[0]);
-  const escape = (value: string | number | boolean | null | undefined) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  const csv = [headers.join(';'), ...rows.map((row) => headers.map((header) => escape(row[header])).join(';'))].join('\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const headerLabels = headers.map(spreadsheetLabel);
+  const exportStamp = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date());
+
+  worksheet.mergeCells(1, 1, 1, headers.length);
+  worksheet.getCell('A1').value = title;
+  worksheet.getCell('A1').font = { name: 'Calibri', size: 18, bold: true, color: { argb: 'FFF8FAFC' } };
+  worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D6051' } };
+  worksheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'left' };
+  worksheet.getRow(1).height = 28;
+
+  worksheet.mergeCells(2, 1, 2, headers.length);
+  worksheet.getCell('A2').value = `Exportado por POKA PRÁTIKA em ${exportStamp}`;
+  worksheet.getCell('A2').font = { name: 'Calibri', size: 10, color: { argb: 'FF365346' }, italic: true };
+  worksheet.getCell('A2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5F0' } };
+  worksheet.getCell('A2').alignment = { vertical: 'middle', horizontal: 'left' };
+
+  worksheet.addRow([]);
+  const headerRow = worksheet.addRow(headerLabels);
+  headerRow.height = 22;
+  headerRow.eachCell((cell) => {
+    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFF8FAFC' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FFB6D4CB' } },
+      left: { style: 'thin', color: { argb: 'FFB6D4CB' } },
+      bottom: { style: 'thin', color: { argb: 'FFB6D4CB' } },
+      right: { style: 'thin', color: { argb: 'FFB6D4CB' } }
+    };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  });
+
+  rows.forEach((row, rowIndex) => {
+    const processedCells = headers.map((header) => spreadsheetCellMeta(header, row[header]));
+    const dataRow = worksheet.addRow(processedCells.map((cell) => cell.value));
+    dataRow.eachCell((cell, columnIndex) => {
+      const header = headers[columnIndex - 1]?.toLowerCase() ?? '';
+      const cellMeta = processedCells[columnIndex - 1] ?? { value: '', kind: 'text' as const };
+      const isNumeric = cellMeta.kind === 'number' || cellMeta.kind === 'currency';
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE1ECE7' } },
+        left: { style: 'thin', color: { argb: 'FFE1ECE7' } },
+        bottom: { style: 'thin', color: { argb: 'FFE1ECE7' } },
+        right: { style: 'thin', color: { argb: 'FFE1ECE7' } }
+      };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowIndex % 2 === 0 ? 'FFFDFEFD' : 'FFF3F8F5' } };
+      cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1F332A' } };
+      cell.alignment = { vertical: 'middle', horizontal: isNumeric ? 'center' : 'left' };
+
+      if (cellMeta.kind === 'currency') {
+        cell.numFmt = '[$R$-416] #,##0.00';
+      }
+      if (cellMeta.kind === 'date') {
+        cell.numFmt = 'dd/mm/yyyy';
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+      if (cellMeta.kind === 'month') {
+        cell.numFmt = 'mm/yyyy';
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+      if (cellMeta.kind === 'status' && typeof cellMeta.value === 'string') {
+        const statusValue = cellMeta.value.toUpperCase();
+        if (statusValue === 'PAID') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9F4E5' } };
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF166534' } };
+        } else if (statusValue === 'LATE') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE2E2' } };
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
+        } else if (statusValue === 'PENDING') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF92400E' } };
+        } else if (statusValue === 'PARTIAL') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1D4ED8' } };
+        }
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+    });
+  });
+
+  worksheet.autoFilter = {
+    from: { row: 4, column: 1 },
+    to: { row: 4, column: headers.length }
+  };
+
+  worksheet.columns = headers.map((header, index) => {
+    const normalizedHeader = header.toLowerCase();
+    const widest = Math.max(
+      headerLabels[index].length,
+      ...rows.map((row) => {
+        const cellMeta = spreadsheetCellMeta(header, row[header]);
+        if (cellMeta.kind === 'date') return 10;
+        if (cellMeta.kind === 'month') return 7;
+        if (cellMeta.kind === 'currency') return 14;
+        return String(spreadsheetCellValue(row[header])).length;
+      })
+    );
+    const isWideText = normalizedHeader.includes('observ') || normalizedHeader.includes('descr');
+    return {
+      key: header,
+      width: Math.min(Math.max(widest + 3, normalizedHeader.includes('atleta') ? 18 : 12), isWideText ? 40 : 24)
+    };
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadCsv(filename: string, rows: Array<Record<string, SpreadsheetCell>>) {
+  const workbookName = filename.toLowerCase().endsWith('.csv') ? `${filename.slice(0, -4)}.xlsx` : `${filename}.xlsx`;
+  const baseName = workbookName.replace(/\.xlsx$/i, '');
+  const sheetName = baseName
+    .replace(/^poka-pratika-?/i, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('') || 'Relatorio';
+  const title = `POKA PRÁTIKA • ${sheetName.replace(/([a-z])([A-Z])/g, '$1 $2')}`;
+  void downloadStyledWorkbook(workbookName, sheetName, title, rows);
 }
 
 function formatMoney(cents: number): string {
@@ -981,20 +1159,20 @@ function DashboardSeasonPanel({ standings, rankings, matches, onOpenProfile }: {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  function exportCurrentTab() {
+  async function exportCurrentTab() {
     if (tab === 'GERAL') {
-      downloadCsv('poka-pratika-classificacao.csv', standings.map((row) => ({ posicao: row.position, atleta: row.name, pontos: row.total_points, jogos: row.games_played, vitorias: row.wins, empates: row.draws, derrotas: row.losses, gols: row.goals, assistencias: row.assists, cartoes: row.total_cards })));
+      await downloadStyledWorkbook('poka-pratika-classificacao.xlsx', 'Classificacao', 'POKA PRÁTIKA • Classificação da temporada', standings.map((row) => ({ posicao: row.position, atleta: row.name, pontos: row.total_points, jogos: row.games_played, vitorias: row.wins, empates: row.draws, derrotas: row.losses, gols: row.goals, assistencias: row.assists, cartoes: row.total_cards })));
       return;
     }
     if (tab === 'ARTILHARIA') {
-      downloadCsv('poka-pratika-artilharia.csv', rankings.goals.map((row, index) => ({ posicao: index + 1, atleta: row.name, gols: row.goals, golsContra: row.ownGoals, saldoLiquido: row.netGoals, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+      await downloadStyledWorkbook('poka-pratika-artilharia.xlsx', 'Artilharia', 'POKA PRÁTIKA • Ranking de artilharia', rankings.goals.map((row, index) => ({ posicao: index + 1, atleta: row.name, gols: row.goals, golsContra: row.ownGoals, saldoLiquido: row.netGoals, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
       return;
     }
     if (tab === 'ASSISTENCIAS') {
-      downloadCsv('poka-pratika-assistencias.csv', rankings.assists.map((row, index) => ({ posicao: index + 1, atleta: row.name, assistencias: row.assists, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+      await downloadStyledWorkbook('poka-pratika-assistencias.xlsx', 'Assistencias', 'POKA PRÁTIKA • Ranking de assistências', rankings.assists.map((row, index) => ({ posicao: index + 1, atleta: row.name, assistencias: row.assists, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
       return;
     }
-    downloadCsv('poka-pratika-cartoes.csv', rankings.cards.map((row, index) => ({ posicao: index + 1, atleta: row.name, pontosCartao: row.cardPoints, totalCartoes: row.totalCards, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+    await downloadStyledWorkbook('poka-pratika-cartoes.xlsx', 'Cartoes', 'POKA PRÁTIKA • Ranking disciplinar', rankings.cards.map((row, index) => ({ posicao: index + 1, atleta: row.name, pontosCartao: row.cardPoints, totalCartoes: row.totalCards, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
   }
 
   return <section className="card compact standings-card season-dashboard-card"><div className="card-head championship-head"><div><h2>Tabela da temporada & estatísticas</h2><p className="muted">Painel limpo com líderes, histórico recente e navegação por ranking da temporada.</p></div>{currentRows.length > 0 && <button className="ghost" onClick={exportCurrentTab}>Exportar {tab.toLowerCase()}</button>}</div><div className="season-summary-grid">{leaderCards.map((item) => <button className="leader-spotlight as-button" key={item.key} onClick={() => onOpenProfile(item.userId)}><span className="dashboard-icon"><DashboardIcon name={item.icon} /></span><small>{item.label}</small><strong>{item.name}</strong><b>{item.value}</b><em>{item.detail}</em></button>)}</div><section className="finished-strip"><div className="card-head"><div><h3>Jogos finalizados</h3><p className="muted">Últimos confrontos em leitura horizontal rápida.</p></div><span className="status">{finishedMatches.length} jogos</span></div><div className="finished-carousel">{finishedMatches.length === 0 ? <EmptyState title="Sem histórico confirmado" text="Os últimos placares entram aqui assim que as súmulas forem confirmadas." /> : finishedMatches.map((match) => <article className="finished-card" key={match.id}><div className="finished-card-top"><span className="finished-date">{compactMatchDateLabel(match)}</span><span className="finished-badge">MVP indisponível</span></div><strong>{match.title}</strong><div className="finished-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><small>{match.teamAScore === match.teamBScore ? 'Empate confirmado' : `Venceu: ${match.teamAScore > match.teamBScore ? match.teamAName : match.teamBName}`}</small></article>)}</div></section><div className="season-table-panel"><div className="season-tabs">{tabs.map((item) => <button key={item.value} type="button" className={tab === item.value ? 'active' : ''} onClick={() => setTab(item.value)}><span className="dashboard-icon small"><DashboardIcon name={item.icon} /></span>{item.label}</button>)}</div>{currentRows.length === 0 ? <EmptyState title="Sem dados para esta aba" text="Confirme jogos e eventos da temporada para preencher este ranking." /> : <div className="championship-wrap season-table-shell"><table className="championship-table season-table"><thead><tr><th>Pos</th><th>Atleta</th>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{pageRows.map((row) => <tr key={row.key}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.userId)}>{row.name}</button></td>{row.cells.map((cell, index) => <td className={tab === 'GERAL' && index === 0 ? 'points-cell' : ''} key={`${row.key}-${index}`}>{cell}</td>)}</tr>)}</tbody></table></div>}<div className="table-pagination"><button type="button" className="ghost" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage === 1}>Anterior</button><span className="status">Página {safePage} de {totalPages}</span><button type="button" className="ghost" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={safePage === totalPages}>Próxima</button></div></div></section>;
@@ -2007,7 +2185,7 @@ function SeasonPanel({ standings, rankings, onOpenProfile }: { standings: Standi
     topTeamBalance && { icon: '🥅', title: 'Melhor saldo equipe', userId: topTeamBalance.user_id, name: topTeamBalance.name, value: topTeamBalance.team_goal_balance, suffix: 'saldo', detail: `${topTeamBalance.team_goals_for} pró • ${topTeamBalance.team_goals_against} contra` }
   ].filter(Boolean) as Array<{ icon: string; title: string; userId: string; name: string; value: number; suffix: string; detail: string }>;
 
-  return <section className="card compact standings-card"><div className="card-head championship-head"><div><h2>Tabela da temporada</h2><p className="muted">Classificação em largura total, estilo campeonato: clique no atleta para abrir o perfil.</p></div>{standings.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-classificacao.csv', standings.map((row) => ({ posicao: row.position, atleta: row.name, pontos: row.total_points, jogos: row.games_played, vitorias: row.wins, empates: row.draws, derrotas: row.losses, presencasSemJogar: row.presences, mensalidades: row.paid_months, gols: row.goals, golsContra: row.own_goals, assistencias: row.assists, cartoes: row.total_cards, saldoEquipe: row.team_goal_balance })))}>Exportar CSV</button>}</div>{standings.length === 0 ? <EmptyState title="Temporada pronta para começar" text="Assim que a primeira súmula for confirmada, a tabela ganha vida." /> : <div className="championship-wrap"><table className="championship-table"><thead><tr><th>Pos</th><th>Atleta</th><th>PTS</th><th>J</th><th>V</th><th>E</th><th>D</th><th>PSJ</th><th>Mens.</th><th>GP</th><th>GC</th><th>SG</th><th>GF</th><th>GS</th><th>SE</th><th>APR</th><th>G</th><th>A</th><th>CAR</th></tr></thead><tbody>{standings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.user_id)}>{row.name}</button></td><td className="points-cell">{row.total_points}</td><td>{row.games_played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.presences}</td><td>{row.paid_months}</td><td>{row.goals}</td><td>{row.own_goals}</td><td>{row.net_goals}</td><td>{row.team_goals_for}</td><td>{row.team_goals_against}</td><td>{row.team_goal_balance}</td><td>{formatPercent(row.games_played ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100 : 0)}</td><td>{row.goals}</td><td>{row.assists}</td><td>{row.total_cards}</td></tr>)}</tbody></table></div>}<div className="leader-strip">{indicators.length === 0 ? <EmptyState title="Indicadores aguardando jogos" text="Os líderes individuais aparecem aqui após as primeiras súmulas confirmadas." /> : indicators.map((item) => <article className="leader-card" key={item.title}><span className="leader-icon">{item.icon}</span><div><small>{item.title}</small><button className="name-link" onClick={() => onOpenProfile(item.userId)}>{item.name}</button><b>{item.value} {item.suffix}</b><em>{item.detail}</em></div></article>)}</div></section>;
+  return <section className="card compact standings-card"><div className="card-head championship-head"><div><h2>Tabela da temporada</h2><p className="muted">Classificação em largura total, estilo campeonato: clique no atleta para abrir o perfil.</p></div>{standings.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-classificacao.csv', standings.map((row) => ({ posicao: row.position, atleta: row.name, pontos: row.total_points, jogos: row.games_played, vitorias: row.wins, empates: row.draws, derrotas: row.losses, presencasSemJogar: row.presences, mensalidades: row.paid_months, gols: row.goals, golsContra: row.own_goals, assistencias: row.assists, cartoes: row.total_cards, saldoEquipe: row.team_goal_balance })))}>Exportar Excel</button>}</div>{standings.length === 0 ? <EmptyState title="Temporada pronta para começar" text="Assim que a primeira súmula for confirmada, a tabela ganha vida." /> : <div className="championship-wrap"><table className="championship-table"><thead><tr><th>Pos</th><th>Atleta</th><th>PTS</th><th>J</th><th>V</th><th>E</th><th>D</th><th>PSJ</th><th>Mens.</th><th>GP</th><th>GC</th><th>SG</th><th>GF</th><th>GS</th><th>SE</th><th>APR</th><th>G</th><th>A</th><th>CAR</th></tr></thead><tbody>{standings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.user_id)}>{row.name}</button></td><td className="points-cell">{row.total_points}</td><td>{row.games_played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.presences}</td><td>{row.paid_months}</td><td>{row.goals}</td><td>{row.own_goals}</td><td>{row.net_goals}</td><td>{row.team_goals_for}</td><td>{row.team_goals_against}</td><td>{row.team_goal_balance}</td><td>{formatPercent(row.games_played ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100 : 0)}</td><td>{row.goals}</td><td>{row.assists}</td><td>{row.total_cards}</td></tr>)}</tbody></table></div>}<div className="leader-strip">{indicators.length === 0 ? <EmptyState title="Indicadores aguardando jogos" text="Os líderes individuais aparecem aqui após as primeiras súmulas confirmadas." /> : indicators.map((item) => <article className="leader-card" key={item.title}><span className="leader-icon">{item.icon}</span><div><small>{item.title}</small><button className="name-link" onClick={() => onOpenProfile(item.userId)}>{item.name}</button><b>{item.value} {item.suffix}</b><em>{item.detail}</em></div></article>)}</div></section>;
 }
 
 function EmptyState({ title, text }: { title: string; text: string }) {
