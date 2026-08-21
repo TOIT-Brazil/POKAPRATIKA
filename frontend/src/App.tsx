@@ -940,7 +940,7 @@ export function App() {
   }
 
   return (
-    <main className="shell">
+    <main className={`shell ${view === 'temporada' ? 'shell-home' : ''}`}>
       <header className="hero card glass app-header">
         <div className="brand-lockup">
           <img className="brand-logo" src={logoUrl} alt="Escudo POKA PRÁTIKA" />

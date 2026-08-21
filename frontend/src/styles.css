@@ -735,6 +735,11 @@ h3 { margin: 0; font-size: .98rem; letter-spacing: -.02em; }
   overflow: auto;
 }
 
+.shell.shell-home {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 .card {
   border: 1px solid var(--line);
   background: rgba(255,255,255,.94);
@@ -3194,6 +3199,12 @@ textarea {
     padding: 6px 6px 18px;
     gap: 8px;
     overflow: visible;
+  }
+
+  .shell.shell-home {
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   body {

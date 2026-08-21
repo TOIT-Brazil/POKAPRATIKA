@@ -1,3 +1,4 @@
+- A remoção da barra de rolagem da página inicial foi reforçada no container raiz da aplicação: a view `temporada` agora marca o `shell` principal e bloqueia o scroll global da home diretamente nesse nível, mantendo o scroll apenas nas áreas internas necessárias.
 - O componente compartilhado `TableFilterHeader` foi padronizado para renderizar o ícone de filtro à esquerda do rótulo, alinhando agenda, usuários, temporadas, pontuação e demais tabelas administrativas ao mesmo layout visual.
 - Os cabeçalhos com filtro das tabelas foram refinados novamente para começar na borda esquerda da célula, com o ícone e o nome da coluna encostados no início visual da tabela.
 - Os cabeçalhos filtráveis das tabelas foram ajustados para mostrar o ícone de filtro colado à esquerda do texto da coluna em todo o frontend administrativo/financeiro.
