@@ -55,6 +55,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .status.closed, .status.danger, .chip.danger { background: rgba(255,87,87,.18); color: #ff8585; }
 .grid { min-height: 0; display: grid; gap: 8px; overflow: hidden; }
 .home-stack { min-height: 0; display: grid; gap: 7px; overflow: auto; padding-right: 2px; }
+.home-stack.dashboard-main { overflow: hidden; max-height: 100%; }
 .season-home { grid-template-rows: minmax(285px, auto) minmax(360px, 1fr); }
 .season-lower { min-height: 0; display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(280px, 1fr); gap: 7px; }
 .grid.two { grid-template-columns: 1.1fr .9fr; }
@@ -3248,6 +3249,11 @@ textarea {
     max-height: none !important;
     overflow: visible !important;
     padding-right: 0;
+  }
+
+  .home-stack.dashboard-main {
+    max-height: 100% !important;
+    overflow: hidden !important;
   }
 
   .compact,
