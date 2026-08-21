@@ -343,7 +343,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .cash-table .cash-amount-cell.is-revenue { color: #1a7f4b; }
 .cash-table .cash-amount-cell.is-expense { color: #c2410c; }
 .table-empty-cell { padding: 14px 10px; text-align: center; color: var(--muted); font-size: .8rem; }
-.table-filter-anchor { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.table-filter-anchor { position: relative; display: inline-flex; align-items: center; justify-content: flex-start; gap: 2px; }
 .table-filter-button { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 8px; border: 1px solid rgba(15,82,87,.14); background: #ffffff; color: var(--primary-deep); cursor: pointer; }
 .table-filter-button.is-active { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.34); color: #0f7a4c; }
 .table-filter-button svg { width: 16px; height: 16px; }
