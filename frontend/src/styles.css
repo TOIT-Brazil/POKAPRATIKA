@@ -421,8 +421,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .payments-group-table { min-width: 1180px; }
 .payments-group-table th,
 .payments-group-table td { vertical-align: top; white-space: normal; }
+.payments-group-row { cursor: pointer; }
 .payments-group-row.is-open td { background: rgba(59,130,246,.06); }
-.payments-history-toggle-cell { min-width: 120px; text-align: left; }
 .payments-group-athlete-cell { min-width: 220px; text-align: left; }
 .payments-group-athlete-cell small { display: block; margin-top: 4px; color: var(--muted); }
 .payments-group-preview-cell { min-width: 240px; text-align: left; }
@@ -3768,7 +3768,6 @@ textarea {
 
   .payments-table .payments-action-cell,
   .payments-group-action-cell,
-  .payments-history-toggle-cell,
   .cash-table .actions,
   .management-table .actions,
   .schedule-table .actions,
