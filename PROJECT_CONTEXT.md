@@ -1,3 +1,4 @@
+- A expansão de `Mensalidades` passou a montar o histórico do atleta a partir de todas as mensalidades carregadas, enquanto a linha principal continua filtrada pela temporada ativa; isso evita perder meses anteriores fora do recorte principal ao abrir o detalhe.
 - A expansão de `Mensalidades` passou a listar as cobranças em torno da mensalidade principal aberta na linha: até 3 meses seguintes e até 6 meses anteriores, sem subtítulo extra na subtabela.
 - A expansão por atleta em `Mensalidades` foi simplificada: o subtítulo `Outras mensalidades de ...` saiu, e a lista detalhada passou a limitar separadamente 3 próximas cobranças e 6 anteriores.
 - O cabeçalho do `Log da súmula` no board operacional deixou de exibir a data da partida ao lado do título, simplificando a leitura dessa área.

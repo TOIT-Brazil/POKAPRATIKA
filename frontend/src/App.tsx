@@ -3875,6 +3875,7 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   const [status, setStatus] = useState<PaymentRecord['status']>('PAID');
   const [notes, setNotes] = useState('');
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
   const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
@@ -3901,7 +3902,18 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
 
   async function loadPayments() {
     const path = canCoordinate ? `/payments${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}` : '/payments/me';
-    setPayments(await api.request<PaymentRecord[]>(path));
+    if (canCoordinate) {
+      const [filteredRows, historyRows] = await Promise.all([
+        api.request<PaymentRecord[]>(path),
+        activeSeasonId ? api.request<PaymentRecord[]>('/payments') : api.request<PaymentRecord[]>(path)
+      ]);
+      setPayments(filteredRows);
+      setPaymentHistory(historyRows);
+    } else {
+      const ownPayments = await api.request<PaymentRecord[]>(path);
+      setPayments(ownPayments);
+      setPaymentHistory(ownPayments);
+    }
     if (canCoordinate) {
       const [paymentSummary, cashRows, cashTotals] = await Promise.all([
         api.request<PaymentSummary>(`/payments/summary${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}`),
@@ -4066,12 +4078,29 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     if (monthCompare !== 0) return monthCompare;
     return (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
   }), [payments]);
+  const organizedPaymentHistory = useMemo(() => [...paymentHistory].sort((left, right) => {
+    const nameCompare = (left.userName ?? 'Minha mensalidade').localeCompare(right.userName ?? 'Minha mensalidade', 'pt-BR', { sensitivity: 'base' });
+    if (nameCompare !== 0) return nameCompare;
+    const monthCompare = left.referenceMonth.localeCompare(right.referenceMonth);
+    if (monthCompare !== 0) return monthCompare;
+    return (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
+  }), [paymentHistory]);
   const filteredPayments = useMemo(() => organizedPayments.filter(paymentMatchesFilters), [organizedPayments, paymentFilters]);
   const paymentGroups = useMemo(() => {
     const today = new Date();
     const todayKey = today.toISOString().slice(0, 10);
     const currentMonthKey = today.toISOString().slice(0, 7);
     const groupsMap = new Map<string, { key: string; userId?: string; userName: string; payments: PaymentRecord[] }>();
+    const historyGroupsMap = new Map<string, PaymentRecord[]>();
+    organizedPaymentHistory.forEach((payment) => {
+      const key = payment.userId ?? payment.userName ?? 'me';
+      const current = historyGroupsMap.get(key);
+      if (current) {
+        current.push(payment);
+        return;
+      }
+      historyGroupsMap.set(key, [payment]);
+    });
     organizedPayments.forEach((payment) => {
       const key = payment.userId ?? payment.userName ?? 'me';
       const current = groupsMap.get(key);
@@ -4082,9 +4111,10 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
       groupsMap.set(key, { key, userId: payment.userId, userName: payment.userName ?? 'Minha mensalidade', payments: [payment] });
     });
     return [...groupsMap.values()].map((group): PaymentAthleteGroup | null => {
-      const chronologicalPayments = [...group.payments].sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
+      const historySource = historyGroupsMap.get(group.key) ?? group.payments;
+      const chronologicalPayments = [...historySource].sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
       const reversedPayments = [...chronologicalPayments].reverse();
-      const matchingPayments = chronologicalPayments.filter(paymentMatchesFilters);
+      const matchingPayments = group.payments.slice().sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right))).filter(paymentMatchesFilters);
       if (!matchingPayments.length) return null;
       const primaryPayment = matchingPayments.find((payment) => payment.referenceMonth.slice(0, 7) === currentMonthKey)
         ?? matchingPayments.find((payment) => paymentTimelineKey(payment) >= todayKey)
@@ -4103,7 +4133,7 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
         detailPayments
       };
     }).filter((group): group is PaymentAthleteGroup => group !== null).sort((left, right) => left.userName.localeCompare(right.userName, 'pt-BR', { sensitivity: 'base' }));
-  }, [organizedPayments, paymentFilters]);
+  }, [organizedPayments, organizedPaymentHistory, paymentFilters]);
 
   useEffect(() => {
     if (expandedPaymentGroupKey && !paymentGroups.some((group) => group.key === expandedPaymentGroupKey)) setExpandedPaymentGroupKey(null);
