@@ -4112,14 +4112,20 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     });
     return [...groupsMap.values()].map((group): PaymentAthleteGroup | null => {
       const historySource = historyGroupsMap.get(group.key) ?? group.payments;
-      const chronologicalPayments = [...historySource].sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
-      const reversedPayments = [...chronologicalPayments].reverse();
-      const matchingPayments = group.payments.slice().sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right))).filter(paymentMatchesFilters);
+      const chronologicalPayments = [...historySource]
+        .sort((left, right) => left.referenceMonth.localeCompare(right.referenceMonth) || (left.dueDate ?? '').localeCompare(right.dueDate ?? ''))
+        .filter((payment, index, list) => index === 0 || list[index - 1].referenceMonth !== payment.referenceMonth);
+      const reversedPayments = [...group.payments].sort((left, right) => paymentTimelineKey(right).localeCompare(paymentTimelineKey(left)));
+      const matchingPayments = group.payments.slice()
+        .sort((left, right) => left.referenceMonth.localeCompare(right.referenceMonth) || (left.dueDate ?? '').localeCompare(right.dueDate ?? ''))
+        .filter((paymentMatchesFilters))
+        .filter((payment, index, list) => index === 0 || list[index - 1].referenceMonth !== payment.referenceMonth);
       if (!matchingPayments.length) return null;
       const primaryPayment = matchingPayments.find((payment) => payment.referenceMonth.slice(0, 7) === currentMonthKey)
         ?? matchingPayments.find((payment) => paymentTimelineKey(payment) >= todayKey)
         ?? matchingPayments[matchingPayments.length - 1];
-      const primaryPaymentIndex = chronologicalPayments.findIndex((payment) => payment === primaryPayment);
+      const primaryReferenceMonth = primaryPayment.referenceMonth.slice(0, 7);
+      const primaryPaymentIndex = chronologicalPayments.findIndex((payment) => payment.referenceMonth.slice(0, 7) === primaryReferenceMonth);
       const upcomingDetailPayments = chronologicalPayments.slice(primaryPaymentIndex + 1, primaryPaymentIndex + 4);
       const previousDetailPayments = chronologicalPayments.slice(Math.max(0, primaryPaymentIndex - 6), primaryPaymentIndex).reverse();
       const detailPayments: PaymentRecord[] = [...upcomingDetailPayments, ...previousDetailPayments];

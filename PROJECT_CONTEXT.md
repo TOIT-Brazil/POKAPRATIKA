@@ -1,3 +1,4 @@
+- A expansão de `Mensalidades` foi corrigida para usar o `reference_month` como pivô estável do histórico do atleta, deduplicando meses repetidos e exibindo ao redor da linha principal apenas 3 meses seguintes e até 6 anteriores sem repetir o mês atual.
 - A expansão de `Mensalidades` passou a montar o histórico do atleta a partir de todas as mensalidades carregadas, enquanto a linha principal continua filtrada pela temporada ativa; isso evita perder meses anteriores fora do recorte principal ao abrir o detalhe.
 - A expansão de `Mensalidades` passou a listar as cobranças em torno da mensalidade principal aberta na linha: até 3 meses seguintes e até 6 meses anteriores, sem subtítulo extra na subtabela.
 - A expansão por atleta em `Mensalidades` foi simplificada: o subtítulo `Outras mensalidades de ...` saiu, e a lista detalhada passou a limitar separadamente 3 próximas cobranças e 6 anteriores.
