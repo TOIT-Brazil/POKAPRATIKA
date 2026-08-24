@@ -725,9 +725,17 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-log-panel.is-sheet-main { gap: 10px; }
 .sheet-log-panel.is-sheet-main .rotation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sheet-log-panel .event-log { background: #fdfefd; border-color: #dde9df; }
-.sheet-log-panel .event-log { max-height: 180px; }
+.sheet-log-panel .event-log {
+  max-height: 98px;
+  padding: 6px 8px;
+}
 .sheet-log-panel .event-log b { color: #215a49; }
-.sheet-log-panel .event-log small { color: #31463c; }
+.sheet-log-panel .event-log small {
+  color: #31463c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sheet-log-panel .event-log {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -740,6 +748,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 
 .sheet-log-panel .event-log span {
   grid-template-columns: 64px minmax(0, 1fr) auto;
+  min-height: 24px;
 }
 
 .sheet-log-remove-button {
