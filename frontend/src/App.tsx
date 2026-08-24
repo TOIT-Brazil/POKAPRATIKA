@@ -1582,6 +1582,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [clockSeconds, setClockSeconds] = useState(deriveOperationalClockSeconds(match));
   const [clockRunning, setClockRunning] = useState(deriveOperationalClockRunning(match));
   const [clockFrozen, setClockFrozen] = useState(false);
+  const [finalizationRequested, setFinalizationRequested] = useState(false);
   const [gameStarted, setGameStarted] = useState(match.status !== 'DRAFT' || Boolean(match.startedAt));
   const [officialStartedAt, setOfficialStartedAt] = useState<string | null>(match.startedAt ?? null);
   const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
@@ -1622,6 +1623,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setClockSeconds(deriveOperationalClockSeconds(match));
     setClockRunning(deriveOperationalClockRunning(match));
     setClockFrozen(false);
+    setFinalizationRequested(match.status === 'SUBMITTED' || match.status === 'CONFIRMED');
     setGameStarted(match.status !== 'DRAFT' || Boolean(match.startedAt));
     setOfficialStartedAt(match.startedAt ?? null);
     setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
@@ -2047,7 +2049,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       return;
     }
     const finalClock = clockSeconds;
-    const wasRunning = clockRunning || match.status === 'RUNNING';
+    setFinalizationRequested(true);
     setClockFrozen(true);
     setClockRunning(false);
     setSheetMessage('Partida finalizada.');
@@ -2061,9 +2063,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setSheetMessage('Partida finalizada e súmula confirmada.');
       await onSaved();
     } catch (error) {
-      setClockFrozen(false);
-      if (wasRunning) setClockRunning(true);
-      setSheetMessage(error instanceof Error ? error.message : 'Não foi possível finalizar o jogo.');
+      setSheetMessage(error instanceof Error ? error.message : 'Não foi possível finalizar o jogo. A partida segue travada para nova tentativa de finalização.');
+      return;
     }
   }
 
@@ -2254,7 +2255,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
               <div className="event-log ops-event-log" ref={eventLogRef}>{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small>{item.kind === 'event' && match.status !== 'CONFIRMED' && <button type="button" className="ghost small sheet-log-remove-button" onClick={() => removeLoggedEvent(item.eventId)}>Excluir</button>}</span>)}</div>
               <div className="sheet-footer-actions">
                 {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
-                {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => void toggleGamePause()}>{clockRunning ? 'PAUSAR JOGO' : 'RETOMAR JOGO'}</button>}
+                {match.status !== 'CONFIRMED' && gameStarted && !finalizationRequested && !clockFrozen && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => void toggleGamePause()}>{clockRunning ? 'PAUSAR JOGO' : 'RETOMAR JOGO'}</button>}
                 {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}
               </div>
             </section>
