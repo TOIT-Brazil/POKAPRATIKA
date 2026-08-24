@@ -583,6 +583,12 @@ function todayInputValue(): string {
   return `${pick('year')}-${pick('month')}-${pick('day')}`;
 }
 
+function deriveOperationalClockSeconds(match: MatchDetail): number {
+  if (typeof match.draftClockSeconds === 'number' && match.draftClockSeconds > 0) return match.draftClockSeconds;
+  if (match.status === 'RUNNING' && match.startedAt) return Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000));
+  return 0;
+}
+
 function addDaysInput(days: number): string {
   const date = new Date(`${todayInputValue()}T12:00:00-03:00`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -1569,7 +1575,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [teamAScore, setTeamAScore] = useState(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
   const [teamBScore, setTeamBScore] = useState(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
   const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
-  const [clockSeconds, setClockSeconds] = useState(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
+  const [clockSeconds, setClockSeconds] = useState(deriveOperationalClockSeconds(match));
   const [clockRunning, setClockRunning] = useState(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
   const [clockFrozen, setClockFrozen] = useState(false);
   const [gameStarted, setGameStarted] = useState(match.status !== 'DRAFT' || Boolean(match.startedAt));
@@ -1608,7 +1614,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
     setEvents(recoveredEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
-    setClockSeconds(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
+    setClockSeconds(deriveOperationalClockSeconds(match));
     setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
     setClockFrozen(false);
     setGameStarted(match.status !== 'DRAFT' || Boolean(match.startedAt));
@@ -1637,17 +1643,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   useEffect(() => {
     const limitSeconds = (match.availableMinutes ?? 60) * 60;
-    if (clockFrozen) return;
-    if ((match.status === 'RUNNING' || (match.status === 'DRAFT' && gameStarted)) && officialStartedAt) {
-      const syncOfficialClock = () => setClockSeconds(Math.min(limitSeconds, Math.max(0, Math.floor((Date.now() - new Date(officialStartedAt).getTime()) / 1000))));
-      syncOfficialClock();
-      const timer = window.setInterval(syncOfficialClock, 1000);
-      return () => window.clearInterval(timer);
-    }
-    if (!clockRunning) return;
+    if (clockFrozen || !clockRunning) return;
     const timer = window.setInterval(() => setClockSeconds((value) => Math.min(limitSeconds, value + 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [clockFrozen, clockRunning, gameStarted, match.availableMinutes, match.status, officialStartedAt]);
+  }, [clockFrozen, clockRunning, match.availableMinutes]);
 
   function addActivityLog(message: string, createdAt = new Date().toISOString()) {
     const id = window.crypto?.randomUUID?.() ?? `${createdAt}-${Math.random().toString(16).slice(2, 10)}`;
@@ -1877,6 +1876,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
     if (eventType === 'GOL') {
       if (team === 'A') setTeamAScore((value) => value + 1);
+      if (team === 'B') setTeamBScore((value) => value + 1);
     }
     if (eventType === 'GOL_CONTRA') {
       if (team === 'A') setTeamBScore((value) => value + 1);
@@ -2007,12 +2007,27 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       const started = await api.request<{ id: string; status: string; startedAt: string }>(`/matches/${match.id}/start`, { method: 'POST' });
       setGameStarted(true);
       setOfficialStartedAt(started.startedAt);
-      setClockSeconds(Math.max(0, Math.floor((Date.now() - new Date(started.startedAt).getTime()) / 1000)));
+      setClockSeconds(0);
       setClockRunning(true);
       setSheetMessage('Jogo iniciado com cronômetro oficial.');
       await onSaved();
     } catch (error) {
       setSheetMessage(error instanceof Error ? error.message : 'Não foi possível iniciar o jogo.');
+    }
+  }
+
+  async function toggleGamePause() {
+    if (!gameStarted || match.status === 'CONFIRMED' || match.status === 'CANCELLED') return;
+    const nextRunning = !clockRunning;
+    setClockRunning(nextRunning);
+    const pauseMessage = nextRunning ? 'Jogo retomado.' : 'Jogo pausado.';
+    setSheetMessage(pauseMessage);
+    addActivityLog(pauseMessage);
+    try {
+      await saveBoard(false, { clockSeconds, clockRunning: nextRunning });
+    } catch (error) {
+      setClockRunning(!nextRunning);
+      setSheetMessage(error instanceof Error ? error.message : 'Não foi possível alterar a pausa do jogo.');
     }
   }
 
@@ -2226,6 +2241,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
               <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small>{item.kind === 'event' && match.status !== 'CONFIRMED' && <button type="button" className="ghost small sheet-log-remove-button" onClick={() => removeLoggedEvent(item.eventId)}>Excluir</button>}</span>)}</div>
               <div className="sheet-footer-actions">
                 {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
+                {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => void toggleGamePause()}>{clockRunning ? 'PAUSAR JOGO' : 'RETOMAR JOGO'}</button>}
                 {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}
               </div>
             </section>
