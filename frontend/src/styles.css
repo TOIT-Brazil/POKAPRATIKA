@@ -2956,7 +2956,7 @@ textarea {
 
 .dashboard-top-grid {
   grid-template-columns: minmax(0, 2.06fr) minmax(360px, .94fr);
-  align-items: stretch;
+  align-items: start;
   gap: 10px;
 }
 
@@ -3284,7 +3284,6 @@ textarea {
 
 .dashboard-ops-card {
   background: linear-gradient(180deg, #ffffff, #f8fbf9);
-  height: 100%;
 }
 
 .ops-widget-grid {
@@ -3393,55 +3392,6 @@ textarea {
   color: #365951;
 }
 
-.dashboard-ops-summary-section {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  margin-top: auto;
-  padding: 12px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #f7fbf8, #eef5f1);
-}
-
-.dashboard-ops-summary-section .card-head {
-  align-items: center;
-}
-
-.dashboard-ops-summary-section .muted {
-  margin: 0;
-}
-
-.ops-summary-list {
-  display: grid;
-  gap: 8px;
-}
-
-.ops-summary-row {
-  padding: 10px 12px;
-  display: grid;
-  gap: 4px;
-  border-radius: 10px;
-  background: #ffffff;
-  border: 1px solid rgba(15,82,87,.1);
-}
-
-.ops-summary-row strong {
-  color: #16332f;
-  font-size: .8rem;
-}
-
-.ops-summary-row span {
-  color: #285048;
-  font-size: .76rem;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-.ops-summary-row small {
-  color: #5b7168;
-  font-size: .72rem;
-  line-height: 1.28;
-}
 
 .dashboard-finished-card,
 .dashboard-standings-card {

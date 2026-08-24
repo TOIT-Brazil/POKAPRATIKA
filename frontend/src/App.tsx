@@ -1288,10 +1288,6 @@ function DashboardSeasonPanel({ standings, rankings, matches, onOpenProfile }: {
 }
 
 function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeasonId, canCoordinate }: { api: ApiClient; suspensions: Suspension[]; matches: MatchListItem[]; activeSeasonId: string; canCoordinate: boolean }) {
-  const confirmedMatches = matches.filter((match) => match.status === 'CONFIRMED');
-  const draftMatches = matches.filter((match) => match.status === 'DRAFT');
-  const liveMatches = matches.filter((match) => match.status === 'RUNNING' || match.status === 'SUBMITTED');
-  const openConfirmationMatches = matches.filter((match) => isConfirmationReallyOpen(match));
   const nextScheduledMatch = sortMatchesByOperationalRelevance(matches).find((match) => match.status !== 'CANCELLED' && getMatchStartTime(match) >= Date.now()) ?? null;
   const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
   const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
@@ -1364,29 +1360,6 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
           <strong>{agendaValue}</strong>
           <em>{agendaDetail}</em>
         </article>
-      </div>
-      <div className="ops-section dashboard-ops-summary-section">
-        <div className="card-head">
-          <strong>Radar da rodada</strong>
-          <span className="status open">{draftMatches.length + liveMatches.length + confirmedMatches.length} jogos</span>
-        </div>
-        <div className="ops-summary-list">
-          <article className="ops-summary-row">
-            <strong>Confirmação aberta</strong>
-            <span>{openConfirmationMatches.length ? `${openConfirmationMatches.length} jogo(s) recebendo resposta` : 'Nenhuma janela aberta agora'}</span>
-            <small>{nextScheduledMatch ? `Próximo: ${nextScheduledMatch.title} • ${formatDateOnly(nextScheduledMatch.matchDate, 'sem data')}` : 'Sem próximo jogo agendado no momento.'}</small>
-          </article>
-          <article className="ops-summary-row">
-            <strong>Jogos em edição</strong>
-            <span>{liveMatches.length ? `${liveMatches.length} em andamento ou aguardando fechamento` : 'Nenhuma súmula em operação agora'}</span>
-            <small>{draftMatches.length ? `${draftMatches.length} rascunho(s) ainda pendente(s) de iniciar` : 'Sem rascunho aberto fora do jogo principal.'}</small>
-          </article>
-          <article className="ops-summary-row">
-            <strong>Histórico confirmado</strong>
-            <span>{confirmedMatches.length} jogo(s) já fechado(s) na temporada</span>
-            <small>{confirmedMatches.length ? `Último confirmado: ${confirmedMatches[0].title} • ${formatDateOnly(confirmedMatches[0].matchDate, 'sem data')}` : 'A temporada ainda não tem súmula confirmada.'}</small>
-          </article>
-        </div>
       </div>
     </section>
   );
