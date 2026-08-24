@@ -1,3 +1,4 @@
+- O fechamento da súmula no board operacional passou a congelar o cronômetro imediatamente no clique em `Finalizar jogo`, exibir `Partida finalizada` sem esperar o backend e incluir no log operacional tanto a finalização quanto as trocas manuais e automáticas.
 - O autosave do board da súmula passou a normalizar `field_left/field_top` e `drawOrder` para número antes de reenviar a escalação; isso evita o erro `Expected number, received string` causado pelo retorno de colunas `NUMERIC` do PostgreSQL como texto no `pg`.
 - O layout da súmula operacional no desktop foi compactado e as colunas laterais de escalação subiram alguns pixels em direção ao card do tempo, reduzindo o corte visual do banco de reservas no fim da modal.
 - O gramado da súmula teve as camadas visuais (linhas, círculo e áreas) marcadas com `pointer-events: none` e os bonecos ganharam prioridade de camada, para o clique/arraste do mouse atingir diretamente o jogador em vez do overlay do campo.

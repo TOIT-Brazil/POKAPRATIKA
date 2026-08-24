@@ -20,6 +20,7 @@ type AwardType = 'RANKING' | 'VOTACAO' | 'SORTEIO' | 'MANUAL';
 type MetricCode = 'TOTAL_POINTS' | 'GOALS' | 'ASSISTS' | 'TOTAL_CARDS' | 'CARD_POINTS' | 'ASSIDUITY' | 'PRESENCE_PERCENTAGE' | 'WIN_PERCENTAGE' | 'WINS' | 'TEAM_GOAL_BALANCE' | 'NET_GOALS' | 'PAID_MONTHS';
 type Suspension = { id: string; userName: string; reason: string; triggerMatchTitle: string; servedAt?: string | null };
 type MatchEventDraft = { userId: string; relatedUserId?: string | null; eventType: 'GOL' | 'GOL_CONTRA' | 'ASSISTENCIA' | 'CARTAO_AMARELO' | 'CARTAO_VERMELHO' | 'CARTAO_AZUL'; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null };
+type SheetActivityLogEntry = { id: string; message: string; createdAt: string };
 type MatchCorrection = { id: string; reason: string; previousTeamAScore: number; previousTeamBScore: number; newTeamAScore: number; newTeamBScore: number; correctedByName: string; createdAt: string; previousEvents: MatchEventDraft[]; newEvents: MatchEventDraft[] };
 type CareerProfile = {
   profile: User;
@@ -1480,9 +1481,11 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
   const [clockSeconds, setClockSeconds] = useState(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
   const [clockRunning, setClockRunning] = useState(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+  const [clockFrozen, setClockFrozen] = useState(false);
   const [gameStarted, setGameStarted] = useState(match.status !== 'DRAFT' || Boolean(match.startedAt));
   const [officialStartedAt, setOfficialStartedAt] = useState<string | null>(match.startedAt ?? null);
   const [sheetMessage, setSheetMessage] = useState(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
+  const [activityLog, setActivityLog] = useState<SheetActivityLogEntry[]>([]);
   const [draggedPlayerId, setDraggedPlayerId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
   const [pitchDrag, setPitchDrag] = useState<{ userId: string; team: 'A' | 'B'; pointerId: number } | null>(null);
@@ -1521,9 +1524,11 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setEvents(recoveredEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
     setClockSeconds(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
     setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+    setClockFrozen(false);
     setGameStarted(match.status !== 'DRAFT' || Boolean(match.startedAt));
     setOfficialStartedAt(match.startedAt ?? null);
     setSheetMessage(match.draftSavedAt ? `Rascunho salvo em ${formatBrasiliaTime(match.draftSavedAt)}.` : 'Arraste um titular sobre um reserva do mesmo time para fazer a troca automática.');
+    setActivityLog([]);
     setDraggedPlayerId('');
     setDropTargetId('');
     setPitchDrag(null);
@@ -1550,6 +1555,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   useEffect(() => {
     const limitSeconds = (match.availableMinutes ?? 60) * 60;
+    if (clockFrozen) return;
     if ((match.status === 'RUNNING' || (match.status === 'DRAFT' && gameStarted)) && officialStartedAt) {
       const syncOfficialClock = () => setClockSeconds(Math.min(limitSeconds, Math.max(0, Math.floor((Date.now() - new Date(officialStartedAt).getTime()) / 1000))));
       syncOfficialClock();
@@ -1559,7 +1565,12 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     if (!clockRunning) return;
     const timer = window.setInterval(() => setClockSeconds((value) => Math.min(limitSeconds, value + 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [clockRunning, gameStarted, match.availableMinutes, match.status, officialStartedAt]);
+  }, [clockFrozen, clockRunning, gameStarted, match.availableMinutes, match.status, officialStartedAt]);
+
+  function addActivityLog(message: string, createdAt = new Date().toISOString()) {
+    const id = window.crypto?.randomUUID?.() ?? `${createdAt}-${Math.random().toString(16).slice(2, 10)}`;
+    setActivityLog((current) => [...current, { id, message, createdAt }]);
+  }
 
   useEffect(() => {
     if (skipAutosaveRef.current) {
@@ -1814,7 +1825,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     });
     for (const { team, step } of dueSteps) appliedAutoSwapMinutesRef.current[team].push(step.second);
     const labels = dueSteps.map(({ team, step }) => `Time ${team} ${step.label.toLowerCase()}`).join(' • ');
-    setSheetMessage(`Troca automática aplicada: ${labels}.`);
+    const autoSwapMessage = `Troca automática aplicada: ${labels}.`;
+    setSheetMessage(autoSwapMessage);
+    addActivityLog(autoSwapMessage);
   }, [clockSeconds, currentMinute, matchIsOperationallyRunning, sheetRotationPlans]);
 
   function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
@@ -1891,8 +1904,13 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setSheetMessage(`${guest.name} foi removido da súmula.`);
   }
 
-  async function saveBoard(showFeedback = true) {
+  async function saveBoard(showFeedback = true, overrides?: { teamAScore?: number; teamBScore?: number; events?: MatchEventDraft[]; clockSeconds?: number; clockRunning?: boolean }) {
     const normalizedPlayers = normalizeOperationalLineup(players);
+    const effectiveTeamAScore = overrides?.teamAScore ?? teamAScore;
+    const effectiveTeamBScore = overrides?.teamBScore ?? teamBScore;
+    const effectiveEvents = overrides?.events ?? events;
+    const effectiveClockSeconds = overrides?.clockSeconds ?? clockSeconds;
+    const effectiveClockRunning = overrides?.clockRunning ?? clockRunning;
     const lineupAdjusted = normalizedPlayers.some((player, index) => {
       const current = players[index];
       return current && (current.userId !== player.userId || current.team !== player.team || current.roleInMatch !== player.roleInMatch || current.startsOnBench !== player.startsOnBench || current.rotationOrder !== player.rotationOrder || current.present !== player.present || current.fieldLeft !== player.fieldLeft || current.fieldTop !== player.fieldTop);
@@ -1926,7 +1944,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     });
     const saved = await api.request<{ draftSavedAt: string }>(`/matches/${match.id}/draft`, {
       method: 'PATCH',
-      body: JSON.stringify({ teamAScore, teamBScore, events, clockSeconds, clockRunning })
+      body: JSON.stringify({ teamAScore: effectiveTeamAScore, teamBScore: effectiveTeamBScore, events: effectiveEvents, clockSeconds: effectiveClockSeconds, clockRunning: effectiveClockRunning })
     });
     boardDirtyRef.current = false;
     if (showFeedback) setSheetMessage(lineupAdjusted ? `Escalação ajustada e rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.` : `Rascunho salvo em ${formatBrasiliaTime(saved.draftSavedAt)}.`);
@@ -1966,14 +1984,25 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setSheetMessage('Inicie o jogo antes de finalizar a súmula.');
       return;
     }
-    await saveBoard(false);
-    if (match.status !== 'SUBMITTED') {
-      await api.request(`/matches/${match.id}/submit`, { method: 'POST', body: JSON.stringify({ teamAScore, teamBScore, events }) });
-    }
-    await api.request(`/matches/${match.id}/confirm`, { method: 'POST' });
+    const finalClock = clockSeconds;
+    const wasRunning = clockRunning || match.status === 'RUNNING';
+    setClockFrozen(true);
     setClockRunning(false);
-    setSheetMessage('Jogo finalizado e súmula confirmada.');
-    await onSaved();
+    setSheetMessage('Partida finalizada.');
+    addActivityLog('Partida finalizada.');
+    try {
+      await saveBoard(false, { clockSeconds: finalClock, clockRunning: false });
+      if (match.status !== 'SUBMITTED') {
+        await api.request(`/matches/${match.id}/submit`, { method: 'POST', body: JSON.stringify({ teamAScore, teamBScore, events }) });
+      }
+      await api.request(`/matches/${match.id}/confirm`, { method: 'POST' });
+      setSheetMessage('Partida finalizada e súmula confirmada.');
+      await onSaved();
+    } catch (error) {
+      setClockFrozen(false);
+      if (wasRunning) setClockRunning(true);
+      setSheetMessage(error instanceof Error ? error.message : 'Não foi possível finalizar o jogo.');
+    }
   }
 
   function executeDragSwap(targetPlayerId: string) {
@@ -2022,7 +2051,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     if (targetPlayer?.team === 'A' || targetPlayer?.team === 'B') manualSwapOverrideRef.current[targetPlayer.team] = true;
     setDraggedPlayerId('');
     setDropTargetId('');
-    setSheetMessage(draggedPlayer?.team === targetPlayer?.team ? `Troca manual aplicada entre #${playerBoardNumber(draggedPlayer!, 0)} e #${playerBoardNumber(targetPlayer!, 0)}. O automático deste time ficou pausado.` : `${draggedPlayer?.name} e ${targetPlayer?.name} trocaram de lado. A rotação automática dos times envolvidos ficou pausada.`);
+    const substitutionMessage = draggedPlayer?.team === targetPlayer?.team ? `Troca manual aplicada entre #${playerBoardNumber(draggedPlayer!, 0)} e #${playerBoardNumber(targetPlayer!, 0)}. O automático deste time ficou pausado.` : `${draggedPlayer?.name} e ${targetPlayer?.name} trocaram de lado. A rotação automática dos times envolvidos ficou pausada.`;
+    setSheetMessage(substitutionMessage);
+    addActivityLog(substitutionMessage);
   }
 
   function playerIsDimmed(player: MatchDetail['players'][number]) {
@@ -2102,11 +2133,13 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   const clockLabel = `${String(Math.floor(clockSeconds / 60)).padStart(2, '0')}:${String(clockSeconds % 60).padStart(2, '0')}`;
   const canManageGuests = match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
-  const summaryLines = events.slice().sort((left, right) => {
-    const leftTime = left.occurredAt ?? left.createdAt ? new Date(left.occurredAt ?? left.createdAt ?? '').getTime() : left.minute * 60000;
-    const rightTime = right.occurredAt ?? right.createdAt ? new Date(right.occurredAt ?? right.createdAt ?? '').getTime() : right.minute * 60000;
-    return leftTime - rightTime;
-  });
+  const summaryLines = [
+    ...events.map((item, index) => {
+      const timeValue = item.occurredAt ?? item.createdAt ? new Date(item.occurredAt ?? item.createdAt ?? '').getTime() : item.minute * 60000;
+      return { id: `event-${item.userId}-${item.eventType}-${index}`, sortTime: timeValue, timeLabel: summaryTime(item), detail: summaryText(item).split(' - ').slice(1).join(' - ') };
+    }),
+    ...activityLog.map((item) => ({ id: item.id, sortTime: new Date(item.createdAt).getTime(), timeLabel: formatBrasiliaClock(item.createdAt), detail: item.message }))
+  ].sort((left, right) => left.sortTime - right.sortTime);
   return (
     <div className="sheet-preview-board">
       <div className="sheet-preview-top">
@@ -2150,7 +2183,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
                 </div>
                 <small>{sheetMessage}</small>
               </div>
-              <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item, index) => <span key={`log-${item.userId}-${item.eventType}-${index}`}><b>{summaryTime(item)}</b><small>{summaryText(item).split(' - ').slice(1).join(' - ')}</small></span>)}</div>
+              <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small></span>)}</div>
               <div className="sheet-footer-actions">
                 {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
                 {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}
