@@ -3964,6 +3964,15 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     return `${monthName} ${yearValue}`;
   }
 
+  function shiftReferenceMonth(referenceMonth: string, offset: number) {
+    const [yearValue, monthValue] = referenceMonth.slice(0, 7).split('-');
+    const baseDate = new Date(Date.UTC(Number(yearValue), Number(monthValue) - 1, 1));
+    baseDate.setUTCMonth(baseDate.getUTCMonth() + offset);
+    const shiftedYear = baseDate.getUTCFullYear();
+    const shiftedMonth = String(baseDate.getUTCMonth() + 1).padStart(2, '0');
+    return `${shiftedYear}-${shiftedMonth}-01`;
+  }
+
   function paymentTimelineKey(payment: PaymentRecord) {
     return payment.dueDate?.slice(0, 10) || `${payment.referenceMonth.slice(0, 7)}-01`;
   }
@@ -4112,9 +4121,13 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     });
     return [...groupsMap.values()].map((group): PaymentAthleteGroup | null => {
       const historySource = historyGroupsMap.get(group.key) ?? group.payments;
-      const chronologicalPayments = [...historySource]
+      const paymentsByMonth = new Map<string, PaymentRecord>();
+      [...historySource]
         .sort((left, right) => left.referenceMonth.localeCompare(right.referenceMonth) || (left.dueDate ?? '').localeCompare(right.dueDate ?? ''))
-        .filter((payment, index, list) => index === 0 || list[index - 1].referenceMonth !== payment.referenceMonth);
+        .forEach((payment) => {
+          const referenceMonthKey = payment.referenceMonth.slice(0, 7);
+          if (!paymentsByMonth.has(referenceMonthKey)) paymentsByMonth.set(referenceMonthKey, payment);
+        });
       const reversedPayments = [...group.payments].sort((left, right) => paymentTimelineKey(right).localeCompare(paymentTimelineKey(left)));
       const matchingPayments = group.payments.slice()
         .sort((left, right) => left.referenceMonth.localeCompare(right.referenceMonth) || (left.dueDate ?? '').localeCompare(right.dueDate ?? ''))
@@ -4125,9 +4138,12 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
         ?? matchingPayments.find((payment) => paymentTimelineKey(payment) >= todayKey)
         ?? matchingPayments[matchingPayments.length - 1];
       const primaryReferenceMonth = primaryPayment.referenceMonth.slice(0, 7);
-      const primaryPaymentIndex = chronologicalPayments.findIndex((payment) => payment.referenceMonth.slice(0, 7) === primaryReferenceMonth);
-      const upcomingDetailPayments = chronologicalPayments.slice(primaryPaymentIndex + 1, primaryPaymentIndex + 4);
-      const previousDetailPayments = chronologicalPayments.slice(Math.max(0, primaryPaymentIndex - 6), primaryPaymentIndex).reverse();
+      const upcomingDetailPayments = [1, 2, 3]
+        .map((offset) => paymentsByMonth.get(shiftReferenceMonth(primaryReferenceMonth, offset).slice(0, 7)))
+        .filter((payment): payment is PaymentRecord => Boolean(payment));
+      const previousDetailPayments = [1, 2, 3, 4, 5, 6]
+        .map((offset) => paymentsByMonth.get(shiftReferenceMonth(primaryReferenceMonth, -offset).slice(0, 7)))
+        .filter((payment): payment is PaymentRecord => Boolean(payment));
       const detailPayments: PaymentRecord[] = [...upcomingDetailPayments, ...previousDetailPayments];
       return {
         key: group.key,
