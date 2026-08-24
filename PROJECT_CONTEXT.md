@@ -1,3 +1,4 @@
+- O placar da `Central dos jogos` foi compactado para não ocupar largura fixa desnecessária; `Time A`, `0 x 0` e `Time B` agora ficam visualmente mais próximos dentro do hero principal.
 - A `Tabela da temporada` ativa na home ganhou um seletor de estatística no próprio card, permitindo reordenar a lista por vitórias, empates, derrotas, presenças, mensalidades, gols, assistências, cartões, saldos e aproveitamento sem sair da tela.
 - O `Radar da rodada` da `Central operacional` foi removido após revisão visual; a coluna superior deixou de forçar cards com a mesma altura, evitando o branco extra abaixo da `Central dos jogos`.
 - A área inferior da `Central operacional` deixou de exibir a lista de `Suspensões ativas` e passou a mostrar um `Radar da rodada`, com leitura rápida de confirmações abertas, jogos em edição e histórico confirmado da temporada.
