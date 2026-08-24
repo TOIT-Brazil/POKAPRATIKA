@@ -589,6 +589,10 @@ function deriveOperationalClockSeconds(match: MatchDetail): number {
   return 0;
 }
 
+function deriveOperationalClockRunning(match: MatchDetail): boolean {
+  return typeof match.draftClockRunning === 'boolean' ? match.draftClockRunning : match.status === 'RUNNING';
+}
+
 function addDaysInput(days: number): string {
   const date = new Date(`${todayInputValue()}T12:00:00-03:00`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -1576,7 +1580,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [teamBScore, setTeamBScore] = useState(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
   const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
   const [clockSeconds, setClockSeconds] = useState(deriveOperationalClockSeconds(match));
-  const [clockRunning, setClockRunning] = useState(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+  const [clockRunning, setClockRunning] = useState(deriveOperationalClockRunning(match));
   const [clockFrozen, setClockFrozen] = useState(false);
   const [gameStarted, setGameStarted] = useState(match.status !== 'DRAFT' || Boolean(match.startedAt));
   const [officialStartedAt, setOfficialStartedAt] = useState<string | null>(match.startedAt ?? null);
@@ -1616,7 +1620,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
     setEvents(recoveredEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
     setClockSeconds(deriveOperationalClockSeconds(match));
-    setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
+    setClockRunning(deriveOperationalClockRunning(match));
     setClockFrozen(false);
     setGameStarted(match.status !== 'DRAFT' || Boolean(match.startedAt));
     setOfficialStartedAt(match.startedAt ?? null);
@@ -2010,6 +2014,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       setOfficialStartedAt(started.startedAt);
       setClockSeconds(0);
       setClockRunning(true);
+      await saveBoard(false, { clockSeconds: 0, clockRunning: true });
       setSheetMessage('Jogo iniciado com cronômetro oficial.');
       await onSaved();
     } catch (error) {
