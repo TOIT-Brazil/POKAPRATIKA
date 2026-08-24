@@ -1,3 +1,4 @@
+- A expansão por atleta em `Mensalidades` foi simplificada: o subtítulo `Outras mensalidades de ...` saiu, e a lista detalhada passou a limitar separadamente 3 próximas cobranças e 6 anteriores.
 - O cabeçalho do `Log da súmula` no board operacional deixou de exibir a data da partida ao lado do título, simplificando a leitura dessa área.
 - O arraste dos jogadores dentro do campo na súmula foi otimizado para mouse com preview leve em tempo real durante o movimento e persistência da posição apenas ao soltar, deixando o clique-e-arraste mais rápido e fluido.
 - A tabela de `Mensalidades` foi refinada novamente: a expansão da sub-tabela agora abre ao clicar diretamente na linha principal do atleta, sem coluna ou botão dedicado de `Histórico`.
