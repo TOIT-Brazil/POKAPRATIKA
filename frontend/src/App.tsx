@@ -2315,19 +2315,53 @@ function DashboardFinishedMatchesPanel({ matches }: { matches: MatchListItem[] }
 }
 
 function DashboardStandingsPanel({ standings, onOpenProfile }: { standings: Standing[]; onOpenProfile: (userId: string) => void }) {
+  const statisticOptions = [
+    { value: 'wins', label: 'Vitórias', read: (row: Standing) => row.wins, format: (value: number) => String(value) },
+    { value: 'draws', label: 'Empates', read: (row: Standing) => row.draws, format: (value: number) => String(value) },
+    { value: 'losses', label: 'Derrotas', read: (row: Standing) => row.losses, format: (value: number) => String(value) },
+    { value: 'presences', label: 'Presenças', read: (row: Standing) => row.presences, format: (value: number) => String(value) },
+    { value: 'paid_months', label: 'Mensalidades', read: (row: Standing) => row.paid_months, format: (value: number) => String(value) },
+    { value: 'goals', label: 'Gols', read: (row: Standing) => row.goals, format: (value: number) => String(value) },
+    { value: 'assists', label: 'Assistências', read: (row: Standing) => row.assists, format: (value: number) => String(value) },
+    { value: 'total_cards', label: 'Cartões', read: (row: Standing) => row.total_cards, format: (value: number) => String(value) },
+    { value: 'own_goals', label: 'Gols contra', read: (row: Standing) => row.own_goals, format: (value: number) => String(value) },
+    { value: 'net_goals', label: 'Saldo individual', read: (row: Standing) => row.net_goals, format: (value: number) => String(value) },
+    { value: 'team_goals_for', label: 'Gols pró da equipe', read: (row: Standing) => row.team_goals_for, format: (value: number) => String(value) },
+    { value: 'team_goals_against', label: 'Gols sofridos da equipe', read: (row: Standing) => row.team_goals_against, format: (value: number) => String(value) },
+    { value: 'team_goal_balance', label: 'Saldo da equipe', read: (row: Standing) => row.team_goal_balance, format: (value: number) => String(value) },
+    { value: 'efficiency', label: 'Aproveitamento', read: (row: Standing) => row.games_played ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100 : 0, format: (value: number) => formatPercent(value) }
+  ] as const;
+  const [selectedStatistic, setSelectedStatistic] = useState<(typeof statisticOptions)[number]['value']>('goals');
+  const activeStatistic = statisticOptions.find((option) => option.value === selectedStatistic) ?? statisticOptions[0];
+  const sortedStandings = useMemo(() => [...standings]
+    .sort((left, right) => {
+      const valueDiff = activeStatistic.read(right) - activeStatistic.read(left);
+      if (valueDiff !== 0) return valueDiff;
+      const pointsDiff = right.total_points - left.total_points;
+      if (pointsDiff !== 0) return pointsDiff;
+      const gamesDiff = right.games_played - left.games_played;
+      if (gamesDiff !== 0) return gamesDiff;
+      return left.position - right.position;
+    })
+    .map((row, index) => ({
+      ...row,
+      dashboardStatisticValue: activeStatistic.read(row),
+      dashboardDisplayPosition: index + 1,
+      dashboardEfficiency: row.games_played ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100 : 0
+    })), [standings, activeStatistic]);
+
   return (
     <section className="card compact dashboard-standings-card">
       <div className="card-head championship-head">
         <div>
           <h2>Tabela da temporada</h2>
-          <p className="muted">Classificação em largura total, estilo campeonato: clique no atleta para abrir o perfil.</p>
+          <p className="muted">Escolha a estatística que quer destacar e a tabela reordena os atletas por esse critério.</p>
         </div>
+        {standings.length > 0 && <div className="dashboard-standings-toolbar"><label><span>Estatística</span><select value={selectedStatistic} onChange={(event) => setSelectedStatistic(event.target.value as (typeof statisticOptions)[number]['value'])}>{statisticOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>}
       </div>
-      {standings.length === 0 ? <EmptyState title="Sem classificação ainda" text="A tabela será preenchida assim que os jogos forem confirmados." /> : <div className="championship-wrap dashboard-standings-wrap"><table className="championship-table dashboard-standings-table"><thead><tr><th>#</th><th>Jogar name</th><th>Goals</th><th>Assists</th><th>% G/A Ratio</th><th>App</th></tr></thead><tbody>{standings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.user_id)}>{row.name}</button></td><td>{row.goals}</td><td>{row.assists}</td><td>{row.assists > 0 ? (row.goals / row.assists).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.goals.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td>{row.games_played + row.presences}</td></tr>)}</tbody></table></div>}
+      {standings.length === 0 ? <EmptyState title="Sem classificação ainda" text="A tabela será preenchida assim que os jogos forem confirmados." /> : <div className="championship-wrap dashboard-standings-wrap"><table className="championship-table dashboard-standings-table"><thead><tr><th>#</th><th>Atleta</th><th>PTS</th><th>J</th><th>{activeStatistic.label}</th><th>APR</th></tr></thead><tbody>{sortedStandings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.dashboardDisplayPosition}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.user_id)}>{row.name}</button></td><td className="points-cell">{row.total_points}</td><td>{row.games_played}</td><td>{activeStatistic.format(row.dashboardStatisticValue)}</td><td>{formatPercent(row.dashboardEfficiency)}</td></tr>)}</tbody></table></div>}
     </section>
   );
-
-  return <section className="card compact dashboard-standings-card"><div className="card-head championship-head"><div><h2>Tabela da temporada</h2><p className="muted">Classificação e destaque ofensivo dos jogadores.</p></div></div>{standings.length === 0 ? <EmptyState title="Sem classificação ainda" text="A tabela será preenchida assim que os jogos forem confirmados." /> : <div className="championship-wrap dashboard-standings-wrap"><table className="championship-table dashboard-standings-table"><thead><tr><th>#</th><th>Jogar name</th><th>Goals</th><th>Assists</th><th>% G/A Ratio</th><th>App</th></tr></thead><tbody>{standings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.user_id)}>{row.name}</button></td><td>{row.goals}</td><td>{row.assists}</td><td>{row.assists > 0 ? (row.goals / row.assists).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.goals.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td>{row.games_played + row.presences}</td></tr>)}</tbody></table></div>}</section>;
 }
 
 function SeasonPanel({ standings, rankings, onOpenProfile }: { standings: Standing[]; rankings: RankingPayload; onOpenProfile: (userId: string) => void }) {
