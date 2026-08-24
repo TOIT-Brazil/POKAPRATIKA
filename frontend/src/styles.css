@@ -686,8 +686,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-crest.is-outline { background: linear-gradient(180deg, #ffffff 0%, #f5faf6 100%); }
 .sheet-crest-pair.small .sheet-crest { width: 30px; height: 38px; border-width: 2px; }
 .sheet-preview-arena { display: grid; grid-template-columns: minmax(280px, .86fr) minmax(640px, 1.6fr) minmax(280px, .86fr); gap: 10px; align-items: start; }
-.sheet-center-column { display: grid; gap: 10px; align-content: start; }
-.sheet-roster-panel { gap: 4px; padding: 8px 9px; margin-top: -102px; position: relative; z-index: 2; }
+.sheet-center-column { display: grid; gap: 10px; align-content: start; margin-top: 18px; }
+.sheet-roster-panel { gap: 4px; padding: 8px 9px; margin-top: -124px; position: relative; z-index: 2; }
 .sheet-roster-panel .ops-roster-head { border-bottom: 0; padding-bottom: 0; }
 .sheet-panel-label { color: #141414; font-size: .92rem; font-weight: 950; text-transform: uppercase; }
 .sheet-roster-row { width: 100%; text-align: left; cursor: grab; padding: 5px; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 5px; user-select: none; }
