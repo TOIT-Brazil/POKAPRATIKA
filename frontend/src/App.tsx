@@ -2138,7 +2138,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
               <div className="match-control-feed-head">
                 <div>
                   <strong>Log da súmula</strong>
-                  <small>{match.matchDate ? new Date(match.matchDate).toLocaleDateString('pt-BR') : 'Sem data'}</small>
                 </div>
                 <small>{sheetMessage}</small>
               </div>
