@@ -1477,6 +1477,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [draggedPlayerId, setDraggedPlayerId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
   const [pitchDrag, setPitchDrag] = useState<{ userId: string; team: 'A' | 'B'; pointerId: number } | null>(null);
+  const [pitchPreview, setPitchPreview] = useState<Record<string, { left: number; top: number }>>({});
   const [guestModalOpen, setGuestModalOpen] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
@@ -1489,6 +1490,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const boardDirtyRef = useRef(false);
   const hydratedMatchIdRef = useRef<string | null>(null);
   const pitchSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const pitchDragRef = useRef<{ userId: string; team: 'A' | 'B'; pointerId: number } | null>(null);
+  const pendingPitchMoveRef = useRef<{ dragState: { userId: string; team: 'A' | 'B'; pointerId: number }; clientX: number; clientY: number } | null>(null);
+  const pitchDragFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const recoveredEvents = match.status === 'CONFIRMED' ? match.events : match.draftEvents?.length ? match.draftEvents : match.events;
@@ -1514,6 +1518,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setDraggedPlayerId('');
     setDropTargetId('');
     setPitchDrag(null);
+    setPitchPreview({});
     setGuestModalOpen(false);
     setGuestName('');
     setGuestPosition('MC');
@@ -1522,7 +1527,17 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     appliedAutoSwapMinutesRef.current = { A: [], B: [] };
     manualSwapOverrideRef.current = { A: false, B: false };
     boardDirtyRef.current = false;
+    pitchDragRef.current = null;
+    pendingPitchMoveRef.current = null;
+    if (pitchDragFrameRef.current != null) {
+      window.cancelAnimationFrame(pitchDragFrameRef.current);
+      pitchDragFrameRef.current = null;
+    }
   }, [match.id, match.status, match.startedAt, match.teamAScore, match.teamBScore, match.draftTeamAScore, match.draftTeamBScore, match.draftClockSeconds, match.draftClockRunning, match.draftSavedAt, match.players, match.draftEvents, match.events, match.attendance, users, gameStarted, officialStartedAt]);
+
+  useEffect(() => () => {
+    if (pitchDragFrameRef.current != null) window.cancelAnimationFrame(pitchDragFrameRef.current);
+  }, []);
 
   useEffect(() => {
     const limitSeconds = (match.availableMinutes ?? 60) * 60;
@@ -1554,12 +1569,12 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
     const handlePointerMove = (event: PointerEvent) => {
       if (event.pointerId !== pitchDrag.pointerId) return;
-      updateDraggedPlayerPosition(pitchDrag, event.clientX, event.clientY);
+      queueDraggedPlayerPreview(pitchDrag, event.clientX, event.clientY);
     };
 
     const finishDrag = (event: PointerEvent) => {
       if (event.pointerId !== pitchDrag.pointerId) return;
-      setPitchDrag(null);
+      finishPitchDrag(event.pointerId, event.type === 'pointerup', event.clientX, event.clientY);
     };
 
     window.addEventListener('pointermove', handlePointerMove);
@@ -1578,6 +1593,74 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const matchIsOperationallyRunning = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const canRegisterEvents = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const canRepositionPlayers = match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
+
+  function clearPitchDragFrame() {
+    if (pitchDragFrameRef.current != null) {
+      window.cancelAnimationFrame(pitchDragFrameRef.current);
+      pitchDragFrameRef.current = null;
+    }
+  }
+
+  function clearPitchPreviewForPlayer(userId: string) {
+    setPitchPreview((current) => {
+      if (!(userId in current)) return current;
+      const next = { ...current };
+      delete next[userId];
+      return next;
+    });
+  }
+
+  function resolveDraggedPitchSlot(dragState: { userId: string; team: 'A' | 'B'; pointerId: number }, clientX: number, clientY: number) {
+    const surface = pitchSurfaceRef.current;
+    if (!surface) return null;
+    const bounds = surface.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return null;
+    const relativeLeft = ((clientX - bounds.left) / bounds.width) * 100;
+    const relativeTop = ((clientY - bounds.top) / bounds.height) * 100;
+    return clampPitchSlot(dragState.team, relativeLeft, relativeTop);
+  }
+
+  function queueDraggedPlayerPreview(dragState: { userId: string; team: 'A' | 'B'; pointerId: number }, clientX: number, clientY: number) {
+    pendingPitchMoveRef.current = { dragState, clientX, clientY };
+    if (pitchDragFrameRef.current != null) return;
+
+    pitchDragFrameRef.current = window.requestAnimationFrame(() => {
+      pitchDragFrameRef.current = null;
+      const pendingMove = pendingPitchMoveRef.current;
+      if (!pendingMove) return;
+      const slot = resolveDraggedPitchSlot(pendingMove.dragState, pendingMove.clientX, pendingMove.clientY);
+      if (!slot) return;
+      setPitchPreview((current) => {
+        const previous = current[pendingMove.dragState.userId];
+        if (previous?.left === slot.left && previous?.top === slot.top) return current;
+        return { ...current, [pendingMove.dragState.userId]: slot };
+      });
+    });
+  }
+
+  function persistDraggedPlayerPosition(dragState: { userId: string; team: 'A' | 'B'; pointerId: number }, clientX: number, clientY: number) {
+    const slot = resolveDraggedPitchSlot(dragState, clientX, clientY) ?? pitchPreview[dragState.userId] ?? null;
+    clearPitchPreviewForPlayer(dragState.userId);
+    if (!slot) return;
+    boardDirtyRef.current = true;
+    setPlayers((current) => current.map((player) => player.userId === dragState.userId && (player.fieldLeft !== slot.left || player.fieldTop !== slot.top)
+      ? { ...player, fieldLeft: slot.left, fieldTop: slot.top }
+      : player));
+  }
+
+  function finishPitchDrag(pointerId: number, shouldCommit: boolean, clientX?: number, clientY?: number) {
+    const activeDrag = pitchDragRef.current;
+    if (!activeDrag || activeDrag.pointerId !== pointerId) return;
+    clearPitchDragFrame();
+    pendingPitchMoveRef.current = null;
+    if (shouldCommit && clientX != null && clientY != null) {
+      persistDraggedPlayerPosition(activeDrag, clientX, clientY);
+    } else {
+      clearPitchPreviewForPlayer(activeDrag.userId);
+    }
+    pitchDragRef.current = null;
+    setPitchDrag(null);
+  }
 
   function normalizePlayersForBoard(list: MatchDetail['players']) {
     const ranked = [...list].sort((left, right) => {
@@ -1690,10 +1773,11 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const slots = pitchSlots(team, ordered.length);
     return ordered.map((player, index) => {
       const baseSlot = slots[index];
+      const previewSlot = pitchPreview[player.userId] ?? null;
       const manualSlot = player.fieldLeft != null && player.fieldTop != null
         ? clampPitchSlot(team, player.fieldLeft, player.fieldTop)
         : null;
-      return { player, slot: manualSlot ?? baseSlot };
+      return { player, slot: previewSlot ?? manualSlot ?? baseSlot };
     });
   }
 
@@ -1938,38 +2022,27 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return player.present === false || !status || status === 'AUSENTE';
   }
 
-  function updateDraggedPlayerPosition(dragState: { userId: string; team: 'A' | 'B'; pointerId: number }, clientX: number, clientY: number) {
-    const surface = pitchSurfaceRef.current;
-    if (!surface) return;
-    const bounds = surface.getBoundingClientRect();
-    if (!bounds.width || !bounds.height) return;
-    const relativeLeft = ((clientX - bounds.left) / bounds.width) * 100;
-    const relativeTop = ((clientY - bounds.top) / bounds.height) * 100;
-    const slot = clampPitchSlot(dragState.team, relativeLeft, relativeTop);
-    boardDirtyRef.current = true;
-    setPlayers((current) => current.map((player) => player.userId === dragState.userId ? { ...player, fieldLeft: slot.left, fieldTop: slot.top } : player));
-  }
-
   function beginPitchDrag(event: ReactPointerEvent<HTMLDivElement>, player: MatchDetail['players'][number]) {
     if (!canRepositionPlayers || player.team !== 'A' && player.team !== 'B') return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const dragState = { userId: player.userId, team: player.team, pointerId: event.pointerId };
+    pitchDragRef.current = dragState;
     setPitchDrag(dragState);
-    updateDraggedPlayerPosition(dragState, event.clientX, event.clientY);
+    queueDraggedPlayerPreview(dragState, event.clientX, event.clientY);
     setSheetMessage(`Arraste ${player.name} dentro do campo para ajustar a posição.`);
   }
 
   function movePitchDrag(event: ReactPointerEvent<HTMLDivElement>, player: MatchDetail['players'][number]) {
     if (!pitchDrag || pitchDrag.userId !== player.userId || pitchDrag.pointerId !== event.pointerId) return;
     event.preventDefault();
-    updateDraggedPlayerPosition(pitchDrag, event.clientX, event.clientY);
+    queueDraggedPlayerPreview(pitchDrag, event.clientX, event.clientY);
   }
 
   function endPitchDrag(event: ReactPointerEvent<HTMLDivElement>, player: MatchDetail['players'][number]) {
     if (!pitchDrag || pitchDrag.userId !== player.userId || pitchDrag.pointerId !== event.pointerId) return;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    setPitchDrag(null);
+    finishPitchDrag(event.pointerId, true, event.clientX, event.clientY);
   }
 
   function summaryTime(item: MatchEventDraft) {

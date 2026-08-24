@@ -1,3 +1,4 @@
+- O arraste dos jogadores dentro do campo na súmula foi otimizado para mouse com preview leve em tempo real durante o movimento e persistência da posição apenas ao soltar, deixando o clique-e-arraste mais rápido e fluido.
 - A tabela de `Mensalidades` foi refinada novamente: a expansão da sub-tabela agora abre ao clicar diretamente na linha principal do atleta, sem coluna ou botão dedicado de `Histórico`.
 - A visão de `Mensalidades` foi corrigida após feedback: a tabela principal voltou ao formato anterior por colunas, mantendo uma linha principal por atleta/mensalidade-base e abrindo abaixo uma sub-tabela com as demais cobranças (próximas e históricas), em vez do layout em cards.
 - A tela de `Mensalidades` passou a agrupar cobranças por atleta em uma única linha expansível, com filtro por atleta/mês-status, chips de mês+ano, prévia das próximas 3 mensalidades, últimas 12 e histórico completo em dropdown com ações por cobrança.
