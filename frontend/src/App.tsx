@@ -1090,7 +1090,7 @@ export function App() {
         <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.status ?? 'sem temporada'}</span>
       </section>
 
-      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} onReload={loadData} /></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
+      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} /></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
       {view === 'usuarios' && canCoordinate && <UsersManagementTablePanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
@@ -1287,8 +1287,11 @@ function DashboardSeasonPanel({ standings, rankings, matches, onOpenProfile }: {
   return <section className="card compact standings-card season-dashboard-card"><div className="card-head championship-head"><div><h2>Tabela da temporada & estatísticas</h2><p className="muted">Painel limpo com líderes, histórico recente e navegação por ranking da temporada.</p></div>{currentRows.length > 0 && <button className="ghost" onClick={exportCurrentTab}>Exportar {tab.toLowerCase()}</button>}</div><div className="season-summary-grid">{leaderCards.map((item) => <button className="leader-spotlight as-button" key={item.key} onClick={() => onOpenProfile(item.userId)}><span className="dashboard-icon"><DashboardIcon name={item.icon} /></span><small>{item.label}</small><strong>{item.name}</strong><b>{item.value}</b><em>{item.detail}</em></button>)}</div><section className="finished-strip"><div className="card-head"><div><h3>Jogos finalizados</h3><p className="muted">Últimos confrontos em leitura horizontal rápida.</p></div><span className="status">{finishedMatches.length} jogos</span></div><div className="finished-carousel">{finishedMatches.length === 0 ? <EmptyState title="Sem histórico confirmado" text="Os últimos placares entram aqui assim que as súmulas forem confirmadas." /> : finishedMatches.map((match) => <article className="finished-card" key={match.id}><div className="finished-card-top"><span className="finished-date">{compactMatchDateLabel(match)}</span><span className="finished-badge">MVP indisponível</span></div><strong>{match.title}</strong><div className="finished-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><small>{match.teamAScore === match.teamBScore ? 'Empate confirmado' : `Venceu: ${match.teamAScore > match.teamBScore ? match.teamAName : match.teamBName}`}</small></article>)}</div></section><div className="season-table-panel"><div className="season-tabs">{tabs.map((item) => <button key={item.value} type="button" className={tab === item.value ? 'active' : ''} onClick={() => setTab(item.value)}><span className="dashboard-icon small"><DashboardIcon name={item.icon} /></span>{item.label}</button>)}</div>{currentRows.length === 0 ? <EmptyState title="Sem dados para esta aba" text="Confirme jogos e eventos da temporada para preencher este ranking." /> : <div className="championship-wrap season-table-shell"><table className="championship-table season-table"><thead><tr><th>Pos</th><th>Atleta</th>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{pageRows.map((row) => <tr key={row.key}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.userId)}>{row.name}</button></td>{row.cells.map((cell, index) => <td className={tab === 'GERAL' && index === 0 ? 'points-cell' : ''} key={`${row.key}-${index}`}>{cell}</td>)}</tr>)}</tbody></table></div>}<div className="table-pagination"><button type="button" className="ghost" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage === 1}>Anterior</button><span className="status">Página {safePage} de {totalPages}</span><button type="button" className="ghost" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={safePage === totalPages}>Próxima</button></div></div></section>;
 }
 
-function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeasonId, canCoordinate, onReload }: { api: ApiClient; suspensions: Suspension[]; matches: MatchListItem[]; activeSeasonId: string; canCoordinate: boolean; onReload: () => Promise<void> }) {
+function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeasonId, canCoordinate }: { api: ApiClient; suspensions: Suspension[]; matches: MatchListItem[]; activeSeasonId: string; canCoordinate: boolean }) {
   const confirmedMatches = matches.filter((match) => match.status === 'CONFIRMED');
+  const draftMatches = matches.filter((match) => match.status === 'DRAFT');
+  const liveMatches = matches.filter((match) => match.status === 'RUNNING' || match.status === 'SUBMITTED');
+  const openConfirmationMatches = matches.filter((match) => isConfirmationReallyOpen(match));
   const nextScheduledMatch = sortMatchesByOperationalRelevance(matches).find((match) => match.status !== 'CANCELLED' && getMatchStartTime(match) >= Date.now()) ?? null;
   const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
   const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
@@ -1317,12 +1320,6 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
       setCashSummary(null);
     });
   }, [api, activeSeasonId, canCoordinate]);
-
-  async function serveSuspension(id: string, servedMatchId: string) {
-    if (!servedMatchId) return;
-    await api.request(`/suspensions/${id}/serve`, { method: 'POST', body: JSON.stringify({ servedMatchId }) });
-    await onReload();
-  }
 
   return (
     <section className="card compact operations-panel dashboard-ops-card">
@@ -1368,12 +1365,28 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
           <em>{agendaDetail}</em>
         </article>
       </div>
-      <div className="ops-section dashboard-suspension-section">
+      <div className="ops-section dashboard-ops-summary-section">
         <div className="card-head">
-          <strong>Suspensões ativas</strong>
-          <span className={`status ${suspensions.length ? 'danger' : 'open'}`}>{suspensions.length}</span>
+          <strong>Radar da rodada</strong>
+          <span className="status open">{draftMatches.length + liveMatches.length + confirmedMatches.length} jogos</span>
         </div>
-        {suspensions.length === 0 ? <p className="muted">Sem pendências disciplinares no momento.</p> : <div className="suspension-list compact-suspensions">{suspensions.slice(0, 4).map((item) => <article className="suspension-row" key={item.id}><strong>{item.userName}</strong><span>{formatCardReason(item.reason)}</span><small>{item.triggerMatchTitle}</small>{canCoordinate && <select disabled={!confirmedMatches.length} defaultValue="" onChange={(event) => void serveSuspension(item.id, event.target.value)}><option value="">Baixar em...</option>{confirmedMatches.map((match) => <option key={match.id} value={match.id}>{match.title} • {formatDateOnly(match.matchDate, 'sem data')}</option>)}</select>}</article>)}</div>}
+        <div className="ops-summary-list">
+          <article className="ops-summary-row">
+            <strong>Confirmação aberta</strong>
+            <span>{openConfirmationMatches.length ? `${openConfirmationMatches.length} jogo(s) recebendo resposta` : 'Nenhuma janela aberta agora'}</span>
+            <small>{nextScheduledMatch ? `Próximo: ${nextScheduledMatch.title} • ${formatDateOnly(nextScheduledMatch.matchDate, 'sem data')}` : 'Sem próximo jogo agendado no momento.'}</small>
+          </article>
+          <article className="ops-summary-row">
+            <strong>Jogos em edição</strong>
+            <span>{liveMatches.length ? `${liveMatches.length} em andamento ou aguardando fechamento` : 'Nenhuma súmula em operação agora'}</span>
+            <small>{draftMatches.length ? `${draftMatches.length} rascunho(s) ainda pendente(s) de iniciar` : 'Sem rascunho aberto fora do jogo principal.'}</small>
+          </article>
+          <article className="ops-summary-row">
+            <strong>Histórico confirmado</strong>
+            <span>{confirmedMatches.length} jogo(s) já fechado(s) na temporada</span>
+            <small>{confirmedMatches.length ? `Último confirmado: ${confirmedMatches[0].title} • ${formatDateOnly(confirmedMatches[0].matchDate, 'sem data')}` : 'A temporada ainda não tem súmula confirmada.'}</small>
+          </article>
+        </div>
       </div>
     </section>
   );
