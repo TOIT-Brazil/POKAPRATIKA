@@ -728,6 +728,16 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-log-panel .event-log { max-height: 180px; }
 .sheet-log-panel .event-log b { color: #215a49; }
 .sheet-log-panel .event-log small { color: #31463c; }
+.sheet-log-panel .event-log {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sheet-log-panel .event-log::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 .sheet-log-panel .event-log span {
   grid-template-columns: 64px minmax(0, 1fr) auto;
 }

@@ -1594,6 +1594,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const boardDirtyRef = useRef(false);
   const hydratedMatchIdRef = useRef<string | null>(null);
   const pitchSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const eventLogRef = useRef<HTMLDivElement | null>(null);
   const pitchDragRef = useRef<{ userId: string; team: 'A' | 'B'; pointerId: number } | null>(null);
   const pendingPitchMoveRef = useRef<{ dragState: { userId: string; team: 'A' | 'B'; pointerId: number }; clientX: number; clientY: number } | null>(null);
   const pitchDragFrameRef = useRef<number | null>(null);
@@ -2195,6 +2196,13 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     }),
     ...activityLog.map((item) => ({ id: item.id, kind: 'activity' as const, sortTime: new Date(item.createdAt).getTime(), timeLabel: formatBrasiliaClock(item.createdAt), detail: item.message }))
   ].sort((left, right) => left.sortTime - right.sortTime);
+
+  useEffect(() => {
+    const logElement = eventLogRef.current;
+    if (!logElement) return;
+    logElement.scrollTop = logElement.scrollHeight;
+  }, [summaryLines]);
+
   return (
     <div className="sheet-preview-board">
       <div className="sheet-preview-top">
@@ -2238,7 +2246,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
                 </div>
                 <small>{sheetMessage}</small>
               </div>
-              <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small>{item.kind === 'event' && match.status !== 'CONFIRMED' && <button type="button" className="ghost small sheet-log-remove-button" onClick={() => removeLoggedEvent(item.eventId)}>Excluir</button>}</span>)}</div>
+              <div className="event-log ops-event-log" ref={eventLogRef}>{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small>{item.kind === 'event' && match.status !== 'CONFIRMED' && <button type="button" className="ghost small sheet-log-remove-button" onClick={() => removeLoggedEvent(item.eventId)}>Excluir</button>}</span>)}</div>
               <div className="sheet-footer-actions">
                 {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
                 {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => void toggleGamePause()}>{clockRunning ? 'PAUSAR JOGO' : 'RETOMAR JOGO'}</button>}
