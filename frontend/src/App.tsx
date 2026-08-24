@@ -18,7 +18,7 @@ type RankingPayload = {
 type AwardType = 'RANKING' | 'VOTACAO' | 'SORTEIO' | 'MANUAL';
 type MetricCode = 'TOTAL_POINTS' | 'GOALS' | 'ASSISTS' | 'TOTAL_CARDS' | 'CARD_POINTS' | 'ASSIDUITY' | 'PRESENCE_PERCENTAGE' | 'WIN_PERCENTAGE' | 'WINS' | 'TEAM_GOAL_BALANCE' | 'NET_GOALS' | 'PAID_MONTHS';
 type Suspension = { id: string; userName: string; reason: string; triggerMatchTitle: string; servedAt?: string | null };
-type MatchEventDraft = { userId: string; relatedUserId?: string | null; eventType: 'GOL' | 'GOL_CONTRA' | 'ASSISTENCIA' | 'CARTAO_AMARELO' | 'CARTAO_VERMELHO' | 'CARTAO_AZUL'; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null };
+type MatchEventDraft = { id?: string; userId: string; relatedUserId?: string | null; eventType: 'GOL' | 'GOL_CONTRA' | 'ASSISTENCIA' | 'CARTAO_AMARELO' | 'CARTAO_VERMELHO' | 'CARTAO_AZUL'; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null };
 type SheetActivityLogEntry = { id: string; message: string; createdAt: string };
 type MatchCorrection = { id: string; reason: string; previousTeamAScore: number; previousTeamBScore: number; newTeamAScore: number; newTeamBScore: number; correctedByName: string; createdAt: string; previousEvents: MatchEventDraft[]; newEvents: MatchEventDraft[] };
 type CareerProfile = {
@@ -31,7 +31,7 @@ type CareerProfile = {
 };
 type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'LATE' | 'WAIVED';
 type PaymentRecord = { id?: string; userId?: string; userName?: string; referenceMonth: string; dueDate: string; amountCents: number; paidAmountCents?: number; balanceCents?: number; status: PaymentStatus; paidAt?: string | null; earnsPoint: boolean; notes?: string | null };
-type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; matchingPayments: PaymentRecord[]; primaryPayment: PaymentRecord; detailPayments: PaymentRecord[] };
+type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; openPayments: PaymentRecord[]; totalOpenCents: number; totalPaidCents: number; lastPaidPayment?: PaymentRecord | null; nextOpenPayment?: PaymentRecord | null; latePaymentsCount: number };
 type PaymentSummary = { totalCents: number; paidCents: number; openCents: number; total: number; paid: number; pending: number; late: number; waived: number; earlyPoints: number };
 type CashEntryType = 'REVENUE' | 'EXPENSE';
 type CashEntry = { id: string; entryType: CashEntryType; entryDate: string; description: string; amountCents: number; paymentId?: string | null; recordedByName?: string | null; createdAt?: string; updatedAt?: string };
@@ -63,7 +63,7 @@ type MatchDetail = MatchListItem & {
   draftClockRunning?: boolean;
   draftSavedAt?: string | null;
   players: Array<{ userId: string; name: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: string; drawOrder?: number | null; rotationOrder?: number | null; startsOnBench: boolean; present?: boolean; position?: AthletePosition | null; avatarDataUrl?: string | null; isGuest?: boolean; fieldLeft?: number | null; fieldTop?: number | null }>;
-  events: Array<{ userId: string; relatedUserId?: string | null; eventType: string; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null }>;
+  events: Array<{ id?: string; userId: string; relatedUserId?: string | null; eventType: string; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null }>;
   corrections: MatchCorrection[];
   attendance: MatchAttendanceResponse[];
   rotation: Record<'A' | 'B', { reserves: number; firstCycleMinutes: number; secondCycleMinutes: number; schedule: Array<{ minute: number; label: string; entering: string[]; leaving: string[] }> }>;
@@ -1568,7 +1568,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [players, setPlayers] = useState(seededPlayers);
   const [teamAScore, setTeamAScore] = useState(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
   const [teamBScore, setTeamBScore] = useState(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
-  const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
+  const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
   const [clockSeconds, setClockSeconds] = useState(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
   const [clockRunning, setClockRunning] = useState(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
   const [clockFrozen, setClockFrozen] = useState(false);
@@ -1580,10 +1580,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [dropTargetId, setDropTargetId] = useState('');
   const [pitchDrag, setPitchDrag] = useState<{ userId: string; team: 'A' | 'B'; pointerId: number } | null>(null);
   const [pitchPreview, setPitchPreview] = useState<Record<string, { left: number; top: number }>>({});
-  const [guestModalOpen, setGuestModalOpen] = useState(false);
-  const [guestName, setGuestName] = useState('');
-  const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
-  const [guestTeam, setGuestTeam] = useState<'A' | 'B'>('A');
   const usersById = new Map(users.map((item) => [item.id, item]));
   const attendanceStatusByUserId = new Map(match.attendance.map((item) => [item.userId, item.responseStatus]));
   const skipAutosaveRef = useRef(true);
@@ -1611,7 +1607,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setPlayers(normalizeOperationalLineup(seededPlayers()));
     setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
-    setEvents(recoveredEvents.map((event) => ({ userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
+    setEvents(recoveredEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
     setClockSeconds(match.status === 'RUNNING' && match.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000)) : match.draftClockSeconds ?? 0);
     setClockRunning(match.status === 'RUNNING' || Boolean(match.draftClockRunning));
     setClockFrozen(false);
@@ -1623,10 +1619,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setDropTargetId('');
     setPitchDrag(null);
     setPitchPreview({});
-    setGuestModalOpen(false);
-    setGuestName('');
-    setGuestPosition('MC');
-    setGuestTeam('A');
     skipAutosaveRef.current = true;
     appliedAutoSwapMinutesRef.current = { A: [], B: [] };
     manualSwapOverrideRef.current = { A: false, B: false };
@@ -1901,45 +1893,42 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const eventMinute = Math.max(0, Math.floor(clockSeconds / 60));
     const eventTeam = player.team === 'A' ? 'A' : 'B';
     const relatedUserId = eventType === 'GOL' ? startersForTeam(eventTeam).find((candidate) => candidate.userId !== player.userId && candidate.roleInMatch !== 'GOLEIRO')?.userId ?? null : null;
-    setEvents((list) => [...list, { userId: player.userId, relatedUserId, eventType, minute: eventMinute, team: eventTeam, occurredAt: new Date().toISOString() }]);
+    const createdAt = new Date().toISOString();
+    const eventId = window.crypto?.randomUUID?.() ?? `${createdAt}-${Math.random().toString(16).slice(2, 10)}`;
+    setEvents((list) => [...list, { id: eventId, userId: player.userId, relatedUserId, eventType, minute: eventMinute, team: eventTeam, occurredAt: createdAt, createdAt }]);
     scoreForPreview(eventType, eventTeam);
     setSheetMessage(`${eventLabel(eventType)} lançado para ${player.name}.`);
   }
 
-  function canSwapPlayers(firstPlayer: MatchDetail['players'][number] | undefined, secondPlayer: MatchDetail['players'][number] | undefined) {
-    return Boolean(firstPlayer && secondPlayer && firstPlayer.userId !== secondPlayer.userId && firstPlayer.team !== 'PRESENTE_SEM_JOGAR' && secondPlayer.team !== 'PRESENTE_SEM_JOGAR' && ((firstPlayer.team === secondPlayer.team && firstPlayer.startsOnBench !== secondPlayer.startsOnBench) || firstPlayer.team !== secondPlayer.team));
+  function recalculateScoreFromEvents(nextEvents: MatchEventDraft[]) {
+    return nextEvents.reduce((scores, item) => {
+      if (item.team !== 'A' && item.team !== 'B') return scores;
+      if (item.eventType === 'GOL') {
+        if (item.team === 'A') scores.teamA += 1;
+        if (item.team === 'B') scores.teamB += 1;
+      }
+      if (item.eventType === 'GOL_CONTRA') {
+        if (item.team === 'A') scores.teamB += 1;
+        if (item.team === 'B') scores.teamA += 1;
+      }
+      return scores;
+    }, { teamA: 0, teamB: 0 });
   }
 
-  function addGuestPlayer() {
-    const normalizedName = guestName.trim().replace(/\s+/g, ' ');
-    if (!normalizedName) {
-      setSheetMessage('Informe o nome do convidado antes de adicionar na súmula.');
-      return;
-    }
-    const guestId = `guest:${window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`}`;
-    boardDirtyRef.current = true;
-    setPlayers((current) => normalizeOperationalLineup([
-      ...current,
-      {
-        userId: guestId,
-        name: normalizedName,
-        team: guestTeam,
-        roleInMatch: guestPosition === 'GO' ? 'GOLEIRO' : 'LINHA',
-        drawOrder: current.length + 1,
-        rotationOrder: null,
-        startsOnBench: true,
-        present: true,
-        position: guestPosition,
-        isGuest: true,
-        fieldLeft: null,
-        fieldTop: null,
-        avatarDataUrl: null
-      }
-    ]));
-    setGuestName('');
-    setGuestPosition('MC');
-    setGuestModalOpen(false);
-    setSheetMessage(`${normalizedName} entrou como convidado temporário no time ${guestTeam}.`);
+  function removeLoggedEvent(eventId: string) {
+    const target = events.find((item) => item.id === eventId);
+    if (!target) return;
+    const nextEvents = events.filter((item) => item.id !== eventId);
+    const recalculated = recalculateScoreFromEvents(nextEvents);
+    setEvents(nextEvents);
+    setTeamAScore(recalculated.teamA);
+    setTeamBScore(recalculated.teamB);
+    setSheetMessage(`${eventLabel(target.eventType)} removido do log da súmula.`);
+    addActivityLog(`Marcação removida: ${eventLabel(target.eventType)} de ${players.find((player) => player.userId === target.userId)?.name ?? 'atleta'}.`);
+  }
+
+  function canSwapPlayers(firstPlayer: MatchDetail['players'][number] | undefined, secondPlayer: MatchDetail['players'][number] | undefined) {
+    return Boolean(firstPlayer && secondPlayer && firstPlayer.userId !== secondPlayer.userId && firstPlayer.team !== 'PRESENTE_SEM_JOGAR' && secondPlayer.team !== 'PRESENTE_SEM_JOGAR' && ((firstPlayer.team === secondPlayer.team && firstPlayer.startsOnBench !== secondPlayer.startsOnBench) || firstPlayer.team !== secondPlayer.team));
   }
 
   function removeGuestPlayer(playerId: string) {
@@ -2173,7 +2162,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <small>{rosterSubtitle(player)}</small>
         </div>
         <div className="ops-roster-actions">
-          {player.isGuest && canRepositionPlayers && <button type="button" className="ghost small" title="Remover convidado" onClick={(event) => { event.stopPropagation(); removeGuestPlayer(player.userId); }}>Remover</button>}
+          {player.isGuest && match.status === 'DRAFT' && !gameStarted && canRepositionPlayers && <button type="button" className="ghost small" title="Remover convidado" onClick={(event) => { event.stopPropagation(); removeGuestPlayer(player.userId); }}>Remover</button>}
           <button type="button" className="ops-icon-card is-yellow" title={canRegisterEvents ? 'Cartão amarelo' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
           <button type="button" className="ops-icon-card is-red" title={canRegisterEvents ? 'Cartão vermelho' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>🟥</button>
           <button type="button" className="ops-icon-card is-goal" title={canRegisterEvents ? 'Gol' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
@@ -2184,13 +2173,12 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }
 
   const clockLabel = `${String(Math.floor(clockSeconds / 60)).padStart(2, '0')}:${String(clockSeconds % 60).padStart(2, '0')}`;
-  const canManageGuests = match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const summaryLines = [
     ...events.map((item, index) => {
       const timeValue = item.occurredAt ?? item.createdAt ? new Date(item.occurredAt ?? item.createdAt ?? '').getTime() : item.minute * 60000;
-      return { id: `event-${item.userId}-${item.eventType}-${index}`, sortTime: timeValue, timeLabel: summaryTime(item), detail: summaryText(item).split(' - ').slice(1).join(' - ') };
+      return { id: item.id ?? `event-${item.userId}-${item.eventType}-${index}`, eventId: item.id ?? `event-${item.userId}-${item.eventType}-${index}`, kind: 'event' as const, sortTime: timeValue, timeLabel: summaryTime(item), detail: summaryText(item).split(' - ').slice(1).join(' - ') };
     }),
-    ...activityLog.map((item) => ({ id: item.id, sortTime: new Date(item.createdAt).getTime(), timeLabel: formatBrasiliaClock(item.createdAt), detail: item.message }))
+    ...activityLog.map((item) => ({ id: item.id, kind: 'activity' as const, sortTime: new Date(item.createdAt).getTime(), timeLabel: formatBrasiliaClock(item.createdAt), detail: item.message }))
   ].sort((left, right) => left.sortTime - right.sortTime);
   return (
     <div className="sheet-preview-board">
@@ -2235,11 +2223,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
                 </div>
                 <small>{sheetMessage}</small>
               </div>
-              <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small></span>)}</div>
+              <div className="event-log ops-event-log">{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small>{item.kind === 'event' && match.status !== 'CONFIRMED' && <button type="button" className="ghost small sheet-log-remove-button" onClick={() => removeLoggedEvent(item.eventId)}>Excluir</button>}</span>)}</div>
               <div className="sheet-footer-actions">
                 {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
                 {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}
-                {canManageGuests && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => setGuestModalOpen(true)}>Suplente convidado</button>}
               </div>
             </section>
           </div>
@@ -2253,44 +2240,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <div className="ops-roster-list reserve-list">{reservesForTeam('B').length ? reservesForTeam('B').map((player, index) => rosterRow(player, index, true)) : <small className="muted">Sem reservas definidos.</small>}</div>
         </section>
       </div>
-
-      {guestModalOpen && canManageGuests && <div className="modal match-modal sheet-guest-modal" onClick={() => setGuestModalOpen(false)}>
-        <section className="modal-card sheet-guest-modal-card" onClick={(event) => event.stopPropagation()}>
-          <div className="card-head">
-            <div>
-              <h2>Suplente convidado</h2>
-              <p className="muted">Adicione um convidado só para esta súmula.</p>
-            </div>
-            <button type="button" className="ghost modal-close-button" aria-label="Fechar modal de convidado" title="Fechar" onClick={() => setGuestModalOpen(false)}>X</button>
-          </div>
-          <div className="sheet-guest-card">
-            <div className="sheet-guest-headline">
-              <strong>Dados do convidado</strong>
-              <small>Ele entra no time escolhido sem criar cadastro permanente.</small>
-            </div>
-            <div className="sheet-guest-grid">
-              <label className="field-shell">
-                <span>Nome</span>
-                <input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do convidado" maxLength={120} />
-              </label>
-              <label className="field-shell">
-                <span>Posição</span>
-                <select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>
-                  {athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <label className="field-shell">
-                <span>Time inicial</span>
-                <select value={guestTeam} onChange={(event) => setGuestTeam(event.target.value as 'A' | 'B')}>
-                  <option value="A">{match.teamAName}</option>
-                  <option value="B">{match.teamBName}</option>
-                </select>
-              </label>
-              <button type="button" className="primary sheet-guest-add-button" onClick={addGuestPlayer}>Adicionar convidado</button>
-            </div>
-          </div>
-        </section>
-      </div>}
     </div>
   );
 }
@@ -3488,6 +3437,8 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
   const [query, setQuery] = useState('');
   const [players, setPlayers] = useState<MatchDraftPlayer[]>([]);
   const [draggedUserId, setDraggedUserId] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
 
   const assignedIds = new Set(players.map((player) => player.userId));
   const search = query.trim().toLowerCase();
@@ -3507,6 +3458,9 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
     const currentTeamB = list.filter((player) => player.team === 'B');
     return list.map((player) => ({
       userId: player.userId,
+      name: player.name,
+      position: player.position,
+      isGuest: player.isGuest === true,
       team: player.team,
       roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch,
       drawOrder: player.drawOrder ? Number(player.drawOrder) : null,
@@ -3549,6 +3503,30 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
     const position = user.position ?? 'MC';
     setPlayers((list) => [...list, { userId: user.id, name: user.name, email: user.email, position, team: 'PRESENTE_SEM_JOGAR', roleInMatch: 'PRESENTE_SEM_JOGAR', drawOrder: String(list.length + 1), startsOnBench: false, present: true }]);
     setQuery('');
+  }
+
+  function addGuestParticipant() {
+    const normalizedName = guestName.trim().replace(/\s+/g, ' ');
+    if (normalizedName.length < 2) {
+      setSaveStatus('Informe o nome do suplente convidado antes de incluir no sorteio.');
+      return;
+    }
+    const guestId = `guest:${window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`}`;
+    setPlayers((list) => [...list, {
+      userId: guestId,
+      name: normalizedName,
+      email: '',
+      position: guestPosition,
+      team: 'PRESENTE_SEM_JOGAR',
+      roleInMatch: 'PRESENTE_SEM_JOGAR',
+      drawOrder: String(list.length + 1),
+      startsOnBench: false,
+      present: true,
+      isGuest: true
+    }]);
+    setGuestName('');
+    setGuestPosition('MC');
+    setSaveStatus(`${normalizedName} foi incluído no pré-sorteio e agora entra no balanceamento por posição.`);
   }
 
   function balanceTeamsByPosition() {
@@ -3726,7 +3704,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
               <div className="draw-sheet-copy">
                 <span className="eyebrow">Súmula Inteligente</span>
                 <h2>Montar Jogo (Presença & Sorteio)</h2>
-                <p className="muted">Inclua somente quem vai participar do jogo. A divisão em {teamAName} e {teamBName} é automática, aleatória e balanceada pelas posições oficiais.</p>
+                <p className="muted">Inclua atletas e convidados que realmente participarão do jogo. A divisão em {teamAName} e {teamBName} é automática, aleatória e balanceada pelas posições oficiais.</p>
               </div>
               <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }}>X</button>
             </div>
@@ -3874,6 +3852,26 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                     </div>
                   )}
 
+                  <div className="draw-guest-builder">
+                    <div className="draw-guest-head">
+                      <strong>Suplente convidado</strong>
+                      <small>Cadastre o convidado antes do sorteio. A posição definida aqui entra no mesmo balanceamento dos atletas fixos.</small>
+                    </div>
+                    <div className="draw-guest-grid">
+                      <label className="field-shell">
+                        <span>Nome</span>
+                        <input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do convidado" maxLength={120} />
+                      </label>
+                      <label className="field-shell">
+                        <span>Posição obrigatória</span>
+                        <select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>
+                          {athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                      <button type="button" className="ghost draw-guest-add-button" onClick={addGuestParticipant} disabled={guestName.trim().length < 2}>Adicionar convidado</button>
+                    </div>
+                  </div>
+
                   <div className="draw-action-callout">
                     <strong>{drawTitle}</strong>
                     <small>{drawStatus}</small>
@@ -3887,8 +3885,11 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
                     <div className="draw-selected-list">
                       {rosterRows.map((player) => (
                         <div className={`draw-selected-player draw-selected-line ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
-                          <span className="draw-selected-name">{player.name.trim().split(/\s+/)[0] ?? player.name}</span>
-                          <span className="draw-selected-position">{positionLabel(player.position)}</span>
+                          <div className="draw-selected-meta">
+                            <span className="draw-selected-name">{player.name.trim().split(/\s+/)[0] ?? player.name}</span>
+                            <span className="draw-selected-position">{positionLabel(player.position)}</span>
+                          </div>
+                          <span className={`draw-selected-badge ${player.isGuest ? 'is-guest' : ''}`}>{player.isGuest ? 'Convidado' : 'Atleta'}</span>
                           <button type="button" className="ghost draw-inline-remove" aria-label={`Remover ${player.name}`} title="Remover" onClick={() => removePlayer(player.userId)}>X</button>
                         </div>
                       ))}
@@ -4091,6 +4092,15 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     return 'Pendente';
   }
 
+  function paymentHasOpenBalance(payment: PaymentRecord) {
+    return (payment.balanceCents ?? Math.max(payment.amountCents - (payment.paidAmountCents ?? 0), 0)) > 0 && payment.status !== 'WAIVED';
+  }
+
+  function paymentIsLateRecord(payment: PaymentRecord, todayKey: string) {
+    const dueKey = payment.dueDate?.slice(0, 10) ?? `${payment.referenceMonth.slice(0, 7)}-01`;
+    return paymentHasOpenBalance(payment) && dueKey < todayKey;
+  }
+
   function toggleSelectedUser(id: string) {
     setSelectedUserIds((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
   }
@@ -4194,7 +4204,6 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   const paymentGroups = useMemo(() => {
     const today = new Date();
     const todayKey = today.toISOString().slice(0, 10);
-    const currentMonthKey = today.toISOString().slice(0, 7);
     const groupsMap = new Map<string, { key: string; userId?: string; userName: string; payments: PaymentRecord[] }>();
     const historyGroupsMap = new Map<string, PaymentRecord[]>();
     organizedPaymentHistory.forEach((payment) => {
@@ -4224,34 +4233,29 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
           const referenceMonthKey = payment.referenceMonth.slice(0, 7);
           if (!paymentsByMonth.has(referenceMonthKey)) paymentsByMonth.set(referenceMonthKey, payment);
         });
-      const reversedPayments = [...group.payments].sort((left, right) => paymentTimelineKey(right).localeCompare(paymentTimelineKey(left)));
-      const matchingPayments = group.payments.slice()
-        .sort((left, right) => left.referenceMonth.localeCompare(right.referenceMonth) || (left.dueDate ?? '').localeCompare(right.dueDate ?? ''))
-        .filter((paymentMatchesFilters))
-        .filter((payment, index, list) => index === 0 || list[index - 1].referenceMonth !== payment.referenceMonth);
-      if (!matchingPayments.length) return null;
-      const primaryPayment = matchingPayments.find((payment) => payment.referenceMonth.slice(0, 7) === currentMonthKey)
-        ?? matchingPayments.find((payment) => paymentTimelineKey(payment) >= todayKey)
-        ?? matchingPayments[matchingPayments.length - 1];
-      const primaryReferenceMonth = primaryPayment.referenceMonth.slice(0, 7);
-      const upcomingDetailPayments = [1, 2, 3]
-        .map((offset) => paymentsByMonth.get(shiftReferenceMonth(primaryReferenceMonth, offset).slice(0, 7)))
-        .filter((payment): payment is PaymentRecord => Boolean(payment));
-      const previousDetailPayments = [1, 2, 3, 4, 5, 6]
-        .map((offset) => paymentsByMonth.get(shiftReferenceMonth(primaryReferenceMonth, -offset).slice(0, 7)))
-        .filter((payment): payment is PaymentRecord => Boolean(payment));
-      const detailPayments: PaymentRecord[] = [...upcomingDetailPayments, ...previousDetailPayments];
+      const historyPayments = [...paymentsByMonth.values()].sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
+      const openPayments = historyPayments.filter((payment) => paymentHasOpenBalance(payment)).sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
+      const paidPayments = historyPayments.filter((payment) => (payment.paidAmountCents ?? 0) > 0).sort((left, right) => {
+        const leftKey = `${left.paidAt ?? left.referenceMonth}-${left.referenceMonth}`;
+        const rightKey = `${right.paidAt ?? right.referenceMonth}-${right.referenceMonth}`;
+        return rightKey.localeCompare(leftKey);
+      });
+      const nameFilter = normalizeTableFilterValue(paymentFilters.name);
+      if (nameFilter && !normalizeTableFilterValue(group.userName).includes(nameFilter)) return null;
       return {
         key: group.key,
         userId: group.userId,
         userName: group.userName,
-        payments: reversedPayments,
-        matchingPayments,
-        primaryPayment,
-        detailPayments
+        payments: historyPayments,
+        openPayments,
+        totalOpenCents: openPayments.reduce((sum, payment) => sum + (payment.balanceCents ?? 0), 0),
+        totalPaidCents: historyPayments.reduce((sum, payment) => sum + (payment.paidAmountCents ?? 0), 0),
+        lastPaidPayment: paidPayments[0] ?? null,
+        nextOpenPayment: openPayments[0] ?? null,
+        latePaymentsCount: openPayments.filter((payment) => paymentIsLateRecord(payment, todayKey)).length
       };
     }).filter((group): group is PaymentAthleteGroup => group !== null).sort((left, right) => left.userName.localeCompare(right.userName, 'pt-BR', { sensitivity: 'base' }));
-  }, [organizedPayments, organizedPaymentHistory, paymentFilters]);
+  }, [organizedPayments, organizedPaymentHistory, paymentFilters.name]);
 
   useEffect(() => {
     if (expandedPaymentGroupKey && !paymentGroups.some((group) => group.key === expandedPaymentGroupKey)) setExpandedPaymentGroupKey(null);
@@ -4283,12 +4287,12 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
           <h2>Mensalidades</h2>
           <p className="muted">Acompanhamento financeiro da temporada com ações operacionais em modal.</p>
         </div>
-        {canCoordinate && <div className="actions panel-actions"><button className="primary small" onClick={() => setPaymentModal('generate')}>Gerar mensalidades</button><button className="ghost" onClick={() => openRegister()}>Registrar pagamento</button><button className="ghost" onClick={() => setPaymentModal('cash')}>Lançar caixa</button>{filteredPayments.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-mensalidades.csv', filteredPayments.map((payment) => ({ atleta: payment.userName ?? 'Minha mensalidade', mes: paymentMonthLabel(payment.referenceMonth), vencimento: formatDateOnly(payment.dueDate, ''), pagoEm: formatDateOnly(payment.paidAt, ''), valor: (payment.amountCents / 100).toFixed(2), pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2), saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2), status: payment.status, pontoAntecipado: payment.earnsPoint, observacao: payment.notes ?? '' })))}>Exportar mensalidades</button>}{filteredCashEntries.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-caixa.csv', filteredCashEntries.map((entry) => ({ data: formatDateOnly(entry.entryDate, ''), tipo: entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa', descricao: entry.description, valor: (entry.amountCents / 100).toFixed(2), origem: entry.paymentId ? 'Mensalidade' : 'Manual', responsavel: entry.recordedByName ?? '' })))}>Exportar caixa</button>}</div>}
+        {canCoordinate && <div className="actions panel-actions"><button className="primary small" onClick={() => setPaymentModal('generate')}>Gerar mensalidades</button><button className="ghost" onClick={() => setPaymentModal('cash')}>Lançar caixa</button>{filteredPayments.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-mensalidades.csv', filteredPayments.map((payment) => ({ atleta: payment.userName ?? 'Minha mensalidade', mes: paymentMonthLabel(payment.referenceMonth), vencimento: formatDateOnly(payment.dueDate, ''), pagoEm: formatDateOnly(payment.paidAt, ''), valor: (payment.amountCents / 100).toFixed(2), pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2), saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2), status: payment.status, pontoAntecipado: payment.earnsPoint, observacao: payment.notes ?? '' })))}>Exportar mensalidades</button>}{filteredCashEntries.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-caixa.csv', filteredCashEntries.map((entry) => ({ data: formatDateOnly(entry.entryDate, ''), tipo: entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa', descricao: entry.description, valor: (entry.amountCents / 100).toFixed(2), origem: entry.paymentId ? 'Mensalidade' : 'Manual', responsavel: entry.recordedByName ?? '' })))}>Exportar caixa</button>}</div>}
       </div>
       {canCoordinate && (summary || cashSummary) && <div className="stat-grid payments-overview-strip">{summary && <><span><b>R$ {(summary.paidCents / 100).toFixed(2)}</b> recebido</span><span><b>R$ {(summary.openCents / 100).toFixed(2)}</b> aberto</span><span><b>{summary.pending}</b> pendente(s)</span><span><b>{summary.late}</b> atraso(s)</span><span><b>{summary.earlyPoints}</b> ponto(s) antecipados</span></>}{cashSummary && <><span><b>{money(cashSummary.revenueCents)}</b> receitas</span><span><b>{money(cashSummary.expenseCents)}</b> despesas</span><span><b>{money(cashSummary.balanceCents)}</b> saldo caixa</span></>}</div>}
       {!canCoordinate && <p className="muted">Você visualiza apenas sua mensalidade e se ela gerou ponto por pagamento antecipado.</p>}
       {message && <p className="muted">{message}</p>}
-      {organizedPayments.length === 0 ? <EmptyState title="Sem mensalidades lançadas" text="Gere o mês ou registre uma cobrança individual para começar a acompanhar a tabela financeira." /> : <div className="championship-wrap payments-table-wrap"><table className="championship-table payments-table payments-group-table"><thead><tr><th>{renderFilterHeader('Nome', 'payments-name', paymentFilters.name, paymentFilterOptions('name'), (value) => setPaymentFilters((current) => ({ ...current, name: value })), () => setPaymentFilters((current) => ({ ...current, name: '' })), 'Pesquisar nomes')}</th><th>{renderFilterHeader('Mês', 'payments-month', paymentFilters.month, paymentFilterOptions('month'), (value) => setPaymentFilters((current) => ({ ...current, month: value })), () => setPaymentFilters((current) => ({ ...current, month: '' })), 'Pesquisar mês')}</th><th>{renderFilterHeader('Vencimento', 'payments-dueDate', paymentFilters.dueDate, paymentFilterOptions('dueDate'), (value) => setPaymentFilters((current) => ({ ...current, dueDate: value })), () => setPaymentFilters((current) => ({ ...current, dueDate: '' })), 'Pesquisar vencimento')}</th><th>{renderFilterHeader('Valor', 'payments-amount', paymentFilters.amount, paymentFilterOptions('amount'), (value) => setPaymentFilters((current) => ({ ...current, amount: value })), () => setPaymentFilters((current) => ({ ...current, amount: '' })), 'Pesquisar valor')}</th><th>{renderFilterHeader('Pago', 'payments-paid', paymentFilters.paid, paymentFilterOptions('paid'), (value) => setPaymentFilters((current) => ({ ...current, paid: value })), () => setPaymentFilters((current) => ({ ...current, paid: '' })), 'Pesquisar valor pago')}</th><th>{renderFilterHeader('Pendente', 'payments-balance', paymentFilters.balance, paymentFilterOptions('balance'), (value) => setPaymentFilters((current) => ({ ...current, balance: value })), () => setPaymentFilters((current) => ({ ...current, balance: '' })), 'Pesquisar saldo')}</th><th>{renderFilterHeader('Status', 'payments-status', paymentFilters.status, paymentFilterOptions('status'), (value) => setPaymentFilters((current) => ({ ...current, status: value })), () => setPaymentFilters((current) => ({ ...current, status: '' })), 'Pesquisar status')}</th><th>{renderFilterHeader('Pago em', 'payments-paidAt', paymentFilters.paidAt, paymentFilterOptions('paidAt'), (value) => setPaymentFilters((current) => ({ ...current, paidAt: value })), () => setPaymentFilters((current) => ({ ...current, paidAt: '' })), 'Pesquisar data')}</th><th>{renderFilterHeader('Ponto', 'payments-point', paymentFilters.point, paymentFilterOptions('point'), (value) => setPaymentFilters((current) => ({ ...current, point: value })), () => setPaymentFilters((current) => ({ ...current, point: '' })), 'Pesquisar pontuação')}</th><th>{renderFilterHeader('Observação', 'payments-notes', paymentFilters.notes, paymentFilterOptions('notes'), (value) => setPaymentFilters((current) => ({ ...current, notes: value })), () => setPaymentFilters((current) => ({ ...current, notes: '' })), 'Pesquisar observação')}</th>{canCoordinate && <th>Ação</th>}</tr></thead><tbody>{paymentGroups.length === 0 ? <tr><td colSpan={canCoordinate ? 11 : 10} className="table-empty-cell">Nenhuma mensalidade encontrada com os filtros atuais.</td></tr> : paymentGroups.map((group) => <Fragment key={group.key}><tr className={expandedPaymentGroupKey === group.key ? 'payments-group-row is-open' : 'payments-group-row'} onClick={() => setExpandedPaymentGroupKey((current) => current === group.key ? null : group.key)}><td className="athlete-cell payments-name-cell"><strong>{group.userName}</strong><small>{group.payments.length} mensalidade(s) registradas{group.matchingPayments.length !== group.payments.length ? ` • ${group.matchingPayments.length} no filtro` : ''}</small></td><td>{paymentMonthLabel(group.primaryPayment.referenceMonth)}</td><td>{formatDateOnly(group.primaryPayment.dueDate, '-')}</td><td>{money(group.primaryPayment.amountCents)}</td><td>{money(group.primaryPayment.paidAmountCents ?? 0)}</td><td className="payments-balance-cell">{money(group.primaryPayment.balanceCents ?? 0)}</td><td><span className={`status ${paymentStatusTone(group.primaryPayment.status)}`}>{statusLabel(group.primaryPayment.status)}</span></td><td>{formatDateOnly(group.primaryPayment.paidAt, 'Nao informado')}</td><td>{group.primaryPayment.earnsPoint ? <span className="status open">+1 pt</span> : <span className="payments-muted">Sem ponto</span>}</td><td className="payments-notes-cell">{group.primaryPayment.notes?.trim() ? group.primaryPayment.notes : <span className="payments-muted">-</span>}</td>{canCoordinate && <td className="payments-action-cell"><button type="button" className="ghost small" onClick={(event) => { event.stopPropagation(); openRegister(group.primaryPayment); }}>{(group.primaryPayment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar'}</button></td>}</tr>{expandedPaymentGroupKey === group.key && <tr className="payments-group-detail-row"><td colSpan={canCoordinate ? 11 : 10}><div className="payments-subtable-wrap">{group.detailPayments.length === 0 ? <p className="payments-muted">Não há outras mensalidades para mostrar além da linha principal.</p> : <table className="championship-table payments-table payments-subtable"><thead><tr><th>Mês</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Pendente</th><th>Status</th><th>Pago em</th><th>Ponto</th><th>Observação</th>{canCoordinate && <th>Ação</th>}</tr></thead><tbody>{group.detailPayments.map((payment) => <tr key={`${group.key}-${payment.id ?? payment.referenceMonth}-${payment.dueDate ?? 'sem-vencimento'}`}><td>{paymentMonthLabel(payment.referenceMonth)}</td><td>{formatDateOnly(payment.dueDate, '-')}</td><td>{money(payment.amountCents)}</td><td>{money(payment.paidAmountCents ?? 0)}</td><td className="payments-balance-cell">{money(payment.balanceCents ?? 0)}</td><td><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></td><td>{formatDateOnly(payment.paidAt, 'Nao informado')}</td><td>{payment.earnsPoint ? <span className="status open">+1 pt</span> : <span className="payments-muted">Sem ponto</span>}</td><td className="payments-notes-cell">{payment.notes?.trim() ? payment.notes : <span className="payments-muted">-</span>}</td>{canCoordinate && <td className="payments-action-cell"><button type="button" className="ghost small" onClick={() => openRegister(payment)}>{(payment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar'}</button></td>}</tr>)}</tbody></table>}</div></td></tr>}</Fragment>)}</tbody></table></div>}
+      {organizedPayments.length === 0 ? <EmptyState title="Sem mensalidades lançadas" text="Gere o mês ou registre uma cobrança individual para começar a acompanhar a tabela financeira." /> : <div className="championship-wrap payments-table-wrap"><table className="championship-table payments-table payments-group-table payments-summary-table"><thead><tr><th>{renderFilterHeader('Atleta', 'payments-name', paymentFilters.name, paymentFilterOptions('name'), (value) => setPaymentFilters((current) => ({ ...current, name: value })), () => setPaymentFilters((current) => ({ ...current, name: '' })), 'Pesquisar atleta')}</th><th>Inadimplência total</th><th>Total pago</th><th>Último mês pago</th><th>Próximo mês em aberto</th><th>Meses em atraso</th></tr></thead><tbody>{paymentGroups.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhum atleta encontrado com os filtros atuais.</td></tr> : paymentGroups.map((group) => <Fragment key={group.key}><tr className={expandedPaymentGroupKey === group.key ? 'payments-group-row is-open' : 'payments-group-row'} onClick={() => setExpandedPaymentGroupKey((current) => current === group.key ? null : group.key)}><td className="athlete-cell payments-name-cell payments-athlete-cell"><strong>{group.userName}</strong><small>{group.payments.length} mensalidade(s) no histórico • {group.openPayments.length} em aberto</small></td><td className="payments-summary-cell payments-balance-cell">{money(group.totalOpenCents)}</td><td className="payments-summary-cell">{money(group.totalPaidCents)}</td><td className="payments-summary-cell">{group.lastPaidPayment ? paymentMonthLabel(group.lastPaidPayment.referenceMonth) : <span className="payments-muted">Sem pagamento</span>}</td><td className="payments-summary-cell">{group.nextOpenPayment ? paymentMonthLabel(group.nextOpenPayment.referenceMonth) : <span className="payments-muted">Sem aberto</span>}</td><td className="payments-summary-cell">{group.latePaymentsCount > 0 ? <span className="status danger">{group.latePaymentsCount} atraso(s)</span> : <span className="status open">Em dia</span>}</td></tr>{expandedPaymentGroupKey === group.key && <tr className="payments-group-detail-row"><td colSpan={6}><div className="payments-subtable-wrap"><div className="payments-subtable-head"><strong>Mensalidades abertas do atleta</strong><span>{group.openPayments.length} registro(s) com saldo pendente</span></div>{group.openPayments.length === 0 ? <p className="payments-muted">Este atleta não possui mensalidades abertas ou atrasadas no momento.</p> : <table className="championship-table payments-table payments-subtable"><thead><tr><th>Mês</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Pendente</th><th>Status</th><th>Observação</th>{canCoordinate && <th>Ação</th>}</tr></thead><tbody>{group.openPayments.map((payment) => <tr key={`${group.key}-${payment.id ?? payment.referenceMonth}-${payment.dueDate ?? 'sem-vencimento'}`}><td>{paymentMonthLabel(payment.referenceMonth)}</td><td>{formatDateOnly(payment.dueDate, '-')}</td><td>{money(payment.amountCents)}</td><td>{money(payment.paidAmountCents ?? 0)}</td><td className="payments-balance-cell">{money(payment.balanceCents ?? 0)}</td><td><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></td><td className="payments-notes-cell">{payment.notes?.trim() ? payment.notes : <span className="payments-muted">-</span>}</td>{canCoordinate && <td className="payments-action-cell"><button type="button" className="ghost small" onClick={() => openRegister(payment)}>{(payment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar'}</button></td>}</tr>)}</tbody></table>}</div></td></tr>}</Fragment>)}</tbody></table></div>}
       {canCoordinate && <section className="cash-ledger"><div className="card-head"><div><h2>Caixa do grupo</h2><p className="muted">Prestação de contas simples: receitas e despesas com data, descrição e valor.</p></div><span className="status open">{filteredCashEntries.length} de {organizedCashEntries.length} lançamento(s)</span></div>{organizedCashEntries.length === 0 ? <EmptyState title="Caixa sem lançamentos" text="Pagamentos de mensalidade entram automaticamente como receita. Despesas podem ser lançadas manualmente." /> : <div className="championship-wrap cash-table-wrap"><table className="championship-table cash-table"><thead><tr><th>{renderFilterHeader('Data', 'cash-date', cashFilters.date, cashFilterOptions('date'), (value) => setCashFilters((current) => ({ ...current, date: value })), () => setCashFilters((current) => ({ ...current, date: '' })), 'Pesquisar data')}</th><th>{renderFilterHeader('Tipo', 'cash-type', cashFilters.type, cashFilterOptions('type'), (value) => setCashFilters((current) => ({ ...current, type: value })), () => setCashFilters((current) => ({ ...current, type: '' })), 'Pesquisar tipo')}</th><th>{renderFilterHeader('Descrição', 'cash-description', cashFilters.description, cashFilterOptions('description'), (value) => setCashFilters((current) => ({ ...current, description: value })), () => setCashFilters((current) => ({ ...current, description: '' })), 'Pesquisar descrição')}</th><th>{renderFilterHeader('Origem', 'cash-origin', cashFilters.origin, cashFilterOptions('origin'), (value) => setCashFilters((current) => ({ ...current, origin: value })), () => setCashFilters((current) => ({ ...current, origin: '' })), 'Pesquisar origem')}</th><th>{renderFilterHeader('Responsável', 'cash-recordedBy', cashFilters.recordedBy, cashFilterOptions('recordedBy'), (value) => setCashFilters((current) => ({ ...current, recordedBy: value })), () => setCashFilters((current) => ({ ...current, recordedBy: '' })), 'Pesquisar responsável')}</th><th>{renderFilterHeader('Valor', 'cash-amount', cashFilters.amount, cashFilterOptions('amount'), (value) => setCashFilters((current) => ({ ...current, amount: value })), () => setCashFilters((current) => ({ ...current, amount: '' })), 'Pesquisar valor')}</th></tr></thead><tbody>{filteredCashEntries.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhum lançamento encontrado com os filtros atuais.</td></tr> : filteredCashEntries.map((entry) => <tr key={entry.id}><td>{formatDateOnly(entry.entryDate, '-')}</td><td><span className={`status ${entry.entryType === 'REVENUE' ? 'open' : 'danger'}`}>{entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa'}</span></td><td className="cash-description-cell"><strong>{entry.description}</strong></td><td>{entry.paymentId ? 'Mensalidade' : 'Manual'}</td><td>{entry.recordedByName?.trim() ? entry.recordedByName : <span className="payments-muted">-</span>}</td><td className={`cash-amount-cell ${entry.entryType === 'REVENUE' ? 'is-revenue' : 'is-expense'}`}>{entry.entryType === 'REVENUE' ? '+' : '-'} {money(entry.amountCents)}</td></tr>)}</tbody></table></div>}</section>}
       {paymentModal === 'generate' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void generateMonth().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao gerar mensalidades.')); }}><div className="card-head"><div><h2>Gerar mensalidades em lote</h2><p className="muted">Crie vários meses para todos os atletas ou para uma seleção específica.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Mês inicial</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Quantidade de meses</span><input type="number" min="1" max="24" value={monthCount} onChange={(event) => setMonthCount(Number(event.target.value))} /></label><label><span>Vencimento inicial</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Valor mensal</span><input value={bulkAmount} onChange={(event) => setBulkAmount(event.target.value)} placeholder="Ex. 120,00" /></label></div><div className="segmented"><button type="button" className={generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(true)}>Todos os atletas</button><button type="button" className={!generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(false)}>Selecionar atletas</button></div>{!generateForAll && <div className="user-select-grid">{activeAthletes.map((user) => <label className="payment-user-option" key={user.id}><input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleSelectedUser(user.id)} /> <span>{user.name}</span></label>)}</div>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação opcional" /><div className="payment-preview"><span><b>{generateForAll ? activeAthletes.length : selectedUserIds.length}</b><small>atleta(s)</small></span><span><b>{monthCount}</b><small>mês(es)</small></span><span><b>{money(centsFromInput(bulkAmount || amount || '0') * monthCount * (generateForAll ? activeAthletes.length : selectedUserIds.length))}</b><small>volume gerado</small></span></div><button className="primary" disabled={!generateForAll && selectedUserIds.length === 0}>Gerar cobranças reais</button></form></div>}
       {paymentModal === 'register' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void save().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao registrar pagamento.')); }}><div className="card-head"><div><h2>Registrar pagamento</h2><p className="muted">Baixa total ou parcial. Só pagamento total antecipado gera ponto.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Atleta</span><select value={userId} onChange={(event) => setUserId(event.target.value)}>{activeAthletes.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label><label><span>Mês</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Vencimento</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Data da baixa</span><input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} /></label><label><span>Valor da mensalidade</span><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Valor individual" /></label>{status === 'PARTIAL' && <label><span>Valor recebido agora</span><input value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)} placeholder="Valor parcial" /></label>}</div><div className="segmented payment-mode"><button type="button" className={status === 'PAID' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PAID'); setFullPayment(true); }}>Pagamento total</button><button type="button" className={status === 'PARTIAL' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PARTIAL'); setFullPayment(false); }}>Pagamento parcial</button><button type="button" className={status === 'PENDING' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PENDING'); setFullPayment(false); }}>Pendente</button><button type="button" className={status === 'LATE' ? 'primary small' : 'ghost'} onClick={() => { setStatus('LATE'); setFullPayment(false); }}>Atrasado</button><button type="button" className={status === 'WAIVED' ? 'primary small' : 'ghost'} onClick={() => { setStatus('WAIVED'); setFullPayment(false); }}>Isento</button></div><div className="payment-preview"><span><b>{money(registerAmountCents)}</b><small>valor</small></span><span><b>{money(registerPaidCents)}</b><small>pago após baixa</small></span><span><b>{money(registerBalanceCents)}</b><small>saldo restante</small></span></div>{fullPayment && status === 'PAID' && <p className="muted">Se a data da baixa for antes do vencimento, o atleta recebe +1 ponto automaticamente.</p>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação" /><button className="primary">Salvar baixa</button></form></div>}

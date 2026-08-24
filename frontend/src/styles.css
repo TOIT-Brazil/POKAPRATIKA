@@ -423,17 +423,20 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .payments-group-table td { vertical-align: top; white-space: normal; }
 .payments-group-row { cursor: pointer; }
 .payments-group-row.is-open td { background: rgba(59,130,246,.06); }
+.payments-summary-table { min-width: 920px; }
 .payments-group-athlete-cell { min-width: 220px; text-align: left; }
 .payments-group-athlete-cell small { display: block; margin-top: 4px; color: var(--muted); }
 .payments-group-preview-cell { min-width: 240px; text-align: left; }
 .payments-group-summary-cell { min-width: 220px; text-align: left; }
 .payments-group-action-cell { min-width: 150px; text-align: left; }
+.payments-athlete-cell { min-width: 240px; }
+.payments-summary-cell { min-width: 130px; text-align: left; }
 .payments-expand-button { white-space: nowrap; }
 .payments-subtable-wrap { display: grid; gap: 10px; padding: 12px; }
 .payments-subtable-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .payments-subtable-head strong { color: #16332f; }
 .payments-subtable-head span { color: #587165; font-size: .74rem; font-weight: 800; }
-.payments-subtable { min-width: 980px; }
+.payments-subtable { min-width: 860px; }
 .payments-subtable th { position: static; }
 .payments-subtable td,
 .payments-subtable th { white-space: nowrap; }
@@ -725,6 +728,17 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-log-panel .event-log { max-height: 180px; }
 .sheet-log-panel .event-log b { color: #215a49; }
 .sheet-log-panel .event-log small { color: #31463c; }
+.sheet-log-panel .event-log span {
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+}
+
+.sheet-log-remove-button {
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: .65rem;
+  white-space: nowrap;
+}
 .sheet-footer-actions { display: grid; grid-template-columns: minmax(0, 320px); justify-content: center; gap: 10px; }
 .sheet-footer-actions > button { width: 100%; }
 .sheet-guest-trigger-button { min-height: 40px; border-radius: 14px; justify-content: center; }
@@ -2176,6 +2190,43 @@ textarea {
   gap: 6px;
 }
 
+.draw-guest-builder {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px dashed #d9d1c3;
+  background: #fffdfa;
+}
+
+.draw-guest-head {
+  display: grid;
+  gap: 2px;
+}
+
+.draw-guest-head strong {
+  color: #1b1b1b;
+  font-size: .8rem;
+}
+
+.draw-guest-head small {
+  color: #6b7280;
+  font-size: .71rem;
+  line-height: 1.4;
+}
+
+.draw-guest-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 150px auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.draw-guest-add-button {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
 .draw-search-results article {
   display: flex;
   align-items: center;
@@ -2273,11 +2324,37 @@ textarea {
   font-weight: 800;
 }
 
+.draw-selected-meta {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
 .draw-selected-position {
   color: #6b7280;
   font-size: .68rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.draw-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 0 8px;
+  min-height: 22px;
+  border-radius: 999px;
+  background: #eef3ef;
+  color: #50615a;
+  font-size: .62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.draw-selected-badge.is-guest {
+  background: rgba(255, 193, 7, .18);
+  color: #8a6500;
 }
 
 .draw-selected-line .draw-inline-remove {
@@ -2665,6 +2742,7 @@ textarea {
 
   .draw-date-row,
   .draw-recurring-grid,
+  .draw-guest-grid,
   .draw-result-player,
   .draw-selected-player,
   .draw-search-results article {
