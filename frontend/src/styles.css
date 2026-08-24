@@ -3404,24 +3404,48 @@ textarea {
 
 .finished-list-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(90px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 14px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
 }
 
 .finished-list-main,
-.finished-list-side {
+.finished-list-duel {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+}
+
+.finished-list-date {
+  font-size: .73rem;
+  font-weight: 800;
+  color: #56716b;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.finished-list-title {
+  color: #14322f;
+  font-size: .98rem;
+}
+
+.finished-list-duel {
+  justify-items: end;
+}
+
+.finished-list-teams {
+  color: #21413c;
+  font-size: .84rem;
+  text-align: right;
 }
 
 .finished-list-score {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   font-weight: 800;
   color: #10392f;
@@ -3430,10 +3454,6 @@ textarea {
 .finished-list-score b {
   font-size: 1.9rem;
   line-height: 1;
-}
-
-.finished-list-side {
-  justify-items: end;
 }
 
 .dashboard-standings-wrap {
@@ -3678,8 +3698,14 @@ textarea {
   }
 
   .next-match-side,
-  .finished-list-side {
+  .finished-list-duel {
     justify-items: start;
+  }
+
+  .finished-list-teams,
+  .finished-list-score {
+    text-align: left;
+    justify-content: flex-start;
   }
 
   .context-row,
