@@ -602,8 +602,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .ops-roster-head strong { color: #141414; font-size: 1.02rem; }
 .ops-roster-head span { color: #365346; font-size: .78rem; font-weight: 900; text-transform: uppercase; }
 .team-a-head strong, .team-b-head strong { font-size: 1.12rem; }
-.reserve-head { padding-top: 4px; }
-.ops-roster-list { display: grid; gap: 6px; }
+.reserve-head { padding-top: 2px; }
+.ops-roster-list { display: grid; gap: 5px; }
 .ops-roster-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 7px; border-radius: 13px; background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%); border: 1px solid #d6e2da; }
 .ops-roster-row.is-reserve { background: #f6f8f7; }
 .ops-roster-row.is-armed { border-color: rgba(22,163,74,.45); box-shadow: inset 0 0 0 1px rgba(22,163,74,.18); }
@@ -687,20 +687,20 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-crest-pair.small .sheet-crest { width: 30px; height: 38px; border-width: 2px; }
 .sheet-preview-arena { display: grid; grid-template-columns: minmax(280px, .86fr) minmax(640px, 1.6fr) minmax(280px, .86fr); gap: 10px; align-items: start; }
 .sheet-center-column { display: grid; gap: 10px; align-content: start; }
-.sheet-roster-panel { gap: 5px; padding: 10px; }
+.sheet-roster-panel { gap: 4px; padding: 8px 9px; margin-top: -34px; }
 .sheet-roster-panel .ops-roster-head { border-bottom: 0; padding-bottom: 0; }
 .sheet-panel-label { color: #141414; font-size: .92rem; font-weight: 950; text-transform: uppercase; }
-.sheet-roster-row { width: 100%; text-align: left; cursor: grab; padding: 6px; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 6px; user-select: none; }
+.sheet-roster-row { width: 100%; text-align: left; cursor: grab; padding: 5px; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 5px; user-select: none; }
 .sheet-roster-row.is-dragging { opacity: .62; transform: scale(.99); }
 .sheet-roster-row.is-drop-target { border-color: rgba(22,163,74,.55); box-shadow: inset 0 0 0 1px rgba(22,163,74,.22), 0 0 0 2px rgba(34,197,94,.1); background: linear-gradient(180deg, #f4fbf6 0%, #ebf7ef 100%); }
 .sheet-roster-row.is-pending { opacity: .52; filter: grayscale(.18); }
 .sheet-roster-row .ops-roster-actions button { cursor: pointer; }
-.sheet-roster-row .ops-roster-avatar { width: 38px; height: 38px; border-radius: 10px; }
-.sheet-roster-row .ops-roster-copy strong { font-size: .82rem; }
-.sheet-roster-row .ops-roster-copy small { font-size: .66rem; }
-.sheet-roster-row .ops-icon-card { width: 28px; min-width: 28px; height: 28px; }
+.sheet-roster-row .ops-roster-avatar { width: 34px; height: 34px; border-radius: 9px; }
+.sheet-roster-row .ops-roster-copy strong { font-size: .78rem; }
+.sheet-roster-row .ops-roster-copy small { font-size: .63rem; }
+.sheet-roster-row .ops-icon-card { width: 26px; min-width: 26px; height: 26px; }
 .sheet-pitch-panel { padding: 0; background: transparent; border: 0; box-shadow: none; }
-.sheet-pitch-surface { min-height: 410px; }
+.sheet-pitch-surface { min-height: 392px; }
 .sheet-pitch-surface .ops-pitch-player { cursor: grab; user-select: none; touch-action: none; will-change: left, top, transform; }
 .sheet-pitch-surface .ops-pitch-player.is-dragging { cursor: grabbing; z-index: 3; transform: translate(-50%, -50%) scale(1.05); }
 .ops-pitch-player.is-goalkeeper span { background: linear-gradient(180deg, #7ad6b5 0%, #399b77 100%); color: #083327; }

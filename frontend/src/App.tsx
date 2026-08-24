@@ -89,6 +89,15 @@ function clampValue(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+function toOptionalNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function clampPitchSlot(team: 'A' | 'B', left: number, top: number) {
   const minLeft = team === 'A' ? 8 : 44;
   const maxLeft = team === 'A' ? 56 : 92;
@@ -1459,8 +1468,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         present: player.present,
         position: player.position,
         isGuest: player.isGuest === true,
-        fieldLeft: player.fieldLeft ?? null,
-        fieldTop: player.fieldTop ?? null
+        fieldLeft: toOptionalNumber(player.fieldLeft),
+        fieldTop: toOptionalNumber(player.fieldTop)
       };
     });
   }
@@ -1906,10 +1915,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           isGuest: player.isGuest === true,
           team: player.team,
           roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch,
-          drawOrder: player.drawOrder ?? index + 1,
+          drawOrder: toOptionalNumber(player.drawOrder) ?? index + 1,
           rotationOrder: player.team === 'A' ? teamAPlayers.findIndex((item) => item.userId === player.userId) + 1 : player.team === 'B' ? teamBPlayers.findIndex((item) => item.userId === player.userId) + 1 : null,
-          fieldLeft: player.fieldLeft ?? null,
-          fieldTop: player.fieldTop ?? null,
+          fieldLeft: toOptionalNumber(player.fieldLeft),
+          fieldTop: toOptionalNumber(player.fieldTop),
           startsOnBench: player.startsOnBench,
           present: persistedPresenceForTeam(player.team)
         }))
