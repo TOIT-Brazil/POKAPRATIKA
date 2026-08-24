@@ -3125,10 +3125,6 @@ textarea {
   max-width: 100%;
   justify-self: center;
   column-gap: 4px;
-  padding: 6px 8px;
-  border-radius: 12px;
-  background: rgba(255,255,255,.06);
-  border-color: rgba(255,255,255,.12);
 }
 
 .next-scoreboard .team-name {

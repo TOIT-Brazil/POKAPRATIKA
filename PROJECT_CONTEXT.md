@@ -1,3 +1,4 @@
+- A moldura externa do placar na `Central dos jogos` foi removida, mantendo só o destaque do `score-pill` para liberar espaço horizontal aos nomes dos times.
 - O placar da `Central dos jogos` foi compactado para não ocupar largura fixa desnecessária; `Time A`, `0 x 0` e `Time B` agora ficam visualmente mais próximos dentro do hero principal.
 - A `Tabela da temporada` ativa na home ganhou um seletor de estatística no próprio card, permitindo reordenar a lista por vitórias, empates, derrotas, presenças, mensalidades, gols, assistências, cartões, saldos e aproveitamento sem sair da tela.
 - O `Radar da rodada` da `Central operacional` foi removido após revisão visual; a coluna superior deixou de forçar cards com a mesma altura, evitando o branco extra abaixo da `Central dos jogos`.
