@@ -704,8 +704,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-pitch-surface .ops-pitch-player { cursor: grab; user-select: none; touch-action: none; will-change: left, top, transform; }
 .sheet-pitch-surface .ops-pitch-player.is-dragging { cursor: grabbing; z-index: 3; transform: translate(-50%, -50%) scale(1.05); }
 .ops-pitch-player.is-goalkeeper span { background: linear-gradient(180deg, #7ad6b5 0%, #399b77 100%); color: #083327; }
-.ops-pitch-player.is-pending { opacity: .45; filter: saturate(.7) grayscale(.12); }
-.ops-pitch-player.is-pending small { color: rgba(255,255,255,.78); }
+.ops-pitch-player { pointer-events: auto; }
 .sheet-preview-bottom { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
 .sheet-swap-panel { display: grid; gap: 7px; padding: 10px; align-content: start; }
 .sheet-swap-actions { display: grid; gap: 8px; }

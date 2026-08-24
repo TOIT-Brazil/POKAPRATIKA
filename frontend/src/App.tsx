@@ -2030,7 +2030,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     pitchDragRef.current = dragState;
     setPitchDrag(dragState);
     queueDraggedPlayerPreview(dragState, event.clientX, event.clientY);
-    setSheetMessage(`Arraste ${player.name} dentro do campo para ajustar a posição.`);
+    setSheetMessage(`Arraste ${player.name} dentro do campo para ajustar a posição, mesmo sem confirmação de presença.`);
   }
 
   function movePitchDrag(event: ReactPointerEvent<HTMLDivElement>, player: MatchDetail['players'][number]) {
@@ -2128,8 +2128,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
               <div className="ops-pitch-midline" />
               <div className="ops-pitch-box ops-pitch-box-a" />
               <div className="ops-pitch-box ops-pitch-box-b" />
-              {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
-              {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${playerIsDimmed(player) ? 'is-pending' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+              {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+              {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
             </div>
           </section>
 
