@@ -265,6 +265,81 @@ function comparePlayersByOriginalPosition(left: { position: AthletePosition; nam
   return left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' });
 }
 
+function comparePlayersForPitchLayout(left: { position?: AthletePosition | null; name: string; drawOrder?: string | number | null; rotationOrder?: string | number | null }, right: { position?: AthletePosition | null; name: string; drawOrder?: string | number | null; rotationOrder?: string | number | null }) {
+  const positionDiff = positionSequenceOrder(left.position ?? 'MC') - positionSequenceOrder(right.position ?? 'MC');
+  if (positionDiff !== 0) return positionDiff;
+  const leftOrder = Number(left.rotationOrder ?? left.drawOrder ?? Number.MAX_SAFE_INTEGER);
+  const rightOrder = Number(right.rotationOrder ?? right.drawOrder ?? Number.MAX_SAFE_INTEGER);
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+  return left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' });
+}
+
+type TacticalPitchSlot = { left: number; top: number; preferredPositions: AthletePosition[] };
+
+const balancedPositionOrder: AthletePosition[] = ['GO', 'ZG', 'LE', 'LD', 'MC', 'MD', 'MA', 'AT'];
+
+const teamATacticalPitchSlots: TacticalPitchSlot[] = [
+  { left: 26, top: 24, preferredPositions: ['LE', 'LD', 'ZG', 'MD', 'MC', 'MA', 'AT'] },
+  { left: 28, top: 40, preferredPositions: ['ZG', 'LE', 'LD', 'MC', 'MD', 'MA', 'AT'] },
+  { left: 28, top: 60, preferredPositions: ['ZG', 'LD', 'LE', 'MC', 'MD', 'MA', 'AT'] },
+  { left: 26, top: 76, preferredPositions: ['LD', 'LE', 'ZG', 'MD', 'MC', 'MA', 'AT'] },
+  { left: 46, top: 50, preferredPositions: ['MC', 'MD', 'MA', 'AT', 'ZG', 'LE', 'LD'] },
+  { left: 62, top: 50, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'ZG', 'LE', 'LD'] },
+  { left: 56, top: 30, preferredPositions: ['MA', 'AT', 'MC', 'MD', 'LE', 'LD', 'ZG'] },
+  { left: 56, top: 70, preferredPositions: ['MA', 'AT', 'MC', 'MD', 'LD', 'LE', 'ZG'] },
+  { left: 40, top: 28, preferredPositions: ['MD', 'MC', 'MA', 'ZG', 'LE', 'LD', 'AT'] },
+  { left: 40, top: 72, preferredPositions: ['MD', 'MC', 'MA', 'ZG', 'LD', 'LE', 'AT'] },
+  { left: 70, top: 34, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'LE', 'LD', 'ZG'] },
+  { left: 70, top: 66, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'LD', 'LE', 'ZG'] }
+];
+
+function tacticalGoalkeeperSlot(team: 'A' | 'B') {
+  return team === 'A' ? { left: 11, top: 50 } : { left: 89, top: 50 };
+}
+
+function tacticalPitchSlots(team: 'A' | 'B') {
+  if (team === 'A') return teamATacticalPitchSlots;
+  return teamATacticalPitchSlots.map((slot) => ({
+    left: 100 - slot.left,
+    top: 100 - slot.top,
+    preferredPositions: slot.preferredPositions
+  }));
+}
+
+function assignPlayersToTacticalSlots<T extends { userId: string; name: string; position?: AthletePosition | null; roleInMatch?: string; drawOrder?: string | number | null; rotationOrder?: string | number | null }>(team: 'A' | 'B', starters: T[]) {
+  const goalkeeper = starters.find((player) => player.roleInMatch === 'GOLEIRO')
+    ?? starters.find((player) => (player.position ?? 'MC') === 'GO')
+    ?? null;
+  const outfieldPool = starters
+    .filter((player) => player.userId !== goalkeeper?.userId)
+    .sort(comparePlayersForPitchLayout);
+  const slotPlan = tacticalPitchSlots(team).slice(0, outfieldPool.length);
+  const remainingPlayers = [...outfieldPool];
+  const assignments: Array<{ player: T; slot: { left: number; top: number } }> = [];
+
+  if (goalkeeper) assignments.push({ player: goalkeeper, slot: tacticalGoalkeeperSlot(team) });
+
+  for (const tacticalSlot of slotPlan) {
+    let bestIndex = 0;
+    let bestScore = Number.MAX_SAFE_INTEGER;
+
+    for (let index = 0; index < remainingPlayers.length; index += 1) {
+      const position = remainingPlayers[index].position ?? 'MC';
+      const preferredIndex = tacticalSlot.preferredPositions.indexOf(position);
+      const score = preferredIndex >= 0 ? preferredIndex : 100 + positionSequenceOrder(position);
+      if (score < bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    }
+
+    const [chosenPlayer] = remainingPlayers.splice(bestIndex, 1);
+    if (chosenPlayer) assignments.push({ player: chosenPlayer, slot: { left: tacticalSlot.left, top: tacticalSlot.top } });
+  }
+
+  return assignments;
+}
+
 function rebalanceNaturalGoalkeepers<T extends { userId: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; position?: AthletePosition | null; roleInMatch: string; startsOnBench: boolean }>(list: T[]): T[] {
   for (const overloadedTeam of ['A', 'B'] as const) {
     const targetTeam = overloadedTeam === 'A' ? 'B' : 'A';
@@ -327,22 +402,34 @@ function distributePlayersByPosition(list: MatchDraftPlayer[], randomize = true)
   const presentOnly = list.filter((player) => player.team === 'PRESENTE_SEM_JOGAR');
   const teams: Record<'A' | 'B', MatchDraftPlayer[]> = { A: [], B: [] };
   const counts: Record<'A' | 'B', Record<PositionBalanceGroup, number>> = { A: { GO: 0, DEFESA: 0, MEIO: 0, ATAQUE: 0 }, B: { GO: 0, DEFESA: 0, MEIO: 0, ATAQUE: 0 } };
+  const exactCounts: Record<'A' | 'B', Record<AthletePosition, number>> = {
+    A: { GO: 0, ZG: 0, LD: 0, LE: 0, MD: 0, MC: 0, MA: 0, AT: 0 },
+    B: { GO: 0, ZG: 0, LD: 0, LE: 0, MD: 0, MC: 0, MA: 0, AT: 0 }
+  };
 
-  for (const group of ['GO', 'DEFESA', 'MEIO', 'ATAQUE'] as PositionBalanceGroup[]) {
-    const groupPlayers = playable.filter((player) => positionBalanceGroup(player.position) === group).sort(comparePlayersByOriginalPosition);
+  for (const position of balancedPositionOrder) {
+    const group = positionBalanceGroup(position);
+    const groupPlayers = playable.filter((player) => player.position === position).sort(comparePlayersByOriginalPosition);
     const orderedGroup = randomize ? shuffleRows(groupPlayers) : groupPlayers;
     for (const player of orderedGroup) {
-      const target = counts.A[group] < counts.B[group]
+      const target = exactCounts.A[position] < exactCounts.B[position]
         ? 'A'
-        : counts.B[group] < counts.A[group]
+        : exactCounts.B[position] < exactCounts.A[position]
           ? 'B'
-          : teams.A.length < teams.B.length
+          : counts.A[group] < counts.B[group]
             ? 'A'
-            : teams.B.length < teams.A.length
+            : counts.B[group] < counts.A[group]
               ? 'B'
-              : 'A';
+              : teams.A.length < teams.B.length
+                ? 'A'
+                : teams.B.length < teams.A.length
+                  ? 'B'
+                  : randomize && Math.random() >= 0.5
+                    ? 'B'
+                    : 'A';
       teams[target].push({ ...player, team: target });
       counts[target][group] += 1;
+      exactCounts[target][position] += 1;
     }
   }
 
@@ -1769,52 +1856,14 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return playersForTeam(team).filter((player) => player.startsOnBench);
   }
 
-  function pitchSlots(team: 'A' | 'B', count: number) {
-    const baseSlots = team === 'A'
-      ? [
-          { left: 11, top: 50 },
-          { left: 24, top: 18 },
-          { left: 24, top: 34 },
-          { left: 24, top: 50 },
-          { left: 24, top: 66 },
-          { left: 24, top: 82 },
-          { left: 40, top: 26 },
-          { left: 40, top: 42 },
-          { left: 40, top: 58 },
-          { left: 40, top: 74 },
-          { left: 56, top: 38 },
-          { left: 56, top: 62 }
-        ]
-      : [
-          { left: 89, top: 50 },
-          { left: 76, top: 18 },
-          { left: 76, top: 34 },
-          { left: 76, top: 50 },
-          { left: 76, top: 66 },
-          { left: 76, top: 82 },
-          { left: 60, top: 26 },
-          { left: 60, top: 42 },
-          { left: 60, top: 58 },
-          { left: 60, top: 74 },
-          { left: 44, top: 38 },
-          { left: 44, top: 62 }
-        ];
-    return baseSlots.slice(0, Math.max(count, 0));
-  }
-
   function fieldPlayers(team: 'A' | 'B') {
     const starters = startersForTeam(team);
-    const goalkeeper = starters.find((player) => player.roleInMatch === 'GOLEIRO');
-    const outfield = starters.filter((player) => player.userId !== goalkeeper?.userId);
-    const ordered = goalkeeper ? [goalkeeper, ...outfield] : outfield;
-    const slots = pitchSlots(team, ordered.length);
-    return ordered.map((player, index) => {
-      const baseSlot = slots[index];
+    return assignPlayersToTacticalSlots(team, starters).map(({ player, slot }) => {
       const previewSlot = pitchPreview[player.userId] ?? null;
       const manualSlot = player.fieldLeft != null && player.fieldTop != null
         ? clampPitchSlot(team, player.fieldLeft, player.fieldTop)
         : null;
-      return { player, slot: previewSlot ?? manualSlot ?? baseSlot };
+      return { player, slot: previewSlot ?? manualSlot ?? slot };
     });
   }
 
@@ -3125,38 +3174,8 @@ function MatchScoreEditor({ api, match, users, clockSeconds, clockRunning, onSav
     return playersForTeam(team).filter((player) => player.startsOnBench);
   }
 
-  function pitchSlots(team: 'A' | 'B') {
-    return team === 'A'
-      ? [
-          { left: 11, top: 50 },
-          { left: 26, top: 22 },
-          { left: 26, top: 50 },
-          { left: 26, top: 78 },
-          { left: 44, top: 35 },
-          { left: 44, top: 65 },
-          { left: 63, top: 50 },
-          { left: 56, top: 18 },
-          { left: 56, top: 82 }
-        ]
-      : [
-          { left: 89, top: 50 },
-          { left: 74, top: 22 },
-          { left: 74, top: 50 },
-          { left: 74, top: 78 },
-          { left: 56, top: 35 },
-          { left: 56, top: 65 },
-          { left: 37, top: 50 },
-          { left: 44, top: 18 },
-          { left: 44, top: 82 }
-        ];
-  }
-
   function fieldPlayers(team: 'A' | 'B') {
-    const starters = startersForTeam(team);
-    const goalkeeper = starters.find((player) => player.roleInMatch === 'GOLEIRO');
-    const outfield = starters.filter((player) => player.userId !== goalkeeper?.userId);
-    const ordered = goalkeeper ? [goalkeeper, ...outfield] : outfield;
-    return ordered.slice(0, pitchSlots(team).length).map((player, index) => ({ player, slot: pitchSlots(team)[index] }));
+    return assignPlayersToTacticalSlots(team, startersForTeam(team));
   }
 
   function rosterRow(player: MatchDetail['players'][number], team: 'A' | 'B', index: number, reserve = false) {
