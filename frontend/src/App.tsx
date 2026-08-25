@@ -2297,10 +2297,6 @@ function DashboardFinishedMatchesPanel({ matches }: { matches: MatchListItem[] }
           <span className="finished-count-badge">{finishedMatches.length}</span>
         </div>
       </div>
-      <div className="finished-history-note">
-        <span className="dashboard-icon"><DashboardIcon name="file" /></span>
-        <p className="muted">Quando uma súmula for confirmada, o jogo entra aqui como histórico útil. Jogos futuros além do próximo ficam somente na Agenda.</p>
-      </div>
       <div className="finished-vertical-list">{finishedMatches.length === 0 ? <EmptyState title="Sem jogos confirmados" text="Os últimos placares entram aqui quando as súmulas forem fechadas." /> : finishedMatches.map((match) => <article className="finished-list-row" key={match.id}><div className="finished-list-main"><span className="finished-list-date">{compactMatchDateLabel(match)}</span><strong className="finished-list-title">{match.title}</strong><small className="finished-list-outcome">{matchOutcomeLabel(match)}</small></div><div className="finished-list-duel"><div className="finished-list-team"><span className="finished-team-mark">{teamBadgeLabel(match.teamAName)}</span><strong>{match.teamAName}</strong></div><div className="finished-list-score"><b>{match.teamAScore}</b><span>x</span><b>{match.teamBScore}</b></div><div className="finished-list-team is-away"><strong>{match.teamBName}</strong><span className="finished-team-mark">{teamBadgeLabel(match.teamBName)}</span></div></div></article>)}</div>
     </section>
   );

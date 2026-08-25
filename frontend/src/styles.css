@@ -3514,34 +3514,9 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.finished-history-note {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  padding: 11px 12px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(12,25,45,.88), rgba(17,43,50,.92));
-  border: 1px solid rgba(255,255,255,.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-}
-
-.finished-history-note .dashboard-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: rgba(59,130,246,.14);
-  color: #9bc7ff;
-}
-
-.finished-history-note .muted {
-  color: #c6d4ce;
-  line-height: 1.28;
-}
-
 .finished-vertical-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   max-height: 420px;
   overflow: auto;
 }
@@ -3550,46 +3525,46 @@ textarea {
   display: grid;
   grid-template-columns: minmax(190px, .72fr) minmax(0, 1.28fr);
   align-items: center;
-  gap: 18px;
-  padding: 16px;
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 18px;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(116, 219, 167, .16);
+  border-radius: 16px;
   background:
-    radial-gradient(circle at top right, rgba(59,130,246,.14), transparent 34%),
-    linear-gradient(135deg, rgba(10,20,38,.96), rgba(13,35,44,.94));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 12px 28px rgba(0,0,0,.16);
+    radial-gradient(circle at top right, rgba(72, 187, 120, .18), transparent 36%),
+    linear-gradient(135deg, rgba(8, 33, 28, .97), rgba(10, 49, 39, .95));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 24px rgba(0,0,0,.16);
 }
 
 .finished-list-main,
 .finished-list-duel {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .finished-list-date {
   font-size: .72rem;
   font-weight: 800;
-  color: #9fc8ff;
+  color: #99e2b4;
   text-transform: uppercase;
   letter-spacing: .05em;
 }
 
 .finished-list-title {
   color: #f4fbf8;
-  font-size: 1.02rem;
+  font-size: .96rem;
   letter-spacing: -.02em;
 }
 
 .finished-list-outcome {
-  color: #96c9b6;
-  font-size: .74rem;
+  color: #83d7a8;
+  font-size: .7rem;
   font-weight: 700;
 }
 
 .finished-list-duel {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .finished-list-team {
@@ -3610,7 +3585,7 @@ textarea {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #f5fbf7;
-  font-size: .92rem;
+  font-size: .86rem;
 }
 
 .finished-list-team.is-away strong {
@@ -3620,51 +3595,51 @@ textarea {
 .finished-team-mark {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(25,86,180,.78), rgba(19,138,98,.62));
-  border: 1px solid rgba(147,197,253,.26);
-  color: #eff8ff;
-  font-size: .9rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(27, 124, 86, .88), rgba(16, 84, 59, .92));
+  border: 1px solid rgba(127, 231, 174, .22);
+  color: #effff6;
+  font-size: .82rem;
   font-weight: 900;
   letter-spacing: .06em;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 18px rgba(4,9,20,.24);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 8px 18px rgba(4,9,20,.22);
 }
 
 .finished-list-score {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 16px;
-  background: rgba(4,13,26,.72);
-  border: 1px solid rgba(255,255,255,.08);
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: rgba(4, 24, 20, .72);
+  border: 1px solid rgba(125, 223, 170, .12);
   font-weight: 800;
-  color: #d8e8e1;
+  color: #dff3e7;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
 }
 
 .finished-list-score b {
   display: grid;
   place-items: center;
-  min-width: 52px;
-  min-height: 58px;
-  padding: 0 12px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(42,92,167,.88), rgba(18,50,97,.92));
-  border: 1px solid rgba(147,197,253,.28);
-  font-size: 1.9rem;
+  min-width: 46px;
+  min-height: 50px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(37, 127, 91, .9), rgba(16, 83, 59, .94));
+  border: 1px solid rgba(126, 229, 175, .24);
+  font-size: 1.65rem;
   line-height: 1;
-  color: #f8fbff;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 0 22px rgba(59,130,246,.2);
+  color: #f5fff9;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 0 18px rgba(72, 187, 120, .18);
 }
 
 .finished-list-score span {
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 900;
-  color: #dbe7e1;
+  color: #d7efe0;
 }
 
 .dashboard-standings-wrap {
@@ -3913,7 +3888,6 @@ textarea {
     justify-items: stretch;
   }
 
-  .finished-history-note,
   .finished-list-duel {
     grid-template-columns: 1fr;
   }
