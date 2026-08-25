@@ -965,6 +965,7 @@ export function App() {
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [mobileDashboardOverlay, setMobileDashboardOverlay] = useState<'matches' | 'standings' | null>(null);
   const canCoordinate = auth?.user.role === 'ADMIN' || auth?.user.role === 'COORDENADOR';
   const isAdmin = auth?.user.role === 'ADMIN';
   const activeSeason = seasons.find((season) => season.id === activeSeasonId) ?? seasons.find((season) => season.status === 'OPEN') ?? seasons[0];
@@ -1056,6 +1057,10 @@ export function App() {
     };
   }, [accountMenuOpen]);
 
+  useEffect(() => {
+    if (view !== 'temporada') setMobileDashboardOverlay(null);
+  }, [view]);
+
   function saveAuth(payload: AuthPayload) {
     localStorage.setItem(storageKey, JSON.stringify(payload));
     setAuth(payload);
@@ -1112,7 +1117,8 @@ export function App() {
         <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.status ?? 'sem temporada'}</span>
       </section>
 
-      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} /></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
+      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} /></div><div className="mobile-dashboard-actions"><button type="button" className="primary" onClick={() => setMobileDashboardOverlay('matches')}><span className="dashboard-icon small"><DashboardIcon name="field" /></span>Partidas</button><button type="button" className="ghost" onClick={() => setMobileDashboardOverlay('standings')}><span className="dashboard-icon small"><DashboardIcon name="table" /></span>Estatísticas</button></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
+      {mobileDashboardOverlay && view === 'temporada' && <div className="modal mobile-dashboard-modal-layer"><section className="card mobile-dashboard-modal-card"><div className="card-head"><div><h2>{mobileDashboardOverlay === 'matches' ? 'Partidas da temporada' : 'Estatísticas da temporada'}</h2><p className="muted">{mobileDashboardOverlay === 'matches' ? 'Histórico confirmado da rodada em leitura dedicada para celular.' : 'Classificação e destaque estatístico em uma área própria no mobile.'}</p></div><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setMobileDashboardOverlay(null)}>X</button></div><div className="mobile-dashboard-modal-body">{mobileDashboardOverlay === 'matches' ? <DashboardFinishedMatchesPanel matches={matches} /> : <DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} />}</div></section></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
       {view === 'usuarios' && canCoordinate && <UsersManagementTablePanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}

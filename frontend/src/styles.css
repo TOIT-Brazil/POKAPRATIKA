@@ -3078,6 +3078,38 @@ textarea {
   min-height: 0;
 }
 
+.mobile-dashboard-actions {
+  display: none;
+}
+
+.mobile-dashboard-modal-layer {
+  z-index: 16;
+  place-items: stretch;
+  padding: 6px;
+}
+
+.mobile-dashboard-modal-card {
+  width: min(960px, 100%);
+  max-height: calc(100dvh - 12px);
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 20px;
+  background: rgba(7, 17, 31, .94);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.mobile-dashboard-modal-body {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  padding-right: 2px;
+}
+
 .dashboard-next-match-card,
 .dashboard-ops-card,
 .dashboard-finished-card,
@@ -3720,8 +3752,8 @@ textarea {
 
   .shell.shell-home {
     min-height: 100dvh;
-    height: 100dvh;
-    overflow: hidden;
+    height: auto;
+    overflow: visible;
   }
 
   body {
@@ -3808,6 +3840,26 @@ textarea {
     max-height: 100% !important;
     overflow: auto !important;
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-dashboard-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-dashboard-actions button {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .mobile-dashboard-actions .dashboard-icon.small {
+    background: rgba(255,255,255,.1);
+    color: inherit;
   }
 
   .compact,
@@ -3907,6 +3959,10 @@ textarea {
   .stat-grid,
   .season-stats {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-bottom-grid {
+    display: none;
   }
 
   .payments-overview-strip {
@@ -4317,6 +4373,18 @@ textarea {
     padding: 10px;
   }
 
+  .mobile-dashboard-modal-layer {
+    padding: 2px;
+  }
+
+  .mobile-dashboard-modal-card {
+    width: 100%;
+    max-height: none;
+    height: calc(100dvh - 4px);
+    padding: 10px;
+    border-radius: 18px;
+  }
+
   .sheet-preview-arena,
   .sheet-preview-top,
   .sheet-preview-bottom,
@@ -4333,6 +4401,10 @@ textarea {
 }
 
 @media (max-width: 520px) {
+  .mobile-dashboard-actions {
+    grid-template-columns: 1fr;
+  }
+
   .next-match-side,
   .next-match-actions,
   .ops-widget-grid {
