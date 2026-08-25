@@ -385,13 +385,24 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .schedule-table th:has(.table-filter-anchor) {
   text-align: left;
   padding-left: 0;
+  overflow: visible;
+}
+
+.championship-table th:has(.table-filter-anchor.is-open),
+.management-table th:has(.table-filter-anchor.is-open),
+.payments-table th:has(.table-filter-anchor.is-open),
+.cash-table th:has(.table-filter-anchor.is-open),
+.dashboard-standings-table th:has(.table-filter-anchor.is-open),
+.schedule-table th:has(.table-filter-anchor.is-open) {
+  z-index: 60;
 }
 
 .table-filter-anchor { position: relative; display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 1px; }
+.table-filter-anchor.is-open { z-index: 70; }
 .table-filter-button { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 8px; border: 1px solid rgba(15,82,87,.14); background: #ffffff; color: var(--primary-deep); cursor: pointer; }
 .table-filter-button.is-active { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.34); color: #0f7a4c; }
 .table-filter-button svg { width: 16px; height: 16px; }
-.table-filter-popover { position: absolute; top: calc(100% + 8px); right: 0; width: 220px; display: grid; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid rgba(15,82,87,.14); background: #ffffff; box-shadow: 0 18px 34px rgba(15,82,87,.16); z-index: 5; }
+.table-filter-popover { position: absolute; top: calc(100% + 6px); left: 0; right: auto; width: 220px; display: grid; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid rgba(15,82,87,.14); background: #ffffff; box-shadow: 0 18px 34px rgba(15,82,87,.16); z-index: 80; isolation: isolate; }
 .table-filter-popover-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .table-filter-popover-head strong { color: var(--primary-deep); font-size: .78rem; }
 .table-filter-popover input { min-height: 36px; padding: 7px 9px; border-radius: 10px; border: 1px solid rgba(15,82,87,.12); background: #f9fcfa; color: var(--text); font-size: .74rem; }
@@ -4028,6 +4039,7 @@ textarea {
     left: 0;
     right: auto;
     width: min(220px, calc(100vw - 28px));
+    z-index: 80;
   }
 
   .championship-table .athlete-cell,

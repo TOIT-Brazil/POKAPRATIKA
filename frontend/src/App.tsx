@@ -235,7 +235,7 @@ function TableFilterHeader({
   const isOpen = activeMenu === menuKey;
   const inputValue = currentValue || searchValue;
 
-  return <div className="table-filter-anchor"><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => onToggle(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button><span>{label}</span>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={onClear}>Limpar</button></div><input value={inputValue} onChange={(event) => { onSearchChange(event.target.value); onSelect(event.target.value); }} placeholder={placeholder} /></div>}</div>;
+  return <div className={`table-filter-anchor ${isOpen ? 'is-open' : ''}`}><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => onToggle(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button><span>{label}</span>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={onClear}>Limpar</button></div><input value={inputValue} onChange={(event) => { onSearchChange(event.target.value); onSelect(event.target.value); }} placeholder={placeholder} /></div>}</div>;
 }
 
 function positionBalanceGroup(position: AthletePosition): PositionBalanceGroup {
