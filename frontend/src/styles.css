@@ -415,6 +415,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .voting-popup { border-color: rgba(59,130,246,.32); }
 .admin-modal-card { width: min(620px, 100%); }
 .modal-card.wide { width: min(980px, 100%); max-height: min(86dvh, 760px); overflow: auto; }
+.schedule-modal.modal-card.wide { width: calc(100vw - 8px); max-width: none; height: calc(100dvh - 8px); max-height: none; overflow: hidden; }
 .payments-panel { overflow: auto; }
 .payments-table-wrap { max-height: 52dvh; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
 .payments-table { min-width: 1260px; font-size: .75rem; }
