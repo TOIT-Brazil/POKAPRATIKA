@@ -909,6 +909,18 @@ function compactMatchDateLabel(match: MatchListItem): string {
   return `${date.day} ${date.month} • ${date.weekday} ${date.time}`;
 }
 
+function matchOutcomeLabel(match: MatchListItem): string {
+  if (match.teamAScore === match.teamBScore) return 'Empate confirmado em súmula';
+  return `Vitória confirmada de ${match.teamAScore > match.teamBScore ? match.teamAName : match.teamBName}`;
+}
+
+function teamBadgeLabel(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '--';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
+}
+
 function DashboardIcon({ name }: { name: 'calendar' | 'clock' | 'shield' | 'wallet' | 'field' | 'table' | 'goal' | 'assist' | 'cards' | 'trophy' | 'file' | 'gear' | 'bell' }) {
   const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   return (
@@ -2280,13 +2292,16 @@ function DashboardFinishedMatchesPanel({ matches }: { matches: MatchListItem[] }
   return (
     <section className="card compact dashboard-finished-card">
       <div className="card-head">
-        <div>
+        <div className="finished-panel-head">
           <h2>Jogos finalizados</h2>
-          <p className="muted">Quando uma súmula for confirmada, o jogo entra aqui como histórico útil. Jogos futuros além do próximo ficam somente na Agenda.</p>
+          <span className="finished-count-badge">{finishedMatches.length}</span>
         </div>
-        <span className="status">{finishedMatches.length}</span>
       </div>
-      <div className="finished-vertical-list">{finishedMatches.length === 0 ? <EmptyState title="Sem jogos confirmados" text="Os últimos placares entram aqui quando as súmulas forem fechadas." /> : finishedMatches.map((match) => <article className="finished-list-row" key={match.id}><div className="finished-list-main"><span className="finished-list-date">{formatDateOnly(match.matchDate, '--/--/----')}</span><strong className="finished-list-title">{match.title}</strong></div><div className="finished-list-duel"><strong className="finished-list-teams">{match.teamAName} vs {match.teamBName}</strong><div className="finished-list-score"><b>{match.teamAScore}</b><span>x</span><b>{match.teamBScore}</b></div></div></article>)}</div>
+      <div className="finished-history-note">
+        <span className="dashboard-icon"><DashboardIcon name="file" /></span>
+        <p className="muted">Quando uma súmula for confirmada, o jogo entra aqui como histórico útil. Jogos futuros além do próximo ficam somente na Agenda.</p>
+      </div>
+      <div className="finished-vertical-list">{finishedMatches.length === 0 ? <EmptyState title="Sem jogos confirmados" text="Os últimos placares entram aqui quando as súmulas forem fechadas." /> : finishedMatches.map((match) => <article className="finished-list-row" key={match.id}><div className="finished-list-main"><span className="finished-list-date">{compactMatchDateLabel(match)}</span><strong className="finished-list-title">{match.title}</strong><small className="finished-list-outcome">{matchOutcomeLabel(match)}</small></div><div className="finished-list-duel"><div className="finished-list-team"><span className="finished-team-mark">{teamBadgeLabel(match.teamAName)}</span><strong>{match.teamAName}</strong></div><div className="finished-list-score"><b>{match.teamAScore}</b><span>x</span><b>{match.teamBScore}</b></div><div className="finished-list-team is-away"><strong>{match.teamBName}</strong><span className="finished-team-mark">{teamBadgeLabel(match.teamBName)}</span></div></div></article>)}</div>
     </section>
   );
 }
