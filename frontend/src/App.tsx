@@ -3398,7 +3398,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
   return (
     <>
       {!hideTrigger && <button className="ghost small" onClick={() => setOpen(true)}>Agenda</button>}
-      {open && <div className="modal">
+      {open && <div className="modal schedule-modal-layer">
         <section className="card modal-card wide schedule-modal">
           <div className="card-head">
             <div>
