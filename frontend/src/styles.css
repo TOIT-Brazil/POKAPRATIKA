@@ -4177,19 +4177,79 @@ textarea {
     justify-items: stretch;
   }
 
+  .finished-list-row {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .finished-list-main {
+    gap: 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(127, 231, 174, .12);
+  }
+
+  .finished-list-title {
+    font-size: .98rem;
+  }
+
+  .finished-list-outcome {
+    font-size: .69rem;
+  }
+
   .finished-list-duel {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "home score"
+      "away score";
+    align-items: stretch;
+    gap: 10px 12px;
   }
 
   .finished-list-team,
   .finished-list-team.is-away {
     grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: rgba(4, 24, 20, .42);
+    border: 1px solid rgba(125, 223, 170, .08);
+  }
+
+  .finished-list-team {
+    grid-area: home;
+  }
+
+  .finished-list-team.is-away {
+    grid-area: away;
   }
 
   .finished-list-team.is-away strong,
+  .finished-list-team strong,
   .finished-list-score {
     text-align: left;
     justify-content: flex-start;
+  }
+
+  .finished-list-score {
+    grid-area: score;
+    align-self: stretch;
+    min-width: 108px;
+    padding: 8px 10px;
+    justify-content: center;
+    border-radius: 14px;
+  }
+
+  .finished-list-score b {
+    min-width: 44px;
+    min-height: 46px;
+    font-size: 1.52rem;
+  }
+
+  .finished-team-mark {
+    width: 34px;
+    height: 34px;
+    font-size: .74rem;
+    border-radius: 11px;
   }
 
   .context-row,
