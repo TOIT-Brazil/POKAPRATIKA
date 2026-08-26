@@ -3299,6 +3299,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
   const [mode, setMode] = useState<ScheduleMode>('recurring');
+  const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [message, setMessage] = useState('');
   const [title, setTitle] = useState('Futebol de quarta');
@@ -3324,6 +3325,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
   function loadForEdit(match: MatchListItem) {
     setEditingId(match.id);
     setMode('manual');
+    setEditorOpen(true);
     setTitle(match.title);
     setManualDate(match.matchDate.slice(0, 10));
     setScheduledStart(match.scheduledStart?.slice(0, 5) ?? '20:00');
@@ -3385,6 +3387,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
       setMessage(`${result.generated} jogo(s) gerado(s). ${result.skipped} data(s) já existiam e foram preservadas.`);
     }
     await onDone();
+    setEditorOpen(false);
   }
 
   async function removeScheduledMatch(matchId: string) {
@@ -3409,32 +3412,14 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
           <div className="card-head">
             <div>
               <h2>Agenda e confirmação dos jogos</h2>
-              <p className="muted">Pré-defina recorrência, datas avulsas e a janela de confirmação: quando abre e quando fecha antes do jogo.</p>
             </div>
-            <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setOpen(false)}>X</button>
+            <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setEditorOpen(false); setOpen(false); }}>X</button>
           </div>
           {message && <p className="status-line">{message}</p>}
-          <form className="schedule-form" onSubmit={saveSchedule}>
-            <div className="segmented">
-              <button type="button" className={mode === 'recurring' && !editingId ? 'primary small' : 'ghost'} onClick={() => { setMode('recurring'); setEditingId(''); }}>Recorrente</button>
-              <button type="button" className={mode === 'manual' || editingId ? 'primary small' : 'ghost'} onClick={() => { setMode('manual'); setEditingId(''); }}>Data específica</button>
-            </div>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Título do jogo" required />
-            {mode === 'recurring' && !editingId ? <div className="match-meta">
-              <select value={weekday} onChange={(event) => setWeekday(Number(event.target.value))}>{weekdayOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-              <input type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} />
-              <input type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} />
-            </div> : <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} />}
-            <div className="match-meta">
-              <input type="time" value={scheduledStart} onChange={(event) => setScheduledStart(event.target.value)} />
-              <input type="time" value={scheduledEnd} onChange={(event) => setScheduledEnd(event.target.value)} />
-              <label className="field-row"><span>Abre antes (h)</span><input type="number" min="1" max="336" value={confirmationHours} onChange={(event) => updateConfirmationHours(Number(event.target.value))} aria-label="Horas antes do jogo para abrir confirmação" /></label>
-              <label className="field-row"><span>Fecha antes (h)</span><input type="number" min="0" max={Math.max(0, confirmationHours - 1)} value={confirmationCloseHours} onChange={(event) => updateConfirmationCloseHours(Number(event.target.value))} aria-label="Horas antes do jogo para fechar confirmação" /></label>
-              <input value={teamAName} onChange={(event) => setTeamAName(event.target.value)} />
-              <input value={teamBName} onChange={(event) => setTeamBName(event.target.value)} />
-            </div>
-            <button className="primary">{editingId ? 'Salvar edição' : mode === 'recurring' ? 'Gerar jogos recorrentes' : 'Criar jogo avulso'}</button>
-          </form>
+          <div className="schedule-create-actions">
+            <button type="button" className="primary" onClick={() => { setMode('recurring'); setEditingId(''); setEditorOpen(true); }}>Recorrente</button>
+            <button type="button" className="ghost" onClick={() => { setMode('manual'); setEditingId(''); setEditorOpen(true); }}>Data específica</button>
+          </div>
           <div className="championship-wrap management-table-wrap schedule-table-wrap">
             <table className="championship-table management-table schedule-table">
               <thead>
@@ -3462,6 +3447,29 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
             </table>
           </div>
         </section>
+        {editorOpen && <div className="modal schedule-editor-layer">
+          <form className="card modal-card wide schedule-form schedule-editor-card" onSubmit={saveSchedule}>
+            <div className="card-head">
+              <div><h2>{editingId ? 'Editar agendamento' : mode === 'recurring' ? 'Agendamento recorrente' : 'Agendamento em data específica'}</h2></div>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar formulário" title="Fechar" onClick={() => setEditorOpen(false)}>X</button>
+            </div>
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Título do jogo" required />
+            {mode === 'recurring' && !editingId ? <div className="match-meta">
+              <select value={weekday} onChange={(event) => setWeekday(Number(event.target.value))}>{weekdayOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+              <input type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} />
+              <input type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} />
+            </div> : <input type="date" value={manualDate} onChange={(event) => setManualDate(event.target.value)} />}
+            <div className="match-meta">
+              <input type="time" value={scheduledStart} onChange={(event) => setScheduledStart(event.target.value)} />
+              <input type="time" value={scheduledEnd} onChange={(event) => setScheduledEnd(event.target.value)} />
+              <label className="field-row"><span>Abre antes (h)</span><input type="number" min="1" max="336" value={confirmationHours} onChange={(event) => updateConfirmationHours(Number(event.target.value))} aria-label="Horas antes do jogo para abrir confirmação" /></label>
+              <label className="field-row"><span>Fecha antes (h)</span><input type="number" min="0" max={Math.max(0, confirmationHours - 1)} value={confirmationCloseHours} onChange={(event) => updateConfirmationCloseHours(Number(event.target.value))} aria-label="Horas antes do jogo para fechar confirmação" /></label>
+              <input value={teamAName} onChange={(event) => setTeamAName(event.target.value)} placeholder="Time A" />
+              <input value={teamBName} onChange={(event) => setTeamBName(event.target.value)} placeholder="Time B" />
+            </div>
+            <button className="primary">{editingId ? 'Salvar edição' : mode === 'recurring' ? 'Gerar jogos recorrentes' : 'Criar jogo avulso'}</button>
+          </form>
+        </div>}
       </div>}
     </>
   );

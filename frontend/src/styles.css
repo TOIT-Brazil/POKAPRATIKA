@@ -354,12 +354,19 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .prompt-modal { z-index: 12; place-items: start center; padding-top: 92px; background: rgba(0,0,0,.34); pointer-events: none; }
 .confirmation-popup { width: min(540px, calc(100% - 18px)); border-color: rgba(255,205,86,.28); background: linear-gradient(145deg, rgba(7,17,31,.98), rgba(22,43,70,.96)); box-shadow: 0 22px 70px rgba(0,0,0,.5); pointer-events: auto; }
 .schedule-modal-layer { place-items: stretch; padding: 4px; overflow: hidden; overscroll-behavior: none; }
-.schedule-modal { width: 100%; height: calc(100dvh - 8px); max-height: none; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-color: #3b82f6 rgba(255,255,255,.08); scrollbar-width: auto; display: flex; flex-direction: column; gap: 18px; padding: 22px; }
+.schedule-modal { width: 100%; height: calc(100dvh - 8px); max-height: none; min-height: 0; overflow: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding: 16px; }
 .schedule-modal::-webkit-scrollbar { width: 10px; }
 .schedule-modal::-webkit-scrollbar-track { background: rgba(255,255,255,.08); border-radius: 999px; }
 .schedule-modal::-webkit-scrollbar-thumb { background: #3b82f6; border: 2px solid rgba(7,17,31,.9); border-radius: 999px; }
 .schedule-form { display: grid; gap: 14px; padding: 18px; border-radius: 18px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
-.schedule-table-wrap { flex: 1 0 auto; min-height: 260px; max-height: none; margin-top: 6px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
+.schedule-create-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.schedule-create-actions button { min-width: 150px; }
+.schedule-editor-layer { z-index: 24; padding: 10px; }
+.schedule-editor-card { width: min(980px, 100%); max-height: calc(100dvh - 20px); overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.schedule-table-wrap { flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; max-height: none; margin-top: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; scrollbar-color: #3b82f6 rgba(15,82,87,.1); scrollbar-width: auto; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
+.schedule-table-wrap::-webkit-scrollbar { width: 10px; height: 10px; }
+.schedule-table-wrap::-webkit-scrollbar-track { background: rgba(15,82,87,.08); }
+.schedule-table-wrap::-webkit-scrollbar-thumb { background: #3b82f6; border: 2px solid #eef7f1; border-radius: 999px; }
 .schedule-table { width: 100%; min-width: 1380px; font-size: .79rem; table-layout: auto; }
 .schedule-table th,
 .schedule-table td { padding: 10px 12px; white-space: normal; word-break: normal; }
@@ -4531,10 +4538,29 @@ textarea {
   .schedule-modal-layer .schedule-modal {
     width: 100%;
     height: calc(100dvh - 4px);
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     overscroll-behavior: contain;
     padding: 10px;
+  }
+
+  .schedule-create-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schedule-create-actions button {
+    min-width: 0;
+    min-height: 42px;
+  }
+
+  .schedule-editor-layer {
+    padding: 4px;
+  }
+
+  .schedule-editor-card {
+    width: 100%;
+    max-height: calc(100dvh - 8px);
+    overflow: auto;
   }
 
   .mobile-dashboard-modal-layer {
