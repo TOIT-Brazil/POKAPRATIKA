@@ -4204,23 +4204,17 @@ textarea {
   }
 
   .dashboard-ops-card .ops-highlight em {
-    .next-match-actions,
-    .ops-widget-grid {
+    font-size: .72rem;
+  }
 
   .dashboard-standings-toolbar {
+    margin-left: 0;
+  }
+
   .finished-list-duel {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-      grid-template-columns: auto auto;
     grid-template-areas: "home score away";
     align-items: center;
-
-    .next-match-title-block {
-      grid-column: 1 / -1;
-    }
-
-    .next-match-cta-row {
-      grid-template-columns: minmax(0, 7fr) minmax(112px, 3fr);
-    }
     gap: 8px;
   }
 
