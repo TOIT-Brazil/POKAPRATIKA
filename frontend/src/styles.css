@@ -3836,6 +3836,30 @@ textarea {
     overflow: auto !important;
   }
 
+  .modal:not(.prompt-modal) {
+    place-items: stretch;
+    padding: 4px;
+    overflow-y: auto;
+  }
+
+  .modal:not(.prompt-modal) .card-head {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .modal:not(.prompt-modal) .card-head > div:first-child {
+    min-width: 0;
+  }
+
+  .modal-close-button,
+  .modal:not(.prompt-modal) .card-head > .ghost {
+    margin-left: auto;
+    align-self: flex-start;
+    flex: 0 0 auto;
+  }
+
   .home-stack.dashboard-main {
     max-height: 100% !important;
     overflow: auto !important;
@@ -4354,11 +4378,14 @@ textarea {
   .schedule-modal,
   .profile-modal-card,
   .athlete-profile-modal-card,
+  .payment-card,
   .payment-card.wide-payment,
+  .modal-card,
   .modal-card.wide {
-    width: min(100vw - 12px, 100%);
-    max-height: none;
-    overflow: visible;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 8px);
+    overflow: auto;
     padding: 10px;
   }
 
