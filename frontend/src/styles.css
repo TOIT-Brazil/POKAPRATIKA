@@ -2923,7 +2923,8 @@ textarea {
 .account-menu-layer {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 120;
+  isolation: isolate;
 }
 
 .account-menu-backdrop {
@@ -2939,6 +2940,7 @@ textarea {
   position: fixed;
   top: 0;
   right: 0;
+  z-index: 121;
   height: 100dvh;
   width: clamp(320px, 22vw, 420px);
   display: grid;
