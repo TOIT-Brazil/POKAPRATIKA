@@ -3745,11 +3745,26 @@ textarea {
 
   .shell {
     width: 100%;
+    max-width: 100vw;
     min-height: auto;
     height: auto;
+    grid-template-columns: minmax(0, 1fr);
     padding: 4px 4px 14px;
     gap: 6px;
     overflow: visible;
+  }
+
+  .shell > *,
+  .home-stack,
+  .home-stack > *,
+  .admin-home,
+  .admin-home > *,
+  .users-home,
+  .users-home > *,
+  .rules-center,
+  .users-card {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .shell.shell-home {
@@ -4317,8 +4332,12 @@ textarea {
   .management-table-wrap,
   .schedule-table-wrap,
   .dashboard-standings-wrap {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     overflow-x: auto !important;
     overflow-y: visible !important;
+    overscroll-behavior-inline: contain;
     -webkit-overflow-scrolling: touch;
   }
 
