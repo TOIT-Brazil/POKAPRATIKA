@@ -3185,17 +3185,18 @@ textarea {
 .next-match-leader-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .next-match-leader-bubble {
   min-width: 0;
   display: grid;
-  justify-items: center;
-  gap: 4px;
-  padding: 12px 10px;
-  border-radius: 999px;
-  text-align: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 18px;
+  text-align: left;
   border: 1px solid rgba(255,255,255,.1);
   background: rgba(10, 20, 38, .74);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
@@ -3216,28 +3217,36 @@ textarea {
 .next-match-leader-value {
   display: grid;
   place-items: center;
-  width: 78px;
-  height: 78px;
+  width: 46px;
+  height: 46px;
   border-radius: 999px;
   background: rgba(255,255,255,.14);
   color: #f7fffb;
-  font-size: 1.2rem;
+  font-size: .88rem;
   font-weight: 900;
   letter-spacing: -.03em;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
 }
 
+.next-match-leader-meta {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+
 .next-match-leader-bubble strong {
   color: #f7fffb;
-  font-size: .76rem;
+  font-size: .64rem;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .06em;
+  line-height: 1.05;
 }
 
 .next-match-leader-bubble small {
   min-width: 0;
   color: rgba(247,255,251,.82);
-  font-size: .78rem;
+  font-size: .72rem;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4178,13 +4187,13 @@ textarea {
   }
 
   .next-match-leader-bubble {
-    padding: 10px 8px;
+    padding: 7px 8px;
   }
 
   .next-match-leader-value {
-    width: 68px;
-    height: 68px;
-    font-size: 1.05rem;
+    width: 42px;
+    height: 42px;
+    font-size: .82rem;
   }
 
   .next-match-pitch {
@@ -4701,13 +4710,13 @@ textarea {
   }
 
   .next-match-leader-bubble {
-    border-radius: 24px;
+    border-radius: 16px;
   }
 
   .next-match-leader-value {
-    width: 60px;
-    height: 60px;
-    font-size: .98rem;
+    width: 38px;
+    height: 38px;
+    font-size: .78rem;
   }
 
   .next-match-title-block {
