@@ -1114,7 +1114,6 @@ export function App() {
         <select value={activeSeasonId} onChange={(event) => setActiveSeasonId(event.target.value)}>
           {seasons.map((season) => <option key={season.id} value={season.id}>{season.name} • {season.status}</option>)}
         </select>
-        <span className={`status ${activeSeason?.status?.toLowerCase()}`}>{activeSeason?.status ?? 'sem temporada'}</span>
       </section>
 
       {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} /></div><div className="mobile-dashboard-actions"><button type="button" className="primary" onClick={() => setMobileDashboardOverlay('matches')}><span className="dashboard-icon small"><DashboardIcon name="field" /></span>Partidas</button><button type="button" className="ghost" onClick={() => setMobileDashboardOverlay('standings')}><span className="dashboard-icon small"><DashboardIcon name="table" /></span>Estatísticas</button></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
