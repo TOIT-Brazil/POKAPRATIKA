@@ -245,6 +245,16 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .match-card-actions { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 .match-card-actions .ghost, .match-card-actions .primary { padding: 6px 8px; font-size: .72rem; }
 .match-card-actions .confirmed-action { color: #d7ffdf; background: linear-gradient(135deg, #16a34a, #22c55e); box-shadow: 0 10px 22px rgba(34,197,94,.18); }
+.attendance-action-button:disabled,
+.attendance-action-button.confirmed-action:disabled {
+  opacity: .38;
+  color: rgba(238,248,241,.72);
+  background: #66736c;
+  box-shadow: none;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .match-section-grid { min-height: 0; display: grid; grid-template-columns: 1fr; gap: 8px; overflow: hidden; }
 .match-mini-section { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 7px; padding: 8px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); overflow: hidden; }
 .match-mini-list { min-height: 0; max-height: 210px; display: grid; align-content: start; gap: 7px; overflow: auto; padding-right: 2px; }
