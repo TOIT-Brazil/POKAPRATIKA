@@ -964,6 +964,7 @@ export function App() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [operationalDialogOpen, setOperationalDialogOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [mobileDashboardOverlay, setMobileDashboardOverlay] = useState<'matches' | 'standings' | null>(null);
   const canCoordinate = auth?.user.role === 'ADMIN' || auth?.user.role === 'COORDENADOR';
@@ -1100,9 +1101,10 @@ export function App() {
         </div>
       </header>
 
-      {accountMenuOpen && <div className="account-menu-layer"><button type="button" className="account-menu-backdrop" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)} /><aside className="account-menu" role="dialog" aria-modal="true" aria-label="Menu principal"><div className="account-menu-top"><button type="button" className="account-menu-close" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)}>x</button><div className="account-menu-profile">{auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}<div><strong>{auth.user.name}</strong><small>{auth.user.role}</small></div></div></div><nav className="account-menu-actions">{canCoordinate && <><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></nav></aside></div>}
+      {accountMenuOpen && <div className="account-menu-layer"><button type="button" className="account-menu-backdrop" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)} /><aside className="account-menu" role="dialog" aria-modal="true" aria-label="Menu principal"><div className="account-menu-top"><button type="button" className="account-menu-close" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)}>x</button><div className="account-menu-profile">{auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}<div><strong>{auth.user.name}</strong><small>{auth.user.role}</small></div></div></div><div className="account-menu-season"><small>Temporada ativa</small><select value={activeSeasonId} onChange={(event) => setActiveSeasonId(event.target.value)}>{seasons.map((season) => <option key={season.id} value={season.id}>{season.name} • {season.status}</option>)}</select></div><nav className="account-menu-actions">{canCoordinate && <><button className="account-menu-primary-action" onClick={() => { setOperationalDialogOpen(true); setAccountMenuOpen(false); }}>Criar jogo</button><button onClick={() => { setView('temporada'); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('pagamentos'); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></nav></aside></div>}
 
       {canCoordinate && <ScheduleManagerDialog api={api} matches={matches} activeSeasonId={activeSeasonId} onDone={loadData} controlledOpen={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen} hideTrigger />}
+      {canCoordinate && <OperationalMatchDialog api={api} users={users} activeSeasonId={activeSeasonId} onDone={loadData} controlledOpen={operationalDialogOpen} onOpenChange={setOperationalDialogOpen} hideTrigger />}
 
       {changePasswordOpen && <ChangePasswordDialog api={api} onClose={() => setChangePasswordOpen(false)} />}
       {profileUserId && <div className="modal profile-modal"><div className="profile-modal-card athlete-profile-modal-card"><div className="card-head athlete-profile-modal-head"><h2>Perfil do atleta</h2><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setProfileUserId(null)}>X</button></div><ProfilesPanel api={api} currentUserId={auth.user.id} initialUserId={profileUserId} onCurrentUserUpdated={updateAuthenticatedUser} onRequestChangePassword={() => { setProfileUserId(null); setChangePasswordOpen(true); }} /></div></div>}
@@ -1110,12 +1112,6 @@ export function App() {
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
       {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
-      <section className="context-row dashboard-season-row">
-        <select value={activeSeasonId} onChange={(event) => setActiveSeasonId(event.target.value)}>
-          {seasons.map((season) => <option key={season.id} value={season.id}>{season.name} • {season.status}</option>)}
-        </select>
-      </section>
-
       {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} /></div><div className="mobile-dashboard-actions"><button type="button" className="primary" onClick={() => setMobileDashboardOverlay('matches')}><span className="dashboard-icon small"><DashboardIcon name="field" /></span>Partidas</button><button type="button" className="ghost" onClick={() => setMobileDashboardOverlay('standings')}><span className="dashboard-icon small"><DashboardIcon name="table" /></span>Estatísticas</button></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
       {mobileDashboardOverlay && view === 'temporada' && <div className="modal mobile-dashboard-modal-layer"><section className="card mobile-dashboard-modal-card"><div className="card-head"><div><h2>{mobileDashboardOverlay === 'matches' ? 'Partidas da temporada' : 'Estatísticas da temporada'}</h2><p className="muted">{mobileDashboardOverlay === 'matches' ? 'Histórico confirmado da rodada em leitura dedicada para celular.' : 'Classificação e destaque estatístico em uma área própria no mobile.'}</p></div><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setMobileDashboardOverlay(null)}>X</button></div><div className="mobile-dashboard-modal-body">{mobileDashboardOverlay === 'matches' ? <DashboardFinishedMatchesPanel matches={matches} /> : <DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} />}</div></section></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
@@ -1398,79 +1394,17 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
 }
 
 function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
-  const [clockRunning, setClockRunning] = useState(false);
-  const [seconds, setSeconds] = useState(0);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
-  const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
-
-  useEffect(() => {
-    if (!clockRunning || selectedMatch?.status === 'RUNNING') return;
-    const limitSeconds = (selectedMatch?.availableMinutes ?? 60) * 60;
-    const timer = window.setInterval(() => setSeconds((value) => Math.min(value + 1, limitSeconds)), 1000);
-    return () => window.clearInterval(timer);
-  }, [clockRunning, selectedMatch?.status, selectedMatch?.availableMinutes]);
-
-  useEffect(() => {
-    if (!selectedMatch) return;
-    if (selectedMatch.status === 'RUNNING' && selectedMatch.startedAt) {
-      const startedAt = new Date(selectedMatch.startedAt).getTime();
-      const limitSeconds = (selectedMatch.availableMinutes ?? 60) * 60;
-      const syncOfficialClock = () => setSeconds(Math.min(limitSeconds, Math.max(0, Math.floor((Date.now() - startedAt) / 1000))));
-      syncOfficialClock();
-      setClockRunning(true);
-      const timer = window.setInterval(syncOfficialClock, 1000);
-      return () => window.clearInterval(timer);
-    }
-    setClockRunning(selectedMatch.draftClockRunning ?? false);
-    setSeconds(selectedMatch.draftClockSeconds ?? 0);
-  }, [selectedMatch?.id, selectedMatch?.status, selectedMatch?.startedAt, selectedMatch?.availableMinutes, selectedMatch?.draftClockSeconds, selectedMatch?.draftClockRunning]);
 
   async function openMatch(id: string) {
     try {
       setMatchMessage('');
       setSelectedMatch(await api.request<MatchDetail>(`/matches/${id}`));
-      setSeconds(0);
-      setClockRunning(false);
       setCancelConfirm(false);
     } catch (error) {
       setMatchMessage(error instanceof Error ? error.message : 'Não foi possível abrir a súmula.');
     }
-  }
-
-  async function openSheet(id: string) {
-    try {
-      setMatchMessage('');
-      setSelectedSheetMatch(await api.request<MatchDetail>(`/matches/${id}`));
-    } catch (error) {
-      setMatchMessage(error instanceof Error ? error.message : 'Não foi possível abrir a súmula.');
-    }
-  }
-
-  useEffect(() => {
-    if (!selectedSheetMatch) return;
-    if (selectedSheetMatch.status === 'CONFIRMED') return;
-    const timer = window.setInterval(() => {
-      void api.request<MatchDetail>(`/matches/${selectedSheetMatch.id}`)
-        .then(setSelectedSheetMatch)
-        .catch(() => undefined);
-    }, 12000);
-    return () => window.clearInterval(timer);
-  }, [api, selectedSheetMatch?.id, selectedSheetMatch?.status]);
-
-  async function startSelectedMatch() {
-    if (!selectedMatch) return;
-    await api.request(`/matches/${selectedMatch.id}/start`, { method: 'POST' });
-    await openMatch(selectedMatch.id);
-    setClockRunning(true);
-    await onReload();
-  }
-
-  async function cancelSelectedMatch() {
-    if (!selectedMatch) return;
-    await api.request(`/matches/${selectedMatch.id}/cancel`, { method: 'POST' });
-    await openMatch(selectedMatch.id);
-    await onReload();
   }
 
   async function openConfirmation(matchId: string) {
@@ -1489,34 +1423,24 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
     const playing = match.attendancePlaying ?? 0;
     const presentOnly = match.attendancePresentOnly ?? 0;
     const absent = match.attendanceAbsent ?? 0;
-    const dinnerPeople = match.attendanceDinnerPeople ?? 0;
     const responses = playing + presentOnly + absent;
     const pending = Math.max(activeUserCount - responses, 0);
-    const responsePercent = Math.min(100, Math.round((responses / activeUserCount) * 100));
     const myAttendanceStatus = match.myAttendanceStatus ?? null;
     const confirmationReallyOpen = isConfirmationReallyOpen(match);
     const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
     const confirmationDetail = match.confirmationOpen ? `${attendanceStatusLabel(myAttendanceStatus)}${match.confirmationCloseAt ? ` • fecha ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}` : confirmationWindowHasEnded(match) ? `Janela encerrada${match.confirmationCloseAt ? ` em ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}.` : `Janela configurada: ${confirmationWindowScheduleLabel(match)}.`;
     const segments = [
       { label: 'Confirmados', value: playing, className: 'confirmed' },
-      { label: 'Só presença', value: presentOnly, className: 'present-only' },
+      { label: 'Presença', value: presentOnly, className: 'present-only' },
       { label: 'Ausentes', value: absent, className: 'absent' },
-      { label: 'Não responderam', value: pending, className: 'pending' },
-      { label: dinnerPeople > 0 ? 'Jantar' : 'Para ajustar', value: dinnerPeople, className: 'dinner' }
+      { label: 'Não responderam', value: pending, className: 'pending' }
     ];
 
-    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><div className="next-match-pitch-field" /></div><div className="next-match-date-badge"><b>{date.day}</b><span>{date.month}</span><small>{date.weekday}</small><em>{date.time}</em></div><div className="next-match-center"><div className="match-card-headline"><div><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div><small className="lineup-status">Sua resposta: {myAttendanceStatus ? attendanceActionLabel(myAttendanceStatus) : 'pendente'}</small></div><div className="match-card-score next-scoreboard"><span className="team-name team-name-home">{match.teamAName}</span><b className="score-pill">{match.teamAScore} x {match.teamBScore}</b><span className="team-name team-name-away">{match.teamBName}</span></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><div className="confirmation-progress-track">{segments.map((segment) => <i key={segment.label} className={segment.className} style={{ width: `${Math.max(segment.value, responses ? (segment.value / Math.max(responses, 1)) * 100 : 0)}%` }} />)}</div><small className="next-match-footnote">{confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><span className="status">{responsePercent}% respostas</span><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><div className="next-match-actions">{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}<button type="button" className={`primary attendance-action-button ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={confirmationReallyOpen ? myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.' : match.status === 'DRAFT' ? 'Prazo de confirmação encerrado.' : 'Confirmação encerrada porque o jogo já começou.'} disabled={!confirmationReallyOpen} onClick={() => void openMatch(match.id)}>{myAttendanceStatus ? 'Confirmações' : 'Confirmar presença'}</button><button type="button" className="ghost" onClick={() => canCoordinate ? void openSheet(match.id) : void openMatch(match.id)}>{canCoordinate ? 'Abrir súmula' : 'Ver jogo'}</button></div></div></article>;
+    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><div className="next-match-pitch-field" /></div><div className="next-match-main"><div className="next-match-date-badge"><b>{date.day}</b><div className="next-match-date-stack"><span>{date.month}</span><em>{date.time}</em><small>{date.weekday}</small></div><div className="next-match-title-block"><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><small className="next-match-footnote">{confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><div className="next-match-cta-row"><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><button type="button" className={`primary attendance-action-button next-match-presence-button ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={confirmationReallyOpen ? myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.' : match.status === 'DRAFT' ? 'Prazo de confirmação encerrado.' : 'Confirmação encerrada porque o jogo já começou.'} disabled={!confirmationReallyOpen} onClick={() => void openMatch(match.id)}>Confirmar presença</button></div>{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <div className="next-match-actions"><button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button></div>}</div></article>;
   }
 
   return (
     <section className="card compact matches-report dashboard-next-match-card">
-      <div className="card-head">
-        <div>
-          <h2>Central dos jogos</h2>
-          <p className="muted">Próximo jogo e partidas já finalizadas. Agenda anual fica no menu Agenda.</p>
-        </div>
-        {canCoordinate && <OperationalMatchDialog api={api} users={users} activeSeasonId={activeSeasonId} onDone={onReload} />}
-      </div>
       {matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}
       {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
       {selectedMatch && (
@@ -1536,28 +1460,6 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
               showRecentCard={!canCoordinate}
               onSaved={async () => {
                 await openMatch(selectedMatch.id);
-                await onReload();
-              }}
-            />
-          </section>
-        </div>
-      )}
-      {selectedSheetMatch && (
-        <div className="modal match-modal">
-          <section className="match-modal-card sheet-modal-card">
-            <div className="card-head">
-              <div>
-                <h2>{selectedSheetMatch.title}</h2>
-                <p className="muted">Abrir súmula • {formatDateOnly(selectedSheetMatch.matchDate, 'sem data')} • {matchStatusLabel(selectedSheetMatch.status)}</p>
-              </div>
-              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setSelectedSheetMatch(null)}>X</button>
-            </div>
-            <OpenMatchSheetBoard
-              api={api}
-              match={selectedSheetMatch}
-              users={users}
-              onSaved={async () => {
-                await openSheet(selectedSheetMatch.id);
                 await onReload();
               }}
             />
@@ -3475,8 +3377,10 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
   );
 }
 
-function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: ApiClient; users: User[]; activeSeasonId: string; onDone: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
+function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlledOpen, onOpenChange, hideTrigger = false }: { api: ApiClient; users: User[]; activeSeasonId: string; onDone: () => Promise<void>; controlledOpen?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [confirmDrawOpen, setConfirmDrawOpen] = useState(false);
   const [draftMatchId, setDraftMatchId] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
@@ -3751,7 +3655,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone }: { api: A
 
   return (
     <>
-      <button className="primary small" onClick={() => void openPersistentDraft()}>Criar jogo</button>
+      {!hideTrigger && <button className="primary small" onClick={() => void openPersistentDraft()}>Criar jogo</button>}
       {open && (
         <div className="modal">
           <form className="card modal-card wide draw-modal draw-modal-sheet" onSubmit={submit}>
