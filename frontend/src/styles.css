@@ -4270,6 +4270,24 @@ textarea {
     align-items: stretch;
   }
 
+  .dashboard-next-match-card .card-head {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .dashboard-next-match-card .card-head > div:first-child {
+    min-width: 0;
+  }
+
+  .dashboard-next-match-card .card-head > .primary,
+  .dashboard-next-match-card .card-head > .ghost {
+    margin-left: auto;
+    align-self: flex-start;
+    flex: 0 0 auto;
+  }
+
   .context-row {
     overflow: visible;
   }
