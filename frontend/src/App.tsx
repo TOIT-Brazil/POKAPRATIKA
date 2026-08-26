@@ -1112,7 +1112,7 @@ export function App() {
       {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
       {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
       {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
-      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /><DashboardSeasonOperationsPanel api={api} suspensions={suspensions} matches={matches} activeSeasonId={activeSeasonId} canCoordinate={canCoordinate} /></div><div className="mobile-dashboard-actions"><button type="button" className="primary" onClick={() => setMobileDashboardOverlay('matches')}><span className="dashboard-icon small"><DashboardIcon name="field" /></span>Partidas</button><button type="button" className="ghost" onClick={() => setMobileDashboardOverlay('standings')}><span className="dashboard-icon small"><DashboardIcon name="table" /></span>Estatísticas</button></div><div className="dashboard-bottom-grid"><DashboardFinishedMatchesPanel matches={matches} /><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
+      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} rankings={rankings} standings={standings} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /></div><div className="mobile-dashboard-actions"><button type="button" className="primary" onClick={() => setMobileDashboardOverlay('matches')}><span className="dashboard-icon small"><DashboardIcon name="field" /></span>Partidas</button><button type="button" className="ghost" onClick={() => setMobileDashboardOverlay('standings')}><span className="dashboard-icon small"><DashboardIcon name="table" /></span>Estatísticas</button></div><div className="dashboard-bottom-grid"><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
       {mobileDashboardOverlay && view === 'temporada' && <div className="modal mobile-dashboard-modal-layer"><section className="card mobile-dashboard-modal-card"><div className="card-head"><div><h2>{mobileDashboardOverlay === 'matches' ? 'Partidas da temporada' : 'Estatísticas da temporada'}</h2><p className="muted">{mobileDashboardOverlay === 'matches' ? 'Histórico confirmado da rodada em leitura dedicada para celular.' : 'Classificação e destaque estatístico em uma área própria no mobile.'}</p></div><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setMobileDashboardOverlay(null)}>X</button></div><div className="mobile-dashboard-modal-body">{mobileDashboardOverlay === 'matches' ? <DashboardFinishedMatchesPanel matches={matches} /> : <DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} />}</div></section></div>}
       {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
       {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
@@ -1393,9 +1393,10 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
 */
 }
 
-function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
+function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, standings, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; rankings: RankingPayload; standings: Standing[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
+  const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
 
   async function openMatch(id: string) {
     try {
@@ -1407,6 +1408,26 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
     }
   }
 
+  async function openSheet(id: string) {
+    try {
+      setMatchMessage('');
+      setSelectedSheetMatch(await api.request<MatchDetail>(`/matches/${id}`));
+    } catch (error) {
+      setMatchMessage(error instanceof Error ? error.message : 'Não foi possível abrir a súmula.');
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedSheetMatch) return;
+    if (selectedSheetMatch.status === 'CONFIRMED') return;
+    const timer = window.setInterval(() => {
+      void api.request<MatchDetail>(`/matches/${selectedSheetMatch.id}`)
+        .then(setSelectedSheetMatch)
+        .catch(() => undefined);
+    }, 12000);
+    return () => window.clearInterval(timer);
+  }, [api, selectedSheetMatch?.id, selectedSheetMatch?.status]);
+
   async function openConfirmation(matchId: string) {
     setMatchMessage('Abrindo confirmação para os atletas...');
     await api.request(`/matches/${matchId}/open-confirmation`, { method: 'POST' });
@@ -1417,6 +1438,19 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
   const sortedMatches = sortMatchesByOperationalRelevance(matches);
   const activeUserCount = Math.max(1, users.filter((user) => user.active !== false).length);
   const nextMatch = sortedMatches.filter((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED').find((match) => getMatchStartTime(match) >= Date.now()) ?? sortedMatches.find((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED') ?? null;
+  const lastConfirmedMatch = [...matches].filter((match) => match.status === 'CONFIRMED').sort((left, right) => getMatchStartTime(right) - getMatchStartTime(left))[0] ?? null;
+  const topEfficiency = useMemo(() => [...standings]
+    .map((row) => ({
+      userId: row.user_id,
+      name: row.name,
+      efficiency: row.games_played ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100 : 0
+    }))
+    .sort((left, right) => right.efficiency - left.efficiency || left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }))[0] ?? null, [standings]);
+  const leaderBubbles = [
+    rankings.goals[0] ? { key: 'goals', label: 'Artilheiro', value: String(rankings.goals[0].goals), accent: 'goal', name: rankings.goals[0].name, detail: 'gols' } : null,
+    rankings.assists[0] ? { key: 'assists', label: 'Assistências', value: String(rankings.assists[0].assists), accent: 'assist', name: rankings.assists[0].name, detail: 'assistências' } : null,
+    topEfficiency ? { key: 'efficiency', label: 'Aproveitamento', value: formatPercent(topEfficiency.efficiency), accent: 'efficiency', name: topEfficiency.name, detail: 'melhor índice' } : null
+  ].filter(Boolean) as Array<{ key: string; label: string; value: string; accent: string; name: string; detail: string }>;
 
   function renderHeroCard(match: MatchListItem) {
     const date = matchDateParts(match);
@@ -1442,7 +1476,9 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
   return (
     <section className="card compact matches-report dashboard-next-match-card">
       {matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}
+      {leaderBubbles.length > 0 && <div className="next-match-leader-strip">{leaderBubbles.map((item) => <article className={`next-match-leader-bubble ${item.accent}`} key={item.key}><span className="next-match-leader-value">{item.value}</span><strong>{item.label}</strong><small>{item.name}</small></article>)}</div>}
       {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
+      {lastConfirmedMatch && <button type="button" className="dashboard-last-match-button" onClick={() => void openSheet(lastConfirmedMatch.id)}><span className="dashboard-last-match-label">Último jogo</span><div className="finished-list-row dashboard-last-match-card"><div className="finished-list-main"><span className="finished-list-date">{compactMatchDateLabel(lastConfirmedMatch)}</span><strong className="finished-list-title">{lastConfirmedMatch.title}</strong><small className="finished-list-outcome">{matchOutcomeLabel(lastConfirmedMatch)}</small></div><div className="finished-list-duel"><div className="finished-list-team"><span className="finished-team-mark">{teamBadgeLabel(lastConfirmedMatch.teamAName)}</span><strong>{lastConfirmedMatch.teamAName}</strong></div><div className="finished-list-score"><b>{lastConfirmedMatch.teamAScore}</b><span>x</span><b>{lastConfirmedMatch.teamBScore}</b></div><div className="finished-list-team is-away"><strong>{lastConfirmedMatch.teamBName}</strong><span className="finished-team-mark">{teamBadgeLabel(lastConfirmedMatch.teamBName)}</span></div></div></div></button>}
       {selectedMatch && (
         <div className="modal match-modal">
           <section className="match-modal-card">
@@ -1460,6 +1496,28 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, activeSeaso
               showRecentCard={!canCoordinate}
               onSaved={async () => {
                 await openMatch(selectedMatch.id);
+                await onReload();
+              }}
+            />
+          </section>
+        </div>
+      )}
+      {selectedSheetMatch && (
+        <div className="modal match-modal">
+          <section className="match-modal-card sheet-modal-card">
+            <div className="card-head">
+              <div>
+                <h2>{selectedSheetMatch.title}</h2>
+                <p className="muted">Último jogo confirmado • {formatDateOnly(selectedSheetMatch.matchDate, 'sem data')} • {matchStatusLabel(selectedSheetMatch.status)}</p>
+              </div>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setSelectedSheetMatch(null)}>X</button>
+            </div>
+            <OpenMatchSheetBoard
+              api={api}
+              match={selectedSheetMatch}
+              users={users}
+              onSaved={async () => {
+                await openSheet(selectedSheetMatch.id);
                 await onReload();
               }}
             />
