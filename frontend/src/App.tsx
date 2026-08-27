@@ -4,7 +4,7 @@ import { MdFilterList, MdMenu, MdOutlineRestaurantMenu, MdSportsSoccer } from 'r
 import { ApiClient } from './api';
 import { AthletePosition, MatchListItem, PointSetting, Season, Standing, User } from './types';
 
-const logoUrl = '/logo_pokapratika.png';
+const logoUrl = '/logo_playfield.png';
 const paymentMonthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 type View = 'temporada' | 'pagamentos' | 'premios' | 'usuarios' | 'admin';
@@ -1095,10 +1095,6 @@ export function App() {
         </div>
         <div className="brand-lockup">
           <img className="brand-logo" src={logoUrl} alt="Logo PlayField" />
-          <div className="brand-copy">
-            <p className="eyebrow">Balneário Camboriú • Quarta 20h</p>
-            <h1>PlayField</h1>
-          </div>
         </div>
       </header>
 
