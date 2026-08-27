@@ -4701,3 +4701,15 @@ textarea {
     padding: 14px 12px calc(18px + env(safe-area-inset-bottom));
   }
 }
+
+.statistics-page .dashboard-standings-card {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.statistics-page .dashboard-standings-wrap {
+  flex: 1 1 auto;
+  min-height: 180px;
+  max-height: none;
+  overflow: auto !important;
+}
