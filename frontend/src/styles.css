@@ -3156,7 +3156,7 @@ textarea {
 
 .next-match-leader-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -3247,6 +3247,11 @@ textarea {
 .next-match-leader-card.efficiency {
   --leader-accent: #ffd166;
   --leader-soft: rgba(190, 140, 30, .13);
+}
+
+.next-match-leader-card.cards {
+  --leader-accent: #ff7b7b;
+  --leader-soft: rgba(204, 65, 65, .13);
 }
 
 .next-match-hero {

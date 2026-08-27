@@ -1443,10 +1443,13 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       efficiency: row.games_played ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100 : 0
     }))
     .sort((left, right) => right.efficiency - left.efficiency || left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }))[0] ?? null, [standings]);
+  const topCards = useMemo(() => [...rankings.cards]
+    .sort((left, right) => right.totalCards - left.totalCards || right.cardPoints - left.cardPoints || left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }))[0] ?? null, [rankings.cards]);
   const leaderBubbles = [
     rankings.goals[0] ? { key: 'goals', label: 'Artilheiro', value: String(rankings.goals[0].goals), accent: 'goal', name: rankings.goals[0].name, detail: 'gols' } : null,
     rankings.assists[0] ? { key: 'assists', label: 'Assistências', value: String(rankings.assists[0].assists), accent: 'assist', name: rankings.assists[0].name, detail: 'assistências' } : null,
-    topEfficiency ? { key: 'efficiency', label: 'Aproveitamento', value: formatPercent(topEfficiency.efficiency), accent: 'efficiency', name: topEfficiency.name, detail: 'melhor índice' } : null
+    topEfficiency ? { key: 'efficiency', label: 'Aproveitamento', value: formatPercent(topEfficiency.efficiency), accent: 'efficiency', name: topEfficiency.name, detail: 'melhor índice' } : null,
+    topCards ? { key: 'cards', label: 'Mais cartões', value: String(topCards.totalCards), accent: 'cards', name: topCards.name, detail: 'cartões' } : null
   ].filter(Boolean) as Array<{ key: string; label: string; value: string; accent: string; name: string; detail: string }>;
 
   function renderHeroCard(match: MatchListItem) {
