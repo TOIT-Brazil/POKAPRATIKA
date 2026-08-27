@@ -2084,6 +2084,10 @@ textarea {
   padding: 0 16px 12px;
 }
 
+.draw-sheet-grid.is-single-step {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .draw-sheet-card {
   display: grid;
   align-content: start;

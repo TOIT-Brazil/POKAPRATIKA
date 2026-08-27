@@ -95,7 +95,8 @@ const manualScheduleSchema = manualScheduleBaseSchema.refine((body) => body.sche
 const recurringScheduleSchema = manualScheduleBaseSchema.omit({ matchDate: true }).extend({
   weekday: z.number().int().min(0).max(6).default(3),
   startDate: z.string().date(),
-  endDate: z.string().date()
+  endDate: z.string().date(),
+  players: z.array(playerSchema).default([])
 }).refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.endDate >= body.startDate, { message: 'A data final precisa ser maior ou igual à inicial.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
 const schedulePatchSchema = manualScheduleBaseSchema.omit({ seasonId: true }).partial().refine((body) => !body.scheduledStart || !body.scheduledEnd || body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' });
 
@@ -377,6 +378,25 @@ async function validatePlayersInput(players: MatchPlayerInput[]): Promise<void> 
   for (const player of players) {
     if (player.team === 'PRESENTE_SEM_JOGAR' && player.roleInMatch !== 'PRESENTE_SEM_JOGAR') throw httpError(400, 'Atleta presente sem jogar precisa ter papel PRESENTE_SEM_JOGAR.');
     if (player.team !== 'PRESENTE_SEM_JOGAR' && player.roleInMatch === 'PRESENTE_SEM_JOGAR') throw httpError(400, 'Atleta escalado em time precisa ser GOLEIRO ou LINHA.');
+  }
+}
+
+async function validateConfirmedPlayersForTeams(matchId: string, players: MatchPlayerInput[]): Promise<void> {
+  const assignedUserIds = players
+    .filter((player) => !isGuestPlayer(player) && (player.team === 'A' || player.team === 'B'))
+    .map((player) => player.userId);
+  if (!assignedUserIds.length) return;
+
+  const confirmed = await query<{ userId: string }>(
+    `SELECT user_id AS "userId"
+     FROM match_attendance_responses
+     WHERE match_id = $1
+       AND user_id = ANY($2::UUID[])
+       AND response_status = 'JOGAR'`,
+    [matchId, assignedUserIds]
+  );
+  if (confirmed.rowCount !== assignedUserIds.length) {
+    throw httpError(409, 'O sorteio só pode incluir atletas convocados que confirmaram presença para jogar.');
   }
 }
 
@@ -669,13 +689,15 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
   const result = await query(
     `SELECT m.id, m.season_id AS "seasonId", m.match_date AS "matchDate", m.title, m.referee_name AS "refereeName", m.status,
       m.team_a_name AS "teamAName", m.team_b_name AS "teamBName", m.team_a_score AS "teamAScore", m.team_b_score AS "teamBScore", m.created_at AS "createdAt",
-      ${scheduleSelect.join(', ')}, ${attendanceSelect}
+      ${scheduleSelect.join(', ')}, ${attendanceSelect},
+      (SELECT count(*)::INTEGER FROM match_players invited WHERE invited.match_id = m.id AND invited.user_id IS NOT NULL) AS "invitedCount",
+      EXISTS (SELECT 1 FROM match_players invited WHERE invited.match_id = m.id AND invited.user_id = $2::UUID) AS "isInvited"
      FROM matches m
      ${attendanceJoin}
     WHERE ($1::UUID IS NULL OR m.season_id = $1)
     ORDER BY m.match_date DESC, m.created_at DESC
      LIMIT 80`,
-    hasAttendance ? [req.query.seasonId || null, req.user?.id] : [req.query.seasonId || null]
+    [req.query.seasonId || null, req.user?.id]
   );
   res.json(result.rows);
 }));
@@ -724,6 +746,12 @@ matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, 
      WHERE ($1::UUID IS NULL OR m.season_id = $1)
        AND m.status = 'DRAFT'
        AND ${openCondition}
+       AND EXISTS (
+         SELECT 1
+         FROM match_players invited
+         WHERE invited.match_id = m.id
+           AND invited.user_id = $2::UUID
+       )
        AND NOT EXISTS (
          SELECT 1
          FROM match_attendance_responses mar
@@ -793,6 +821,7 @@ matchesRouter.patch('/:id/lineup', requireRoles('ADMIN', 'COORDENADOR'), asyncHa
   const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
   ensureGuestPlayerSupport(players, guestPlayerEnabled);
   ensureFieldLayoutSupport(players, fieldLayoutEnabled);
+  await validateConfirmedPlayersForTeams(req.params.id, players);
   await validateLineupAgainstEvents(req.params.id, players);
 
   const client = await pool.connect();
@@ -853,6 +882,13 @@ matchesRouter.post('/schedule/manual', requireRoles('ADMIN', 'COORDENADOR'), asy
 matchesRouter.post('/schedule/recurring', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
   await ensureScheduleAvailable();
   const body = validate(recurringScheduleSchema, req.body);
+  const players = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: false }));
+  await validatePlayersInput(players);
+  const matchPlayerColumns = await getTableColumns('match_players');
+  const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+  const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
+  ensureGuestPlayerSupport(players, guestPlayerEnabled);
+  ensureFieldLayoutSupport(players, fieldLayoutEnabled);
   const scheduledStart = body.scheduledStart ?? '20:00';
   const scheduledEnd = body.scheduledEnd ?? '21:00';
   const confirmationOpensHoursBefore = body.confirmationOpensHoursBefore ?? 48;
@@ -893,11 +929,15 @@ matchesRouter.post('/schedule/recurring', requireRoles('ADMIN', 'COORDENADOR'), 
       const confirmationOpenAt = buildConfirmationOpenAt(matchDate, scheduledStart, confirmationOpensHoursBefore);
       const confirmationCloseAt = buildConfirmationCloseAt(matchDate, scheduledStart, confirmationClosesHoursBefore);
       ensureConfirmationWindowOrder(confirmationOpenAt, confirmationCloseAt);
-      await client.query(
+      const generatedMatch = await client.query<{ id: string }>(
         `INSERT INTO matches (season_id, match_date, title, referee_name, team_a_name, team_b_name, scheduled_start, scheduled_end, confirmation_open_at, confirmation_opens_hours_before, confirmation_close_at, confirmation_closes_hours_before, schedule_source, schedule_rule_id, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::TIME, $8::TIME, $9::TIMESTAMPTZ, $10, $11::TIMESTAMPTZ, $12, 'RECURRING', $13, $14)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7::TIME, $8::TIME, $9::TIMESTAMPTZ, $10, $11::TIMESTAMPTZ, $12, 'RECURRING', $13, $14)
+         RETURNING id`,
         [seasonId, matchDate, body.title, body.refereeName ?? null, body.teamAName, body.teamBName, scheduledStart, scheduledEnd, confirmationOpenAt, confirmationOpensHoursBefore, confirmationCloseAt, confirmationClosesHoursBefore, rule.rows[0].id, req.user?.id]
       );
+      for (const player of players) {
+        await insertMatchPlayerRecord(client.query.bind(client), generatedMatch.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
+      }
       generated += 1;
     }
     await client.query('COMMIT');
@@ -1100,6 +1140,12 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
   if (!match.rowCount) throw httpError(404, 'Partida não encontrada.');
   if (match.rows[0].status !== 'DRAFT') throw httpError(409, 'A confirmação de presença só fica aberta enquanto a súmula está em rascunho.');
   if (!match.rows[0].confirmationOpen) throw httpError(409, 'A confirmação desta rodada não está aberta no momento. Verifique a janela de abertura e fechamento configurada pela coordenação.');
+
+  const invitation = await query(
+    'SELECT 1 FROM match_players WHERE match_id = $1 AND user_id = $2::UUID',
+    [params.id, req.user?.id]
+  );
+  if (!invitation.rowCount) throw httpError(403, 'Você não foi convocado para confirmar presença neste jogo.');
 
   const dinnerConfirmed = body.responseStatus !== 'AUSENTE' && body.dinnerConfirmed;
   const guestCount = dinnerConfirmed ? body.guestCount : 0;

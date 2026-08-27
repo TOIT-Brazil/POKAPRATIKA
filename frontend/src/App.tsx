@@ -1458,9 +1458,9 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
     const presentOnly = match.attendancePresentOnly ?? 0;
     const absent = match.attendanceAbsent ?? 0;
     const responses = playing + presentOnly + absent;
-    const pending = Math.max(activeUserCount - responses, 0);
+    const pending = Math.max((match.invitedCount ?? activeUserCount) - responses, 0);
     const myAttendanceStatus = match.myAttendanceStatus ?? null;
-    const confirmationReallyOpen = isConfirmationReallyOpen(match);
+    const confirmationReallyOpen = isConfirmationReallyOpen(match) && match.isInvited !== false;
     const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
     const confirmationDetail = match.confirmationOpen ? `${attendanceStatusLabel(myAttendanceStatus)}${match.confirmationCloseAt ? ` • fecha ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}` : confirmationWindowHasEnded(match) ? `Janela encerrada${match.confirmationCloseAt ? ` em ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}.` : `Janela configurada: ${confirmationWindowScheduleLabel(match)}.`;
     const segments = [
@@ -1470,7 +1470,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       { label: 'Não responderam', value: pending, className: 'pending' }
     ];
 
-    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><div className="next-match-pitch-field" /></div><div className="next-match-main"><div className="next-match-date-badge"><b>{date.day}</b><div className="next-match-date-stack"><span>{date.month}</span><em>{date.time}</em><small>{date.weekday}</small></div><div className="next-match-title-block"><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><small className="next-match-footnote">{confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><div className="next-match-cta-row"><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><button type="button" className={`primary attendance-action-button next-match-presence-button ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={confirmationReallyOpen ? myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.' : match.status === 'DRAFT' ? 'Prazo de confirmação encerrado.' : 'Confirmação encerrada porque o jogo já começou.'} disabled={!confirmationReallyOpen} onClick={() => void openMatch(match.id)}>Confirmar presença</button></div>{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <div className="next-match-actions"><button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button></div>}</div></article>;
+    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><div className="next-match-pitch-field" /></div><div className="next-match-main"><div className="next-match-date-badge"><b>{date.day}</b><div className="next-match-date-stack"><span>{date.month}</span><em>{date.time}</em><small>{date.weekday}</small></div><div className="next-match-title-block"><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><small className="next-match-footnote">{match.isInvited === false ? 'Você não foi convocado para este jogo.' : confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><div className="next-match-cta-row"><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><button type="button" className={`primary attendance-action-button next-match-presence-button ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={match.isInvited === false ? 'Confirmação disponível somente para atletas convocados.' : confirmationReallyOpen ? myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.' : match.status === 'DRAFT' ? 'Prazo de confirmação encerrado.' : 'Confirmação encerrada porque o jogo já começou.'} disabled={!confirmationReallyOpen} onClick={() => void openMatch(match.id)}>Confirmar presença</button></div>{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <div className="next-match-actions"><button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button></div>}</div></article>;
   }
 
   return (
@@ -1499,6 +1499,17 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
                 await onReload();
               }}
             />
+            {canCoordinate && selectedMatch.status === 'DRAFT' && (
+              <ExistingLineupEditor
+                api={api}
+                match={selectedMatch}
+                users={users}
+                onSaved={async () => {
+                  await openMatch(selectedMatch.id);
+                  await onReload();
+                }}
+              />
+            )}
           </section>
         </div>
       )}
@@ -2798,10 +2809,11 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
     const absent = match.attendanceAbsent ?? 0;
     const dinnerPeople = match.attendanceDinnerPeople ?? 0;
     const responses = playing + presentOnly + absent;
-    const pending = Math.max(activeUserCount - responses, 0);
-    const responsePercent = Math.min(100, Math.round((responses / activeUserCount) * 100));
+    const invitedCount = Math.max(1, match.invitedCount ?? activeUserCount);
+    const pending = Math.max(invitedCount - responses, 0);
+    const responsePercent = Math.min(100, Math.round((responses / invitedCount) * 100));
     const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
-    const confirmationReallyOpen = isConfirmationReallyOpen(match);
+    const confirmationReallyOpen = isConfirmationReallyOpen(match) && match.isInvited !== false;
     const myAttendanceStatus = match.myAttendanceStatus ?? null;
     const confirmationDetail = match.confirmationOpen
       ? `${attendanceStatusLabel(myAttendanceStatus)}${match.confirmationCloseAt ? ` • fecha ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}`
@@ -2852,6 +2864,17 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
                 await onReload();
               }}
             />
+            {canCoordinate && selectedMatch.status === 'DRAFT' && (
+              <ExistingLineupEditor
+                api={api}
+                match={selectedMatch}
+                users={users}
+                onSaved={async () => {
+                  await openMatch(selectedMatch.id);
+                  await onReload();
+                }}
+              />
+            )}
           </section>
         </div>
       )}
@@ -2876,17 +2899,36 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
     setRefereeName(match.refereeName ?? '');
     setTeamAName(match.teamAName);
     setTeamBName(match.teamBName);
-    const seededPlayers = buildRegisteredRosterSeed(users, match.attendance, match.players);
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    const attendanceById = new Map(match.attendance.map((item) => [item.userId, item.responseStatus]));
+    const seededPlayers = match.players.map((player, index) => {
+      const user = usersById.get(player.userId);
+      const confirmedToPlay = player.isGuest === true || attendanceById.get(player.userId) === 'JOGAR';
+      const keepDrawnTeam = confirmedToPlay && (player.team === 'A' || player.team === 'B');
+      const position = player.position ?? user?.position ?? 'MC';
+      return {
+        userId: player.userId,
+        name: player.name,
+        email: user?.email ?? '',
+        position,
+        team: keepDrawnTeam ? player.team as 'A' | 'B' : 'PRESENTE_SEM_JOGAR' as const,
+        roleInMatch: keepDrawnTeam ? player.roleInMatch === 'GOLEIRO' ? 'GOLEIRO' as const : 'LINHA' as const : 'PRESENTE_SEM_JOGAR' as const,
+        drawOrder: String(player.drawOrder ?? index + 1),
+        startsOnBench: keepDrawnTeam && player.startsOnBench,
+        present: confirmedToPlay,
+        isGuest: player.isGuest === true,
+        fieldLeft: player.fieldLeft ?? null,
+        fieldTop: player.fieldTop ?? null
+      };
+    });
     setPlayers(seededPlayers);
-    setMessage(`${seededPlayers.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && player.present).length} confirmado(s) para jogar, ${seededPlayers.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} só presença e ${seededPlayers.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && !player.present).length} atleta(s) pendente(s) carregados pela posição original.`);
+    setMessage(`${seededPlayers.filter((player) => player.present).length} convocado(s) liberado(s) para o sorteio após confirmação.`);
   }, [match.id, match.title, match.matchDate, match.refereeName, match.teamAName, match.teamBName, match.players, match.attendance, users]);
 
-  const assignedIds = new Set(players.map((player) => player.userId));
-  const search = query.trim().toLowerCase();
-  const searchResults = search.length < 3 ? [] : users.filter((user) => user.active !== false && !assignedIds.has(user.id) && `${user.name} ${user.email}`.toLowerCase().includes(search)).slice(0, 8);
   const teamA = players.filter((player) => player.team === 'A');
   const teamB = players.filter((player) => player.team === 'B');
   const presentOnly = players.filter((player) => player.team === 'PRESENTE_SEM_JOGAR');
+  const confirmedForDraw = players.filter((player) => player.present);
 
   function payload() {
     const normalizedPlayers = normalizeDraftPlayersForLineup(players);
@@ -2899,7 +2941,7 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
       drawOrder: player.drawOrder ? Number(player.drawOrder) : null,
       rotationOrder: player.team === 'A' ? currentTeamA.findIndex((item) => item.userId === player.userId) + 1 : player.team === 'B' ? currentTeamB.findIndex((item) => item.userId === player.userId) + 1 : null,
       startsOnBench: player.startsOnBench,
-      present: persistedPresenceForTeam(player.team)
+      present: player.team === 'A' || player.team === 'B'
     }));
   }
 
@@ -2914,8 +2956,12 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
   }
 
   function balanceTeamsByPosition() {
-    setPlayers((list) => distributePlayersByPosition(list, false));
-    setMessage('Times reorganizados pela posição original, com banco automático e sequência fixa para trocas iguais.');
+    setPlayers((list) => {
+      const confirmed = list.filter((player) => player.present).map((player) => ({ ...player, team: 'A' as const, roleInMatch: player.position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const }));
+      const waiting = list.filter((player) => !player.present).map((player) => ({ ...player, team: 'PRESENTE_SEM_JOGAR' as const, roleInMatch: 'PRESENTE_SEM_JOGAR' as const }));
+      return [...drawBalancedTeams(confirmed), ...waiting];
+    });
+    setMessage('Sorteio concluído apenas com os atletas que confirmaram presença para jogar.');
   }
 
   function removePlayer(userId: string) {
@@ -2923,9 +2969,15 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
   }
 
   function applyAttendanceLineup() {
-    const next = buildRegisteredRosterSeed(users, match.attendance, match.players);
-    setPlayers(next);
-    setMessage(`${next.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && player.present).length} confirmado(s) para jogar, ${next.filter((player) => player.team === 'PRESENTE_SEM_JOGAR').length} só presença e ${next.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR' && !player.present).length} pendente(s) reaplicados da lista completa.`);
+    const attendanceById = new Map(match.attendance.map((item) => [item.userId, item.responseStatus]));
+    setPlayers((list) => list.map((player) => ({
+      ...player,
+      team: 'PRESENTE_SEM_JOGAR',
+      roleInMatch: 'PRESENTE_SEM_JOGAR',
+      startsOnBench: false,
+      present: player.isGuest === true || attendanceById.get(player.userId) === 'JOGAR'
+    })));
+    setMessage('Confirmações atualizadas. Faça o sorteio para formar os times.');
   }
 
   async function save() {
@@ -2997,45 +3049,28 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
           <div className="draw-action">
             <div>
               <strong>Confirmações e escalação</strong>
-              <small>{presentOnly.length} apenas presente(s) e {teamA.length + teamB.length} atleta(s) em jogo.</small>
+              <small>{confirmedForDraw.length} confirmado(s) para jogar e {presentOnly.filter((player) => !player.present).length} pendente(s), ausente(s) ou apenas presente(s).</small>
             </div>
             <div className="actions">
-              {match.attendance.some((item) => item.responseStatus !== 'AUSENTE') && <button className="ghost" onClick={applyAttendanceLineup}>Usar confirmações</button>}
-              <button className="primary" onClick={balanceTeamsByPosition}>Rebalancear</button>
-              <button className="primary" onClick={() => void save()}>Salvar escalação</button>
+              <button type="button" className="ghost" onClick={applyAttendanceLineup}>Atualizar confirmações</button>
+              <button type="button" className="primary" onClick={balanceTeamsByPosition} disabled={confirmedForDraw.length < 2}>Sortear confirmados</button>
+              <button type="button" className="primary" onClick={() => void save()} disabled={teamA.length === 0 || teamB.length === 0}>Salvar times</button>
             </div>
           </div>
           <div className="team-builder">
             <section>
-              <strong>Adicionar atleta</strong>
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar atleta por nome ou e-mail" />
-              {query.trim().length > 0 && query.trim().length < 3 && <small className="muted">Digite pelo menos 3 caracteres.</small>}
-              <div className="search-results">
-                {searchResults.map((user) => (
-                  <article key={user.id}>
-                    <strong>{user.name}</strong>
-                    <small>{user.email} • {positionLabel(user.position)}</small>
-                    <div className="actions">
-                      <button type="button" className="primary small" onClick={() => addPlayer(user, 'A')}>Time A</button>
-                      <button type="button" className="ghost small" onClick={() => addPlayer(user, 'B')}>Time B</button>
-                      <button type="button" className="ghost small" onClick={() => addPlayer(user, 'PRESENTE_SEM_JOGAR')}>Só presença</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
               <div className="team-list roster-list">
                 <div className="team-title">
-                  <strong>Presentes sem jogar</strong>
+                  <strong>Aguardando ou fora do jogo</strong>
                   <span>{presentOnly.length}</span>
                 </div>
-                {presentOnly.length === 0 ? <small className="muted">Sem atletas apenas presentes.</small> : presentOnly.map((player) => (
+                {presentOnly.length === 0 ? <small className="muted">Todos os confirmados já foram sorteados.</small> : presentOnly.map((player) => (
                   <div className="team-player roster-row pending" key={player.userId}>
                     <div className="player-meta">
                       <b>{player.name}</b>
                       <small>{positionLabel(player.position)}</small>
                     </div>
-                    <button type="button" className="ghost small" onClick={() => updatePlayer(player.userId, { team: 'A', roleInMatch: player.position === 'GO' ? 'GOLEIRO' : 'LINHA', present: true })}>Vai pro jogo</button>
-                    <button type="button" className="ghost small" onClick={() => removePlayer(player.userId)}>Remover</button>
+                    <span className="chip">{player.present ? 'Confirmado, aguardando sorteio' : 'Sem confirmação para jogar'}</span>
                   </div>
                 ))}
               </div>
@@ -3461,7 +3496,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
-  const [confirmDrawOpen, setConfirmDrawOpen] = useState(false);
+  const [creationStep, setCreationStep] = useState<'details' | 'players'>('details');
   const [draftMatchId, setDraftMatchId] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [title, setTitle] = useState('Futebol de quarta');
@@ -3481,11 +3516,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
 
   const assignedIds = new Set(players.map((player) => player.userId));
   const search = query.trim().toLowerCase();
-  const searchResults = search.length < 3 ? [] : users.filter((user) => !assignedIds.has(user.id) && `${user.name} ${user.email}`.toLowerCase().includes(search)).slice(0, 8);
-  const pendingPlayers = players.filter((player) => player.team === 'PRESENTE_SEM_JOGAR');
-  const teamA = players.filter((player) => player.team === 'A');
-  const teamB = players.filter((player) => player.team === 'B');
-  const teamsDrawn = teamA.length > 0 && teamB.length > 0 && pendingPlayers.length === 0;
+  const searchResults = search.length < 3 ? [] : users.filter((user) => user.active !== false && user.role === 'ATLETA' && !assignedIds.has(user.id) && `${user.name} ${user.email}`.toLowerCase().includes(search)).slice(0, 8);
   const recurringWeekdayLabel = weekdayOptions.find((item) => item.value === recurringWeekday)?.label ?? 'Quarta-feira';
 
   useEffect(() => {
@@ -3493,19 +3524,17 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   }, [date, isRecurring, recurringEndDate]);
 
   function selectedPlayersPayload(list = players) {
-    const currentTeamA = list.filter((player) => player.team === 'A');
-    const currentTeamB = list.filter((player) => player.team === 'B');
     return list.map((player) => ({
       userId: player.userId,
       name: player.name,
       position: player.position,
       isGuest: player.isGuest === true,
-      team: player.team,
-      roleInMatch: player.team === 'PRESENTE_SEM_JOGAR' ? 'PRESENTE_SEM_JOGAR' : player.roleInMatch,
+      team: 'PRESENTE_SEM_JOGAR' as const,
+      roleInMatch: 'PRESENTE_SEM_JOGAR' as const,
       drawOrder: player.drawOrder ? Number(player.drawOrder) : null,
-      rotationOrder: player.team === 'A' ? currentTeamA.findIndex((item) => item.userId === player.userId) + 1 : player.team === 'B' ? currentTeamB.findIndex((item) => item.userId === player.userId) + 1 : null,
-      startsOnBench: player.startsOnBench,
-      present: true
+      rotationOrder: null,
+      startsOnBench: false,
+      present: false
     }));
   }
 
@@ -3514,29 +3543,54 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
     await api.request(`/matches/${draftMatchId}/lineup`, { method: 'PATCH', body: JSON.stringify({ matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: selectedPlayersPayload() }) });
   }
 
-  async function openPersistentDraft() {
-    const created = await api.request<{ id: string }>('/matches', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: [] }) });
-    setDraftMatchId(created.id);
-    setConfirmDrawOpen(false);
-    setSaveStatus('Rascunho da súmula criado e salvo no banco.');
+  function openCreation() {
+    setCreationStep('details');
+    setDraftMatchId('');
+    setPlayers([]);
+    setSaveStatus('');
     setOpen(true);
-    await onDone();
   }
 
-  useEffect(() => {
-    if (!open || !draftMatchId) return;
-    if (players.length > 0 && !teamsDrawn) {
-      setSaveStatus('Participantes selecionados. Faça o sorteio automático para gravar a escalação no banco.');
+  async function cancelCreation() {
+    const abandonedDraftId = draftMatchId;
+    setOpen(false);
+    setCreationStep('details');
+    setDraftMatchId('');
+    setPlayers([]);
+    setSaveStatus('');
+    if (!abandonedDraftId) return;
+    try {
+      await api.request(`/matches/${abandonedDraftId}`, { method: 'DELETE' });
+      await onDone();
+    } catch {
+      await onDone();
+    }
+  }
+
+  async function advanceToPlayers() {
+    if (title.trim().length < 2 || !date) {
+      setSaveStatus('Informe o tipo e a data do jogo antes de avançar.');
       return;
     }
-    setSaveStatus('Salvando escalação...');
-    const timer = window.setTimeout(() => {
-      void saveLineup()
-        .then(() => setSaveStatus('Escalação salva no banco.'))
-        .catch((err) => setSaveStatus(err instanceof Error ? err.message : 'Falha ao salvar escalação.'));
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [open, draftMatchId, title, date, refereeName, teamAName, teamBName, players, teamsDrawn]);
+    if (isRecurring && weekdayFromInputDate(date) !== recurringWeekday) {
+      setSaveStatus('A data base precisa cair no mesmo dia escolhido para a recorrência.');
+      return;
+    }
+    try {
+      setSaveStatus('Salvando detalhes do jogo...');
+      if (draftMatchId) {
+        await saveLineup();
+      } else {
+        const created = await api.request<{ id: string }>('/matches', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: [] }) });
+        setDraftMatchId(created.id);
+      }
+      setCreationStep('players');
+      setSaveStatus('Detalhes salvos. Selecione os atletas que deverão confirmar presença.');
+      await onDone();
+    } catch (err) {
+      setSaveStatus(err instanceof Error ? err.message : 'Não foi possível salvar os detalhes do jogo.');
+    }
+  }
 
   function addParticipant(user: User) {
     const position = user.position ?? 'MC';
@@ -3565,39 +3619,21 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
     }]);
     setGuestName('');
     setGuestPosition('MC');
-    setSaveStatus(`${normalizedName} foi incluído no pré-sorteio e agora entra no balanceamento por posição.`);
-  }
-
-  function balanceTeamsByPosition() {
-    setPlayers((list) => drawBalancedTeams(list.map((player) => ({ ...player, team: player.team === 'PRESENTE_SEM_JOGAR' ? 'A' : player.team, roleInMatch: player.roleInMatch === 'PRESENTE_SEM_JOGAR' ? 'LINHA' : player.roleInMatch }))));
-    setConfirmDrawOpen(true);
-  }
-
-  function updatePlayer(userId: string, patch: Partial<MatchDraftPlayer>) {
-    setPlayers((list) => list.map((player) => player.userId === userId ? { ...player, ...patch } : player));
+    setSaveStatus(`${normalizedName} foi incluído na convocação.`);
   }
 
   function removePlayer(userId: string) {
     setPlayers((list) => list.filter((player) => player.userId !== userId));
   }
 
-  function movePlayer(userId: string, targetUserId: string, team: 'A' | 'B') {
-    if (!userId || userId === targetUserId) return;
-    setPlayers((list) => {
-      const moving = list.find((player) => player.userId === userId);
-      if (!moving) return list;
-      const withoutMoving = list.filter((player) => player.userId !== userId);
-      const sameTeam = withoutMoving.filter((player) => player.team === team);
-      const targetIndex = sameTeam.findIndex((player) => player.userId === targetUserId);
-      const orderedTeam = [...sameTeam.slice(0, targetIndex), { ...moving, team }, ...sameTeam.slice(targetIndex)];
-      return withoutMoving.filter((player) => player.team !== team).concat(orderedTeam);
-    });
-  }
-
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!teamsDrawn) {
-      setSaveStatus('Faça o sorteio/divisão automática das equipes antes de salvar a súmula.');
+    if (creationStep === 'details') {
+      await advanceToPlayers();
+      return;
+    }
+    if (!players.length) {
+      setSaveStatus('Selecione pelo menos um atleta para abrir a confirmação.');
       return;
     }
     if (isRecurring && weekdayFromInputDate(date) !== recurringWeekday) {
@@ -3609,7 +3645,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       return;
     }
     try {
-      setSaveStatus(isRecurring ? 'Salvando súmula e gerando recorrência...' : 'Salvando súmula final...');
+      setSaveStatus(isRecurring ? 'Salvando convocação e gerando recorrência...' : 'Salvando convocação...');
       await saveLineup();
       if (isRecurring) {
         const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', {
@@ -3626,21 +3662,21 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
             confirmationOpensHoursBefore: 48,
             confirmationClosesHoursBefore: 2,
             teamAName,
-            teamBName
+            teamBName,
+            players: selectedPlayersPayload()
           })
         });
         const extraDuplicates = Math.max(0, result.skipped - 1);
-        setSaveStatus(`Súmula salva. Recorrência semanal configurada: ${result.generated} jogo(s) futuro(s) criado(s)${extraDuplicates ? ` e ${extraDuplicates} data(s) já existiam.` : '.'}`);
-      } else {
-        setSaveStatus('Súmula salva no banco.');
+        setSaveStatus(`Convocação salva. Recorrência semanal configurada: ${result.generated} jogo(s) futuro(s) criado(s)${extraDuplicates ? ` e ${extraDuplicates} data(s) já existiam.` : '.'}`);
       }
+      await api.request(`/matches/${draftMatchId}/open-confirmation`, { method: 'POST' });
       setOpen(false);
-      setConfirmDrawOpen(false);
       setDraftMatchId('');
       setPlayers([]);
+      setCreationStep('details');
       await onDone();
     } catch (err) {
-      setSaveStatus(err instanceof Error ? err.message : 'Falha ao salvar a súmula.');
+      setSaveStatus(err instanceof Error ? err.message : 'Falha ao salvar a convocação.');
     }
   }
 
@@ -3678,63 +3714,12 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
     return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5 12 3l5 2.5 1 7.5-6 7-6-7 1-7.5Z" fill={fill} stroke={stroke} strokeWidth="1.7" strokeLinejoin="round" /><path d="M9 7.5h6M9.5 10.5h5M10 13.5h4" fill="none" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" /></svg>;
   }
 
-  function TeamList({ team, rows }: { team: 'A' | 'B'; rows: MatchDraftPlayer[] }) {
-    return (
-      <div className={`draw-result-card team-${team.toLowerCase()}`}>
-        <div className="draw-result-head">
-          <div className="draw-team-heading">
-            <DrawIcon kind="shirt" tone={team === 'A' ? 'a' : 'b'} className="draw-icon draw-icon-shirt" />
-            <strong>{team === 'A' ? teamAName.toUpperCase() : teamBName.toUpperCase()}</strong>
-          </div>
-          <span>({rows.length} atleta{rows.length === 1 ? '' : 's'})</span>
-        </div>
-        {rows.length === 0 ? (
-          <p className="muted draw-empty-team">O time aparecerá aqui depois do sorteio automático.</p>
-        ) : (
-          <div className="draw-result-list">
-            {rows.map((player, index) => (
-              <div
-                className={`draw-result-player draw-result-line ${player.startsOnBench ? 'is-bench' : ''}`}
-                key={player.userId}
-                draggable
-                onDragStart={() => setDraggedUserId(player.userId)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => movePlayer(draggedUserId, player.userId, team)}
-                onClick={() => updatePlayer(player.userId, { startsOnBench: !player.startsOnBench })}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    updatePlayer(player.userId, { startsOnBench: !player.startsOnBench });
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-pressed={player.startsOnBench}
-                title={player.startsOnBench ? 'Clique para tirar do banco' : 'Clique para marcar como banco'}
-              >
-                <span className="draw-result-order">{index + 1}</span>
-                <div className="draw-result-meta">
-                  <b>{player.name.trim().split(/\s+/)[0] ?? player.name}</b>
-                  <small>{positionLabel(player.position)}</small>
-                </div>
-                <span className={`draw-bench-chip ${player.startsOnBench ? 'is-visible' : ''}`}>{player.startsOnBench ? 'Banco' : ''}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   const rosterRows = [...players].sort((left, right) => Number(left.drawOrder || 0) - Number(right.drawOrder || 0) || left.name.localeCompare(right.name, 'pt-BR'));
-  const drawStatus = players.length < 2 ? 'Adicione pelo menos 2 atletas para liberar o sorteio.' : teamsDrawn ? 'Equipes sorteadas. Você ainda pode sortear novamente ou ajustar sequência/banco.' : 'Elenco pronto para sorteio aleatório por posições.';
-  const drawTitle = teamsDrawn ? 'Sorteio concluído.' : 'Divisão automática obrigatória.';
-  const drawButtonLabel = teamsDrawn ? 'SORTEAR TIMES NOVAMENTE' : 'SORTEAR TIMES AUTOMATICAMENTE';
   const selectedLabel = rosterRows.length === 0 ? 'Vazios (0)' : `${rosterRows.length} atleta${rosterRows.length === 1 ? '' : 's'}`;
 
   return (
     <>
-      {!hideTrigger && <button className="primary small" onClick={() => void openPersistentDraft()}>Criar jogo</button>}
+      {!hideTrigger && <button className="primary small" onClick={openCreation}>Criar jogo</button>}
       {open && (
         <div className="modal">
           <form className="card modal-card wide draw-modal draw-modal-sheet" onSubmit={submit}>
@@ -3743,12 +3728,13 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                 <span className="eyebrow">Súmula Inteligente</span>
               
               </div>
-              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }} />
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => void cancelCreation()} />
             </div>
 
             {saveStatus && <p className="status-line draw-status-line">{saveStatus}</p>}
 
-            <div className="draw-sheet-grid">
+            <div className="draw-sheet-grid is-single-step">
+              {creationStep === 'details' && (
               <section className="draw-sheet-card draw-details-card">
                 <div className="draw-card-head">
                   <div className="draw-title-row">
@@ -3820,9 +3806,11 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   </div>
                 )}
 
-                <p className="draw-card-note">Escalação salva no banco.</p>
+                <p className="draw-card-note">Na próxima etapa você selecionará os atletas convocados.</p>
               </section>
+              )}
 
+              {creationStep === 'players' && (
               <section className="draw-sheet-side">
                 <div className="draw-sheet-card draw-search-card">
                   <div className="draw-card-head">
@@ -3873,13 +3861,8 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                     </div>
                   </div>
 
-                  <div className="draw-action-callout">
-                    <strong>{drawTitle}</strong>
-                    <small>{drawStatus}</small>
-                  </div>
-
                   <div className="draw-selected-head">
-                    <strong><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Elenco Selecionado: {selectedLabel}</strong>
+                    <strong><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Convocados: {selectedLabel}</strong>
                   </div>
 
                   {rosterRows.length > 0 && (
@@ -3896,46 +3879,20 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                       ))}
                     </div>
                   )}
-
-                  <button type="button" className="primary draw-button draw-button-full" onClick={balanceTeamsByPosition} disabled={players.length < 2}><DrawIcon kind="dice" className="draw-icon draw-button-icon" /> {drawButtonLabel}</button>
-                  {teamsDrawn && <button type="button" className="ghost draw-review-button" onClick={() => setConfirmDrawOpen(true)}><DrawIcon kind="results" className="draw-icon draw-icon-inline" /> Revisar times sorteados</button>}
                 </div>
               </section>
+              )}
             </div>
 
             <div className="draw-sheet-footer">
-              <button type="button" className="ghost" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }}>Cancelar</button>
+              <button type="button" className="ghost" onClick={() => creationStep === 'players' ? setCreationStep('details') : void cancelCreation()}>{creationStep === 'players' ? 'Voltar' : 'Cancelar'}</button>
               <div className="draw-footer-save">
-                <button className="primary" disabled={!teamsDrawn}>{isRecurring ? 'SALVAR SÚMULA + RECORRÊNCIA' : 'SALVAR SÚMULA FINAL'}</button>
-                <small>{isRecurring ? `O jogo base será salvo e os próximos ${recurringWeekdayLabel.toLowerCase()} serão gerados automaticamente.` : 'O salvamento final só libera após o sorteio.'}</small>
+                <button className="primary" disabled={creationStep === 'players' && players.length === 0}>{creationStep === 'details' ? 'PRÓXIMO' : isRecurring ? 'SALVAR CONVOCAÇÃO + RECORRÊNCIA' : 'SALVAR CONVOCAÇÃO'}</button>
+                <small>{creationStep === 'details' ? 'Avance para selecionar os jogadores.' : 'Os convocados confirmarão presença antes do sorteio.'}</small>
               </div>
             </div>
           </form>
 
-          {confirmDrawOpen && (
-            <div className="modal prompt-modal draw-confirm-modal">
-              <div className="card modal-card confirmation-popup draw-confirm-card">
-                <div className="draw-confirm-head">
-                  <div>
-                    <span className="eyebrow">Confirmação rápida</span>
-                    <h3>Revise Time A e Time B</h3>
-                    <p className="muted">Clique em um atleta para marcar ou tirar do banco. A definição de posição detalhada fica para a próxima etapa.</p>
-                  </div>
-                  <button type="button" className="ghost modal-close-button" aria-label="Fechar confirmação" title="Fechar" onClick={() => setConfirmDrawOpen(false)}>X</button>
-                </div>
-
-                <div className="draw-results-grid draw-results-grid-confirm">
-                  <TeamList team="A" rows={teamA} />
-                  <TeamList team="B" rows={teamB} />
-                </div>
-
-                <div className="draw-confirm-footer">
-                  <small>Quando terminar a revisão, feche esta confirmação e use SALVAR SÚMULA FINAL no modal principal.</small>
-                  <button type="button" className="primary" onClick={() => setConfirmDrawOpen(false)}>Confirmar Times</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </>
