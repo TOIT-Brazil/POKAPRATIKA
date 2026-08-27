@@ -708,8 +708,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-modal-card { width: min(1720px, calc(100vw - 8px)); max-height: calc(100dvh - 8px); overflow: auto; background: linear-gradient(180deg, #f8fcf8 0%, #edf5ee 100%); border-color: rgba(188, 208, 191, .95); }
 .sheet-modal-card .card-head h2 { color: #16261e; }
 .sheet-modal-card .card-head .muted { color: #5f7168; }
-.sheet-preview-board { display: grid; gap: 10px; color: #141414; }
-.sheet-preview-top { display: flex; justify-content: center; }
+.sheet-preview-board { display: grid; grid-template-columns: minmax(280px, .86fr) minmax(640px, 1.6fr) minmax(280px, .86fr); gap: 10px; align-items: start; color: #141414; }
+.sheet-preview-top { grid-column: 1 / -1; display: flex; justify-content: center; margin-bottom: -18px; }
 .sheet-top-card, .sheet-swap-panel, .sheet-closing-panel { border-radius: 18px; background: linear-gradient(180deg, #ffffff 0%, #f7fbf8 100%); border: 1px solid #d7e5da; box-shadow: 0 10px 24px rgba(22, 49, 35, .08); }
 .sheet-top-clock-card { width: min(100%, 580px); border-radius: 18px; background: linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%); box-shadow: 0 10px 24px rgba(22, 49, 35, .08); margin-inline: auto; }
 .sheet-guest-card { display: grid; gap: 10px; padding: 12px; border-radius: 18px; background: linear-gradient(180deg, #ffffff 0%, #f7fbf8 100%); border: 1px solid #d7e5da; box-shadow: 0 10px 24px rgba(22, 49, 35, .08); }
@@ -728,13 +728,14 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-crest.is-solid { background: linear-gradient(180deg, #2c6a61 0%, #23473f 100%); border-color: #21463d; }
 .sheet-crest.is-outline { background: linear-gradient(180deg, #ffffff 0%, #f5faf6 100%); }
 .sheet-crest-pair.small .sheet-crest { width: 30px; height: 38px; border-width: 2px; }
-.sheet-lineups-grid { position: relative; z-index: 5; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; align-items: start; padding: 10px; overflow: visible; border-radius: 16px; background: #f8fbf9; border: 1px solid #d7e5da; box-shadow: var(--shadow-sm); }
-.sheet-lineups-grid::after { content: ''; position: absolute; top: 10px; bottom: 10px; left: 50%; width: 1px; background: #b8ccc0; transform: translateX(-50%); }
-.sheet-center-column { position: relative; z-index: 1; width: min(1100px, 100%); margin: 0 auto; display: grid; gap: 10px; align-content: start; }
-.sheet-roster-panel { min-width: 0; gap: 4px; padding: 0 18px 0 0; position: relative; z-index: 2; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.sheet-roster-panel.team-b-roster { padding: 0 0 0 18px; }
+.sheet-lineups-grid { display: contents; }
+.sheet-lineups-grid::after { display: none; }
+.sheet-center-column { position: relative; z-index: 1; grid-column: 2; grid-row: 2; width: 100%; display: grid; gap: 10px; align-content: start; margin-top: 18px; }
+.sheet-roster-panel { min-width: 0; gap: 4px; padding: 8px 9px; margin-top: -124px; position: relative; z-index: 5; }
+.sheet-roster-panel.team-a-roster { grid-column: 1; grid-row: 2; }
+.sheet-roster-panel.team-b-roster { grid-column: 3; grid-row: 2; }
 .sheet-roster-panel .ops-roster-head { border-bottom: 0; padding-bottom: 0; }
-.sheet-roster-panel .ops-roster-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sheet-roster-panel .ops-roster-list { grid-template-columns: 1fr; }
 .sheet-panel-label { color: #141414; font-size: .92rem; font-weight: 950; text-transform: uppercase; }
 .team-b-roster .ops-roster-head strong { margin-left: auto; }
 .team-b-roster .sheet-panel-label { text-align: right; }
@@ -833,14 +834,18 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
   .tabs button { padding: 9px 5px; font-size: .68rem; }
   .grid.two, .rotation-grid, .ranking-grid, .podium, .award-cards, .selection-grid, .quick-sheet, .season-lower, .leader-strip, .match-section-grid { grid-template-columns: 1fr; }
   .match-ops-grid, .match-list, .match-history-row, .payment-list, .admin-action-grid, .admin-list, .admin-users, .users-summary { grid-template-columns: 1fr; }
+  .sheet-preview-board { grid-template-columns: 1fr; }
   .sheet-preview-top, .sheet-preview-arena, .sheet-preview-bottom, .sheet-event-summary, .sheet-footer-actions { grid-template-columns: 1fr; }
+  .sheet-preview-top { grid-column: 1; margin-bottom: 0; }
   .match-control-top, .match-ops-arena, .match-control-bottom { grid-template-columns: 1fr; }
   .ops-pitch-surface { min-height: 280px; }
   .ops-roster-row { grid-template-columns: 38px minmax(0, 1fr); }
-  .sheet-lineups-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px; }
-  .sheet-lineups-grid::after { top: 8px; bottom: 8px; }
-  .sheet-roster-panel { padding-right: 9px; }
-  .sheet-roster-panel.team-b-roster { padding-left: 9px; }
+  .sheet-lineups-grid { position: relative; z-index: 5; grid-column: 1; grid-row: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; align-items: start; padding: 8px; overflow: visible; border-radius: 16px; background: #f8fbf9; border: 1px solid #d7e5da; box-shadow: var(--shadow-sm); }
+  .sheet-lineups-grid::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 50%; width: 1px; display: block; background: #b8ccc0; transform: translateX(-50%); }
+  .sheet-center-column { grid-column: 1; grid-row: auto; width: 100%; margin-top: 0; }
+  .sheet-roster-panel { margin-top: 0; padding: 0 9px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .sheet-roster-panel.team-a-roster { grid-column: 1; grid-row: auto; }
+  .sheet-roster-panel.team-b-roster { grid-column: 2; grid-row: auto; padding: 0 0 0 9px; }
   .sheet-roster-panel .ops-roster-list { grid-template-columns: 1fr; }
   .sheet-roster-row { grid-template-columns: minmax(0, 1fr) auto; padding: 4px 5px; }
   .sheet-roster-row .ops-roster-copy strong { font-size: .82rem; }

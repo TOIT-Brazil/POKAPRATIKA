@@ -35,3 +35,7 @@ Manter comandos secundários sob interação contextual em listas densas e valid
 ## Refinamento do menu contextual
 
 Na primeira versão, atletas com confirmação pendente aplicavam `opacity` na linha inteira, incluindo o menu filho, deixando-o visualmente transparente. Além disso, o posicionamento por `top` abria o menu abaixo do atleta. A correção restaura opacidade e filtro quando a linha está selecionada, posiciona o menu por `bottom`, usa fundo branco sólido e eleva as camadas da escalação e do item selecionado. As opções disciplinares passaram a usar cartões retangulares amarelo, vermelho e azul com nomes acessíveis e tooltips.
+
+## Escopo responsivo
+
+A reorganização com Time A e Time B lado a lado acima do campo foi posteriormente delimitada ao mobile (`max-width: 820px`). No desktop, a arena voltou à composição anterior em três colunas, com Time A à esquerda, campo e log ao centro e Time B à direita. O menu contextual e a regra do cartão azul permanecem disponíveis em ambos os tamanhos.
