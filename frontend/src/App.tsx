@@ -4138,15 +4138,22 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   </div>
 
                   {rosterRows.length > 0 && (
-                    <div className="draw-selected-list">
-                      {rosterRows.map((player) => (
-                        <div className={`draw-selected-player draw-selected-line ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
-                          <div className="draw-selected-meta">
-                            <span className="draw-selected-name">{player.name.trim().split(/\s+/)[0] ?? player.name}</span>
-                            <span className="draw-selected-position">{positionLabel(player.position)}</span>
-                          </div>
-                          <span className={`draw-selected-badge ${player.isGuest ? 'is-guest' : ''}`}>{player.isGuest ? 'Convidado' : 'Atleta'}</span>
-                          <button type="button" className="ghost draw-inline-remove" aria-label={`Remover ${player.name}`} title="Remover" onClick={() => removePlayer(player.userId)}>X</button>
+                    <div className={`draw-selected-list ${rosterRows.length > 6 ? 'is-split' : ''}`}>
+                      {(rosterRows.length > 6
+                        ? [rosterRows.slice(0, Math.ceil(rosterRows.length / 2)), rosterRows.slice(Math.ceil(rosterRows.length / 2))]
+                        : [rosterRows]
+                      ).map((column, columnIndex) => (
+                        <div className="draw-selected-column" key={`convocados-coluna-${columnIndex + 1}`}>
+                          {column.map((player) => (
+                            <div className={`draw-selected-player draw-selected-line ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
+                              <div className="draw-selected-meta">
+                                <span className="draw-selected-name">{player.name.trim().split(/\s+/)[0] ?? player.name}</span>
+                                <span className="draw-selected-position">{positionLabel(player.position)}</span>
+                              </div>
+                              <span className={`draw-selected-badge ${player.isGuest ? 'is-guest' : ''}`}>{player.isGuest ? 'Convidado' : 'Atleta'}</span>
+                              <button type="button" className="ghost draw-inline-remove" aria-label={`Remover ${player.name}`} title="Remover" onClick={() => removePlayer(player.userId)}>X</button>
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>

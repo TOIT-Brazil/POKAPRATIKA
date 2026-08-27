@@ -2348,9 +2348,20 @@ textarea {
 
 .draw-selected-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   column-gap: 6px;
   row-gap: 4px;
+}
+
+.draw-selected-list.is-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.draw-selected-column {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 4px;
 }
 
 .draw-selected-player,
@@ -4721,4 +4732,39 @@ textarea {
   min-height: 180px;
   max-height: none;
   overflow: auto !important;
+}
+
+@media (min-width: 821px) {
+  .athlete-profile-modal-card {
+    width: min(1080px, calc(100vw - 32px));
+    max-height: none;
+    overflow: visible;
+  }
+
+  .athlete-profile-sheet:has(.athlete-profile-hero-card) {
+    grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .athlete-profile-sheet > .athlete-profile-message,
+  .athlete-profile-sheet > .muted {
+    grid-column: 1 / -1;
+  }
+
+  .athlete-profile-hero-card {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .athlete-profile-history-card {
+    grid-column: 2 / -1;
+  }
+
+  .athlete-profile-trophies-card {
+    grid-column: 2;
+  }
+
+  .athlete-profile-stats-card {
+    grid-column: 3;
+  }
 }
