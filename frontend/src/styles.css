@@ -895,17 +895,17 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 :root {
   color-scheme: dark;
   font-family: "Manrope", "Segoe UI Variable", sans-serif;
-  background: #071311;
-  color: #edf7f2;
-  --bg: #071311;
-  --surface: #0d1d1a;
-  --surface-soft: #132723;
-  --line: rgba(183, 224, 207, .14);
-  --line-strong: rgba(183, 224, 207, .24);
-  --text: #edf7f2;
-  --muted: #9db3aa;
-  --primary: #35b86b;
-  --primary-deep: #69d0b0;
+  background: #07111f;
+  color: #f5fbf7;
+  --bg: #07111f;
+  --surface: #0a1426;
+  --surface-soft: #101e35;
+  --line: rgba(255, 255, 255, .1);
+  --line-strong: rgba(147, 197, 253, .2);
+  --text: #f5fbf7;
+  --muted: #a9b9af;
+  --primary: #3b82f6;
+  --primary-deep: #93c5fd;
   --accent: #ffc107;
   --success: #34d399;
   --danger: #fb7185;
@@ -915,9 +915,8 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(28, 132, 91, .18), transparent 30%),
-    radial-gradient(circle at top right, rgba(212, 160, 23, .1), transparent 25%),
-    linear-gradient(180deg, #071311 0%, #0a1715 46%, #06100e 100%);
+    radial-gradient(circle at top left, #1e3a8a 0, #07111f 34%, transparent 68%),
+    linear-gradient(180deg, #07111f 0%, #080d17 58%, #05070c 100%);
   color: var(--text);
 }
 
@@ -944,14 +943,14 @@ h3 { margin: 0; font-size: .98rem; letter-spacing: -.02em; }
 
 .card {
   border: 1px solid var(--line);
-  background: rgba(13,29,26,.94);
+  background: rgba(10,20,38,.94);
   border-radius: 18px;
   box-shadow: var(--shadow-sm);
 }
 
 .glass {
   backdrop-filter: blur(18px);
-  background: rgba(10,25,22,.9);
+  background: rgba(10,20,38,.9);
 }
 
 .hero {
@@ -4786,7 +4785,7 @@ body,
 .sheet-modal-card,
 .sheet-guest-modal-card {
   color: var(--text);
-  background: rgba(13, 29, 26, .97);
+  background: rgba(10, 20, 38, .97);
   border-color: var(--line);
   box-shadow: var(--shadow-md);
 }
@@ -4799,15 +4798,15 @@ textarea,
 .draw-modal-sheet .field-shell textarea,
 .draw-modal-sheet .draw-inline-select {
   color: var(--text);
-  background: #10231f;
+  background: #101c31;
   border-color: var(--line-strong);
   box-shadow: none;
 }
 
 input::placeholder,
-textarea::placeholder { color: #789188; }
+textarea::placeholder { color: #7f93a8; }
 select option,
-select optgroup { color: var(--text); background: #10231f; }
+select optgroup { color: var(--text); background: #101c31; }
 
 .championship-wrap,
 .management-table-wrap,
@@ -4818,7 +4817,7 @@ select optgroup { color: var(--text); background: #10231f; }
 .payments-history-block,
 .import-excel-panel {
   color: var(--text);
-  background: linear-gradient(180deg, #10231f, #0b1a17);
+  background: linear-gradient(180deg, #101c31, #091426);
   border-color: var(--line);
 }
 
@@ -4828,8 +4827,8 @@ select optgroup { color: var(--text); background: #10231f; }
 .cash-table th,
 .schedule-table th,
 .import-table th {
-  color: #9fe3cb;
-  background: #10241f;
+  color: #93c5fd;
+  background: #0b172a;
   border-bottom-color: var(--line-strong);
 }
 
@@ -4855,27 +4854,27 @@ select optgroup { color: var(--text); background: #10231f; }
 .payments-table tbody tr:hover,
 .cash-table tbody tr:hover,
 .schedule-table tbody tr:hover,
-.import-table tbody tr:hover { background: rgba(52,211,153,.08); }
+.import-table tbody tr:hover { background: rgba(59,130,246,.1); }
 
 .table-filter-button,
 .table-filter-popover,
 .table-filter-popover input,
 .table-filter-option {
   color: var(--text);
-  background: #132723;
+  background: #12213a;
   border-color: var(--line-strong);
 }
 
 .table-filter-popover-head strong,
 .table-filter-button,
 .name-link,
-.championship-table .pos-cell { color: #7dd8ba; }
+.championship-table .pos-cell { color: #93c5fd; }
 .championship-table .points-cell { color: #f5ce67; }
-.table-filter-option.is-selected { color: #8aebbf; background: rgba(52,211,153,.14); }
+.table-filter-option.is-selected { color: #bfdbfe; background: rgba(59,130,246,.16); }
 
 .account-menu {
   color: var(--text);
-  background: rgba(8, 22, 19, .99);
+  background: rgba(7, 17, 31, .99);
   border-left-color: var(--line-strong);
   box-shadow: -18px 0 48px rgba(0,0,0,.48);
 }
@@ -4911,13 +4910,13 @@ select optgroup { color: var(--text); background: #10231f; }
 .match-command-banner,
 .ops-roster-row {
   color: var(--text);
-  background: #10231f;
+  background: #101c31;
   border-color: var(--line);
 }
 
-.ops-highlight.danger { background: linear-gradient(180deg, rgba(239,68,68,.12), #10231f); }
-.ops-highlight.gold { background: linear-gradient(180deg, rgba(255,193,7,.1), #10231f); }
-.ops-highlight.success { background: linear-gradient(180deg, rgba(16,185,129,.12), #10231f); }
+.ops-highlight.danger { background: linear-gradient(180deg, rgba(239,68,68,.12), #101c31); }
+.ops-highlight.gold { background: linear-gradient(180deg, rgba(255,193,7,.1), #101c31); }
+.ops-highlight.success { background: linear-gradient(180deg, rgba(16,185,129,.12), #101c31); }
 .suspension-row { background: rgba(127,29,29,.2); }
 .suspension-row span { color: #fda4af; }
 
@@ -4932,7 +4931,7 @@ select optgroup { color: var(--text); background: #10231f; }
 .draw-result-card,
 .draw-confirm-card {
   color: var(--text);
-  background: #0e201c;
+  background: #0d192d;
   border-color: var(--line-strong);
   box-shadow: none;
 }
@@ -4966,24 +4965,24 @@ select optgroup { color: var(--text); background: #10231f; }
 
 .draw-selected-player.is-pending { color: var(--text); background: rgba(138,98,0,.22); border-color: rgba(245,206,103,.35); }
 .draw-selected-line { background: rgba(255,255,255,.025); border-color: var(--line); }
-.draw-sheet-copy .eyebrow { color: #9fe3cb; background: rgba(52,211,153,.1); border-color: var(--line); }
+.draw-sheet-copy .eyebrow { color: #bfdbfe; background: rgba(59,130,246,.12); border-color: var(--line); }
 .draw-status-line { color: #b9dbee; background: rgba(30,108,151,.16); border-color: rgba(125,190,225,.22); }
 
 .sheet-player-event-menu,
 .sheet-player-event-menu::after {
   color: var(--text);
-  background: #132723;
+  background: #12213a;
   border-color: var(--line-strong);
 }
 
 .next-match-side .status,
 .next-match-side .status.open {
   color: #dff8ed;
-  background: rgba(13, 29, 26, .86);
+  background: rgba(10, 20, 38, .9);
   border: 1px solid rgba(255,255,255,.18);
 }
 
-.attendance-hero-ring { color: var(--text); background: #10231f; border-color: #496158; }
+.attendance-hero-ring { color: var(--text); background: #101c31; border-color: #52667d; }
 .attendance-hero-status,
 .attendance-hero-status small,
 .attendance-global-chip.is-neutral { color: var(--muted); }
@@ -4995,9 +4994,9 @@ select optgroup { color: var(--text); background: #10231f; }
 }
 
 .status {
-  color: #b9ead8;
-  background: rgba(52, 211, 153, .1);
-  border-color: rgba(125, 216, 186, .2);
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, .12);
+  border-color: rgba(147, 197, 253, .22);
 }
 
 .countdown-pill,
@@ -5011,14 +5010,14 @@ select optgroup { color: var(--text); background: #10231f; }
 .ops-icon-card,
 .draw-sheet-footer > .ghost {
   color: var(--text);
-  background: #132723;
+  background: #12213a;
   border-color: var(--line-strong);
 }
 
 .ops-icon-card.is-yellow { color: #f5ce67; background: rgba(138,98,0,.24); }
 .next-scoreboard b,
 .finished-score b,
-.scoreboard strong { color: #9fe3cb; }
+.scoreboard strong { color: #93c5fd; }
 
 .attendance-dashboard-head strong,
 .attendance-dashboard-head .muted,
@@ -5035,12 +5034,63 @@ select optgroup { color: var(--text); background: #10231f; }
 .team-a.draw-result-card,
 .team-b.draw-result-card {
   color: var(--text);
-  background: linear-gradient(180deg, #112820, #0d1f1b);
+  background: linear-gradient(180deg, #101f38, #0d192d);
 }
 
 .dashboard-standings-toolbar span { color: var(--muted); }
-.dashboard-standings-toolbar select { color: var(--text); background: #10231f; border-color: var(--line-strong); }
+.dashboard-standings-toolbar select { color: var(--text); background: #101c31; border-color: var(--line-strong); }
 
 .payments-subtable-head strong,
 .payments-history-head strong,
-.payment-history-card-head strong { color: #9fe3cb; }
+.payment-history-card-head strong { color: #93c5fd; }
+
+.ghost:hover,
+.tabs button:hover,
+.account-menu button:hover {
+  color: var(--text);
+  background: #162640;
+  border-color: rgba(147,197,253,.3);
+}
+
+.status.open { color: #86efac; background: rgba(34,197,94,.14); }
+.status.danger,
+.status.closed,
+.chip.danger { color: #fda4af; background: rgba(244,63,94,.14); }
+
+.payment-history-card,
+.ops-roster-row.is-reserve,
+.sheet-log-panel .event-log,
+.sheet-lineups-grid,
+.award-board,
+.selection-grid,
+.schedule-form,
+.rule-create,
+.draw-dashboard article,
+.board-row,
+.stat-grid span,
+.draw-result-line,
+.draw-result-line.is-bench {
+  color: var(--text);
+  background: #101c31;
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.team-a-player span,
+.team-b-player span {
+  color: var(--text);
+  background: #12213a;
+  border-color: var(--line-strong);
+}
+
+.sheet-player-event-menu button {
+  color: var(--text);
+  background: #101c31;
+  border-color: var(--line-strong);
+}
+
+.sheet-player-event-menu button.is-yellow { color: #fde68a; background: rgba(138,98,0,.3); }
+.sheet-player-event-menu button.is-red,
+.sheet-player-event-menu button.is-remove { color: #fda4af; background: rgba(127,29,29,.28); }
+
+.account-menu-backdrop { background: rgba(2, 5, 11, .68); }
