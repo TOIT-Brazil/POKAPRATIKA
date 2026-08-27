@@ -3438,15 +3438,13 @@ textarea {
 }
 
 .next-match-metrics .metric-pill.pending {
-  background: rgba(255, 193, 7, .92);
-}
-
-.next-match-metrics .metric-pill.pending {
-  color: #114238;
+  background: #8a6200;
+  border-color: rgba(255, 224, 138, .48);
+  color: #fff;
 }
 
 .next-match-metrics .metric-pill.pending b {
-  color: #114238;
+  color: #fff;
 }
 
 .next-match-metrics b {
