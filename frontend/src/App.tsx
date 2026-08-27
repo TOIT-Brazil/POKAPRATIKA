@@ -2181,11 +2181,11 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         </div>
         {penaltyRemaining > 0 && <span className="sheet-blue-penalty-time">Fora {penaltyLabel}</span>}
         {selected && <div className="sheet-player-event-menu" role="menu" aria-label={`Ações para ${player.name}`}>
-          <button type="button" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>Gol</button>
-          <button type="button" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>Assistência</button>
-          <button type="button" className="is-yellow" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>Amarelo</button>
-          <button type="button" className="is-red" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>Vermelho</button>
-          <button type="button" className="is-blue" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AZUL'); }}>Azul · 2 min</button>
+          <button type="button" className="sheet-event-command" title="Gol" aria-label="Gol" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}><span aria-hidden="true">⚽</span></button>
+          <button type="button" className="sheet-event-command is-assist" title="Assistência" aria-label="Assistência" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}><span aria-hidden="true">A</span></button>
+          <button type="button" className="sheet-event-command is-yellow" title="Cartão amarelo" aria-label="Cartão amarelo" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}><span className="sheet-card-icon" aria-hidden="true" /></button>
+          <button type="button" className="sheet-event-command is-red" title="Cartão vermelho" aria-label="Cartão vermelho" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}><span className="sheet-card-icon" aria-hidden="true" /></button>
+          <button type="button" className="sheet-event-command is-blue" title="Cartão azul · 2 minutos fora" aria-label="Cartão azul, 2 minutos fora" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AZUL'); }}><span className="sheet-card-icon" aria-hidden="true" /><small>2 min</small></button>
           {player.isGuest && match.status === 'DRAFT' && !gameStarted && canRepositionPlayers && <button type="button" className="is-remove" onClick={(event) => { event.stopPropagation(); setSelectedPlayerId(''); removeGuestPlayer(player.userId); }}>Remover</button>}
         </div>}
       </div>

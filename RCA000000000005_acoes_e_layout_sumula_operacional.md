@@ -31,3 +31,7 @@ Evolução incremental da súmula: ações rápidas, avatares, drag-and-drop e c
 ## Prevenção
 
 Manter comandos secundários sob interação contextual em listas densas e validar novos eventos operacionais em desktop/mobile quanto a persistência, acessibilidade por clique e impacto no cronômetro.
+
+## Refinamento do menu contextual
+
+Na primeira versão, atletas com confirmação pendente aplicavam `opacity` na linha inteira, incluindo o menu filho, deixando-o visualmente transparente. Além disso, o posicionamento por `top` abria o menu abaixo do atleta. A correção restaura opacidade e filtro quando a linha está selecionada, posiciona o menu por `bottom`, usa fundo branco sólido e eleva as camadas da escalação e do item selecionado. As opções disciplinares passaram a usar cartões retangulares amarelo, vermelho e azul com nomes acessíveis e tooltips.
