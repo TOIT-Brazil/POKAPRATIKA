@@ -63,6 +63,9 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .standard-page { align-content: start; }
 .standard-page-header { flex: 0 0 auto; }
 .standard-page-header .card-head { align-items: flex-start; }
+.statistics-page { grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.statistics-page .dashboard-standings-card { height: 100%; }
+.statistics-page .dashboard-standings-wrap { flex: 1 1 0; min-height: 0; max-height: none; overflow: auto; }
 .schedule-page-content { min-height: 320px; overflow: visible; }
 .schedule-page-content .schedule-table-wrap { flex: none; min-height: 240px; max-height: calc(100dvh - 260px); overflow: auto !important; }
 .season-home { grid-template-rows: minmax(285px, auto) minmax(360px, 1fr); }

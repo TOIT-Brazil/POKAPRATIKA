@@ -1345,15 +1345,7 @@ export function App() {
         </div>
       )}
       {view === "estatisticas" && (
-        <div className="home-stack standard-page">
-          <section className="card compact standard-page-header">
-            <div className="card-head">
-              <div>
-                <h2>Estatísticas</h2>
-                <p className="muted">Classificação e desempenho dos atletas na temporada.</p>
-              </div>
-            </div>
-          </section>
+        <div className="home-stack statistics-page">
           <DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} />
         </div>
       )}
