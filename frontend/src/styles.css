@@ -732,6 +732,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-lineups-grid::after { display: none; }
 .sheet-center-column { position: relative; z-index: 1; grid-column: 2; grid-row: 2; width: 100%; display: grid; gap: 10px; align-content: start; margin-top: 18px; }
 .sheet-roster-panel { min-width: 0; gap: 4px; padding: 8px 9px; margin-top: -124px; position: relative; z-index: 5; }
+.sheet-roster-panel.has-open-player-menu { z-index: 500; }
 .sheet-roster-panel.team-a-roster { grid-column: 1; grid-row: 2; }
 .sheet-roster-panel.team-b-roster { grid-column: 3; grid-row: 2; }
 .sheet-roster-panel .ops-roster-head { border-bottom: 0; padding-bottom: 0; }

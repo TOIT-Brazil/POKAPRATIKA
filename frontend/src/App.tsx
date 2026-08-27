@@ -2228,7 +2228,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       </div>
 
       <div className="sheet-lineups-grid">
-        <section className="ops-roster-column sheet-roster-panel team-a-roster">
+        <section className={`ops-roster-column sheet-roster-panel team-a-roster ${players.some((player) => player.userId === selectedPlayerId && player.team === 'A') ? 'has-open-player-menu' : ''}`}>
           <div className="ops-roster-head team-a-head"><strong>{match.teamAName}</strong></div>
           <span className="sheet-panel-label">Titulares</span>
           <div className="ops-roster-list">{startersForTeam('A').length ? startersForTeam('A').map((player, index) => rosterRow(player, index)) : <small className="muted">Sem titulares definidos.</small>}</div>
@@ -2236,7 +2236,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
           <div className="ops-roster-list reserve-list">{reservesForTeam('A').length ? reservesForTeam('A').map((player, index) => rosterRow(player, index, true)) : <small className="muted">Sem reservas definidos.</small>}</div>
         </section>
 
-        <section className="ops-roster-column sheet-roster-panel team-b-roster">
+        <section className={`ops-roster-column sheet-roster-panel team-b-roster ${players.some((player) => player.userId === selectedPlayerId && player.team === 'B') ? 'has-open-player-menu' : ''}`}>
           <div className="ops-roster-head team-b-head"><strong>{match.teamBName}</strong></div>
           <span className="sheet-panel-label">Titulares</span>
           <div className="ops-roster-list">{startersForTeam('B').length ? startersForTeam('B').map((player, index) => rosterRow(player, index)) : <small className="muted">Sem titulares definidos.</small>}</div>

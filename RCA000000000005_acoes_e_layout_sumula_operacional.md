@@ -39,3 +39,7 @@ Na primeira versão, atletas com confirmação pendente aplicavam `opacity` na l
 ## Escopo responsivo
 
 A reorganização com Time A e Time B lado a lado acima do campo foi posteriormente delimitada ao mobile (`max-width: 820px`). No desktop, a arena voltou à composição anterior em três colunas, com Time A à esquerda, campo e log ao centro e Time B à direita. O menu contextual e a regra do cartão azul permanecem disponíveis em ambos os tamanhos.
+
+## Ordem entre equipes
+
+Mesmo com `z-index` alto no menu, o painel do Time B podia cobrir parte do menu aberto no Time A porque cada painel era um contexto de empilhamento irmão com a mesma prioridade. A equipe que contém o jogador selecionado agora recebe `has-open-player-menu`, elevando o painel inteiro acima da equipe adversária enquanto o menu estiver aberto.
