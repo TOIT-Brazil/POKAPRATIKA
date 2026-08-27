@@ -3742,31 +3742,9 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
             <div className="draw-sheet-head">
               <div className="draw-sheet-copy">
                 <span className="eyebrow">Súmula Inteligente</span>
-                <h2>Montar Jogo (Presença & Sorteio)</h2>
-                <p className="muted">Inclua atletas e convidados que realmente participarão do jogo. A divisão em {teamAName} e {teamBName} é automática, aleatória e balanceada pelas posições oficiais.</p>
+              
               </div>
               <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }}>X</button>
-            </div>
-
-            <div className="draw-stepper">
-              <div className="draw-step is-done">
-                <span className="draw-step-pill">
-                  <span className="draw-step-number">1</span>
-                  <span className="draw-step-label">Dados</span>
-                </span>
-              </div>
-              <div className={`draw-step ${teamsDrawn ? 'is-done' : 'is-active'}`}>
-                <span className="draw-step-pill">
-                  <span className="draw-step-number">2</span>
-                  <span className="draw-step-label">Participantes</span>
-                </span>
-              </div>
-              <div className={`draw-step ${teamsDrawn ? 'is-active' : ''}`}>
-                <span className="draw-step-pill">
-                  <span className="draw-step-number">3</span>
-                  <span className="draw-step-label">Sorteio</span>
-                </span>
-              </div>
             </div>
 
             {saveStatus && <p className="status-line draw-status-line">{saveStatus}</p>}
@@ -3816,7 +3794,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   />
                   <div className="draw-recurring-copy">
                     <strong>Jogo recorrente</strong>
-                    <small>Marque para transformar este jogo em uma série automática. Exemplo: toda quarta-feira no mesmo horário.</small>
                   </div>
                 </label>
 
@@ -3894,7 +3871,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   <div className="draw-guest-builder">
                     <div className="draw-guest-head">
                       <strong>Suplente convidado</strong>
-                      <small>Cadastre o convidado antes do sorteio. A posição definida aqui entra no mesmo balanceamento dos atletas fixos.</small>
                     </div>
                     <div className="draw-guest-grid">
                       <label className="field-shell">
@@ -3936,7 +3912,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   )}
 
                   <button type="button" className="primary draw-button draw-button-full" onClick={balanceTeamsByPosition} disabled={players.length < 2}><DrawIcon kind="dice" className="draw-icon draw-button-icon" /> {drawButtonLabel}</button>
-                  <small className="draw-action-note">Depois do sorteio abre uma confirmação rápida para revisar Time A e Time B antes do salvamento final.</small>
                   {teamsDrawn && <button type="button" className="ghost draw-review-button" onClick={() => setConfirmDrawOpen(true)}><DrawIcon kind="results" className="draw-icon draw-icon-inline" /> Revisar times sorteados</button>}
                 </div>
               </section>
