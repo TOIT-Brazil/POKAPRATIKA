@@ -25,7 +25,7 @@ button { cursor: pointer; }
 .card { border: 1px solid rgba(255,255,255,.1); background: rgba(10, 20, 38, .88); border-radius: 14px; box-shadow: 0 12px 36px rgba(0,0,0,.22); }
 .glass { backdrop-filter: blur(16px); }
 .hero { min-height: clamp(76px, 10vw, 96px); display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 9px; }
-.brand-lockup { display: flex; align-items: center; gap: 3px; min-width: 0; margin-left: 0; }
+.brand-lockup { display: flex; align-items: center; gap: 3px; min-width: 0; margin-left: 10px; }
 .brand-symbol { position: relative; width: 64px; height: 70px; display: block; flex: 0 0 64px; overflow: visible; }
 .brand-logo { position: absolute; top: -2px; left: -24px; width: auto; height: 74px; display: block; object-fit: contain; filter: drop-shadow(0 12px 22px rgba(0,0,0,.22)); }
 .brand-copy { display: grid; gap: 3px; min-width: 0; }
@@ -3937,7 +3937,7 @@ textarea {
   .brand-lockup {
     gap: 3px;
     min-width: 0;
-    margin-left: 0;
+    margin-left: 8px;
   }
 
   .brand-copy {
