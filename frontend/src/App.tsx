@@ -1320,6 +1320,7 @@ export function App() {
               onReload={loadData}
               selectedMatch={selectedMatch}
               setSelectedMatch={setSelectedMatch}
+              onOpenProfile={setProfileUserId}
             />
           </div>
           <div className="dashboard-bottom-grid">
@@ -1671,7 +1672,7 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
 */
 }
 
-function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, standings, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; rankings: RankingPayload; standings: Standing[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void }) {
+function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, standings, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch, onOpenProfile }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; rankings: RankingPayload; standings: Standing[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void; onOpenProfile: (userId: string) => void }) {
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
   const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
@@ -1727,11 +1728,11 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
   const topCards = useMemo(() => [...rankings.cards]
     .sort((left, right) => right.totalCards - left.totalCards || right.cardPoints - left.cardPoints || left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }))[0] ?? null, [rankings.cards]);
   const leaderBubbles = [
-    rankings.goals[0] ? { key: 'goals', label: 'Artilheiro', value: String(rankings.goals[0].goals), accent: 'goal', name: rankings.goals[0].name, detail: 'gols' } : null,
-    rankings.assists[0] ? { key: 'assists', label: 'Assistências', value: String(rankings.assists[0].assists), accent: 'assist', name: rankings.assists[0].name, detail: 'assistências' } : null,
-    topEfficiency ? { key: 'efficiency', label: 'Aproveitamento', value: formatPercent(topEfficiency.efficiency), accent: 'efficiency', name: topEfficiency.name, detail: 'melhor índice' } : null,
-    topCards ? { key: 'cards', label: 'Mais cartões', value: String(topCards.totalCards), accent: 'cards', name: topCards.name, detail: 'cartões' } : null
-  ].filter(Boolean) as Array<{ key: string; label: string; value: string; accent: string; name: string; detail: string }>;
+    rankings.goals[0] ? { key: 'goals', label: 'Artilheiro', value: String(rankings.goals[0].goals), accent: 'goal', userId: rankings.goals[0].userId, name: rankings.goals[0].name, detail: 'gols' } : null,
+    rankings.assists[0] ? { key: 'assists', label: 'Assistências', value: String(rankings.assists[0].assists), accent: 'assist', userId: rankings.assists[0].userId, name: rankings.assists[0].name, detail: 'assistências' } : null,
+    topEfficiency ? { key: 'efficiency', label: 'Aproveitamento', value: formatPercent(topEfficiency.efficiency), accent: 'efficiency', userId: topEfficiency.userId, name: topEfficiency.name, detail: 'melhor índice' } : null,
+    topCards ? { key: 'cards', label: 'Mais cartões', value: String(topCards.totalCards), accent: 'cards', userId: topCards.userId, name: topCards.name, detail: 'cartões' } : null
+  ].filter(Boolean) as Array<{ key: string; label: string; value: string; accent: string; userId: string; name: string; detail: string }>;
 
   function renderHeroCard(match: MatchListItem) {
     const date = matchDateParts(match);
@@ -1757,7 +1758,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
   return (
     <section className="card compact matches-report dashboard-next-match-card">
       {matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}
-      {leaderBubbles.length > 0 && <div className="next-match-leader-strip">{leaderBubbles.map((item) => <article className={`next-match-leader-card ${item.accent}`} key={item.key}><div className="next-match-leader-value"><strong>{item.value}</strong><small>{item.detail}</small></div><div className="next-match-leader-copy"><span>{item.label}</span><strong>{item.name}</strong></div></article>)}</div>}
+      {leaderBubbles.length > 0 && <div className="next-match-leader-strip">{leaderBubbles.map((item) => <button type="button" className={`next-match-leader-card ${item.accent}`} key={item.key} onClick={() => onOpenProfile(item.userId)} aria-label={`Abrir perfil de ${item.name}`}><div className="next-match-leader-value"><strong>{item.value}</strong><small>{item.detail}</small></div><div className="next-match-leader-copy"><span>{item.label}</span><strong>{item.name}</strong></div></button>)}</div>}
       {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
       {lastConfirmedMatch && <button type="button" className="dashboard-last-match-button" onClick={() => void openSheet(lastConfirmedMatch.id)}><span className="dashboard-last-match-label">Último jogo</span><div className="finished-list-row dashboard-last-match-card"><div className="finished-list-main"><span className="finished-list-date">{compactMatchDateLabel(lastConfirmedMatch)}</span><strong className="finished-list-title">{lastConfirmedMatch.title}</strong><small className="finished-list-outcome">{matchOutcomeLabel(lastConfirmedMatch)}</small></div><div className="finished-list-duel"><div className="finished-list-team"><span className="finished-team-mark">{teamBadgeLabel(lastConfirmedMatch.teamAName)}</span><strong>{lastConfirmedMatch.teamAName}</strong></div><div className="finished-list-score"><b>{lastConfirmedMatch.teamAScore}</b><span>x</span><b>{lastConfirmedMatch.teamBScore}</b></div><div className="finished-list-team is-away"><strong>{lastConfirmedMatch.teamBName}</strong><span className="finished-team-mark">{teamBadgeLabel(lastConfirmedMatch.teamBName)}</span></div></div></div></button>}
       {selectedMatch && (
