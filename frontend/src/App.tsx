@@ -751,7 +751,7 @@ async function downloadStyledWorkbook(filename: string, sheetName: string, title
   if (!rows.length) return;
   const ExcelJS = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'POKA PRÁTIKA';
+  workbook.creator = 'PlayField';
   workbook.created = new Date();
   workbook.modified = new Date();
 
@@ -772,7 +772,7 @@ async function downloadStyledWorkbook(filename: string, sheetName: string, title
   worksheet.getRow(1).height = 28;
 
   worksheet.mergeCells(2, 1, 2, headers.length);
-  worksheet.getCell('A2').value = `Exportado por POKA PRÁTIKA em ${exportStamp}`;
+  worksheet.getCell('A2').value = `Exportado por PlayField em ${exportStamp}`;
   worksheet.getCell('A2').font = { name: 'Calibri', size: 10, color: { argb: 'FF365346' }, italic: true };
   worksheet.getCell('A2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5F0' } };
   worksheet.getCell('A2').alignment = { vertical: 'middle', horizontal: 'left' };
@@ -874,16 +874,17 @@ async function downloadStyledWorkbook(filename: string, sheetName: string, title
 }
 
 function downloadCsv(filename: string, rows: Array<Record<string, SpreadsheetCell>>) {
-  const workbookName = filename.toLowerCase().endsWith('.csv') ? `${filename.slice(0, -4)}.xlsx` : `${filename}.xlsx`;
+  const brandedFilename = filename.replace(/^poka-pratika-/i, 'playfield-');
+  const workbookName = brandedFilename.toLowerCase().endsWith('.csv') ? `${brandedFilename.slice(0, -4)}.xlsx` : `${brandedFilename}.xlsx`;
   const baseName = workbookName.replace(/\.xlsx$/i, '');
   const sheetName = baseName
-    .replace(/^poka-pratika-?/i, '')
+    .replace(/^(?:playfield|poka-pratika)-?/i, '')
     .replace(/[^a-z0-9]+/gi, ' ')
     .trim()
     .split(/\s+/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('') || 'Relatorio';
-  const title = `POKA PRÁTIKA • ${sheetName.replace(/([a-z])([A-Z])/g, '$1 $2')}`;
+  const title = `PlayField • ${sheetName.replace(/([a-z])([A-Z])/g, '$1 $2')}`;
   void downloadStyledWorkbook(workbookName, sheetName, title, rows);
 }
 
@@ -1093,10 +1094,10 @@ export function App() {
           </div>
         </div>
         <div className="brand-lockup">
-          <img className="brand-logo" src={logoUrl} alt="Escudo POKA PRÁTIKA" />
+          <img className="brand-logo" src={logoUrl} alt="Logo PlayField" />
           <div className="brand-copy">
             <p className="eyebrow">Balneário Camboriú • Quarta 20h</p>
-            <h1>POKA PRÁTIKA</h1>
+            <h1>PlayField</h1>
           </div>
         </div>
       </header>
@@ -1150,7 +1151,7 @@ function PasswordTokenScreen({ mode }: { mode: 'activation' | 'reset' }) {
     }
   }
 
-  return <main className="login-wrap"><form className="login-card card" onSubmit={submit}><img className="login-logo" src={logoUrl} alt="Escudo POKA PRÁTIKA" /><p className="eyebrow">POKA PRÁTIKA • acesso seguro</p><h1>{mode === 'activation' ? 'Ativar cadastro' : 'Alterar senha'}</h1><p className="muted">Defina uma senha com pelo menos 8 caracteres. O login será sempre pelo seu e-mail.</p><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Nova senha" type="password" autoComplete="new-password" required minLength={8} disabled={done} /><input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirmar senha" type="password" autoComplete="new-password" required minLength={8} disabled={done} /><button className="primary" disabled={done}>{done ? 'Senha salva' : 'Salvar senha'}</button>{message && <p className="muted">{message}</p>}{done && <button type="button" className="ghost" onClick={() => { window.history.replaceState({}, '', '/'); window.location.reload(); }}>Ir para login</button>}</form></main>;
+  return <main className="login-wrap"><form className="login-card card" onSubmit={submit}><img className="login-logo" src={logoUrl} alt="Logo PlayField" /><p className="eyebrow">PlayField • acesso seguro</p><h1>{mode === 'activation' ? 'Ativar cadastro' : 'Alterar senha'}</h1><p className="muted">Defina uma senha com pelo menos 8 caracteres. O login será sempre pelo seu e-mail.</p><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Nova senha" type="password" autoComplete="new-password" required minLength={8} disabled={done} /><input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirmar senha" type="password" autoComplete="new-password" required minLength={8} disabled={done} /><button className="primary" disabled={done}>{done ? 'Senha salva' : 'Salvar senha'}</button>{message && <p className="muted">{message}</p>}{done && <button type="button" className="ghost" onClick={() => { window.history.replaceState({}, '', '/'); window.location.reload(); }}>Ir para login</button>}</form></main>;
 }
 
 function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
@@ -1179,8 +1180,8 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
   return (
     <main className="login-wrap">
       <form className="login-card card" onSubmit={submit}>
-        <img className="login-logo" src={logoUrl} alt="Escudo POKA PRÁTIKA" />
-        <p className="eyebrow">POKA PRÁTIKA • Balneário Camboriú / SC</p>
+        <img className="login-logo" src={logoUrl} alt="Logo PlayField" />
+        <p className="eyebrow">PlayField • Balneário Camboriú / SC</p>
         <h1>{mode === 'forgot' ? 'Recuperar senha' : 'Entrar no ferino'}</h1>
         <p className="muted">O sistema oficial de quem talvez erre o domínio, mas nunca falta na quarta.</p>
         <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" required />
@@ -1293,18 +1294,18 @@ function DashboardSeasonPanel({ standings, rankings, matches, onOpenProfile }: {
 
   async function exportCurrentTab() {
     if (tab === 'GERAL') {
-      await downloadStyledWorkbook('poka-pratika-classificacao.xlsx', 'Classificacao', 'POKA PRÁTIKA • Classificação da temporada', standings.map((row) => ({ posicao: row.position, atleta: row.name, pontos: row.total_points, jogos: row.games_played, vitorias: row.wins, empates: row.draws, derrotas: row.losses, gols: row.goals, assistencias: row.assists, cartoes: row.total_cards })));
+      await downloadStyledWorkbook('playfield-classificacao.xlsx', 'Classificacao', 'PlayField • Classificação da temporada', standings.map((row) => ({ posicao: row.position, atleta: row.name, pontos: row.total_points, jogos: row.games_played, vitorias: row.wins, empates: row.draws, derrotas: row.losses, gols: row.goals, assistencias: row.assists, cartoes: row.total_cards })));
       return;
     }
     if (tab === 'ARTILHARIA') {
-      await downloadStyledWorkbook('poka-pratika-artilharia.xlsx', 'Artilharia', 'POKA PRÁTIKA • Ranking de artilharia', rankings.goals.map((row, index) => ({ posicao: index + 1, atleta: row.name, gols: row.goals, golsContra: row.ownGoals, saldoLiquido: row.netGoals, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+      await downloadStyledWorkbook('playfield-artilharia.xlsx', 'Artilharia', 'PlayField • Ranking de artilharia', rankings.goals.map((row, index) => ({ posicao: index + 1, atleta: row.name, gols: row.goals, golsContra: row.ownGoals, saldoLiquido: row.netGoals, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
       return;
     }
     if (tab === 'ASSISTENCIAS') {
-      await downloadStyledWorkbook('poka-pratika-assistencias.xlsx', 'Assistencias', 'POKA PRÁTIKA • Ranking de assistências', rankings.assists.map((row, index) => ({ posicao: index + 1, atleta: row.name, assistencias: row.assists, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+      await downloadStyledWorkbook('playfield-assistencias.xlsx', 'Assistencias', 'PlayField • Ranking de assistências', rankings.assists.map((row, index) => ({ posicao: index + 1, atleta: row.name, assistencias: row.assists, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
       return;
     }
-    await downloadStyledWorkbook('poka-pratika-cartoes.xlsx', 'Cartoes', 'POKA PRÁTIKA • Ranking disciplinar', rankings.cards.map((row, index) => ({ posicao: index + 1, atleta: row.name, pontosCartao: row.cardPoints, totalCartoes: row.totalCards, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
+    await downloadStyledWorkbook('playfield-cartoes.xlsx', 'Cartoes', 'PlayField • Ranking disciplinar', rankings.cards.map((row, index) => ({ posicao: index + 1, atleta: row.name, pontosCartao: row.cardPoints, totalCartoes: row.totalCards, jogos: row.gamesPlayed, media: formatAverage(row.average) })));
   }
 
   return <section className="card compact standings-card season-dashboard-card"><div className="card-head championship-head"><div><h2>Tabela da temporada & estatísticas</h2><p className="muted">Painel limpo com líderes, histórico recente e navegação por ranking da temporada.</p></div>{currentRows.length > 0 && <button className="ghost" onClick={exportCurrentTab}>Exportar {tab.toLowerCase()}</button>}</div><div className="season-summary-grid">{leaderCards.map((item) => <button className="leader-spotlight as-button" key={item.key} onClick={() => onOpenProfile(item.userId)}><span className="dashboard-icon"><DashboardIcon name={item.icon} /></span><small>{item.label}</small><strong>{item.name}</strong><b>{item.value}</b><em>{item.detail}</em></button>)}</div><section className="finished-strip"><div className="card-head"><div><h3>Jogos finalizados</h3><p className="muted">Últimos confrontos em leitura horizontal rápida.</p></div><span className="status">{finishedMatches.length} jogos</span></div><div className="finished-carousel">{finishedMatches.length === 0 ? <EmptyState title="Sem histórico confirmado" text="Os últimos placares entram aqui assim que as súmulas forem confirmadas." /> : finishedMatches.map((match) => <article className="finished-card" key={match.id}><div className="finished-card-top"><span className="finished-date">{compactMatchDateLabel(match)}</span><span className="finished-badge">MVP indisponível</span></div><strong>{match.title}</strong><div className="finished-score"><span>{match.teamAName}</span><b>{match.teamAScore} x {match.teamBScore}</b><span>{match.teamBName}</span></div><small>{match.teamAScore === match.teamBScore ? 'Empate confirmado' : `Venceu: ${match.teamAScore > match.teamBScore ? match.teamAName : match.teamBName}`}</small></article>)}</div></section><div className="season-table-panel"><div className="season-tabs">{tabs.map((item) => <button key={item.value} type="button" className={tab === item.value ? 'active' : ''} onClick={() => setTab(item.value)}><span className="dashboard-icon small"><DashboardIcon name={item.icon} /></span>{item.label}</button>)}</div>{currentRows.length === 0 ? <EmptyState title="Sem dados para esta aba" text="Confirme jogos e eventos da temporada para preencher este ranking." /> : <div className="championship-wrap season-table-shell"><table className="championship-table season-table"><thead><tr><th>Pos</th><th>Atleta</th>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{pageRows.map((row) => <tr key={row.key}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" onClick={() => onOpenProfile(row.userId)}>{row.name}</button></td>{row.cells.map((cell, index) => <td className={tab === 'GERAL' && index === 0 ? 'points-cell' : ''} key={`${row.key}-${index}`}>{cell}</td>)}</tr>)}</tbody></table></div>}<div className="table-pagination"><button type="button" className="ghost" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage === 1}>Anterior</button><span className="status">Página {safePage} de {totalPages}</span><button type="button" className="ghost" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={safePage === totalPages}>Próxima</button></div></div></section>;
@@ -2589,7 +2590,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
             <strong>Confirmation Dashboard</strong>
             <p className="muted">Escolha única: qual sua situação?</p>
           </div>
-          <span className="attendance-club-name">Club no: POKA PRÁTIKA</span>
+          <span className="attendance-club-name">Club no: PlayField</span>
         </div>
 
         {openForResponse ? (

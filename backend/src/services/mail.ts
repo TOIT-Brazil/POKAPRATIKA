@@ -76,7 +76,7 @@ function renderActionEmail(options: ActionEmailOptions): string {
                       <div style="display:inline-block;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.16);font:800 11px 'Segoe UI',Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;">
                         ${safeEyebrow}
                       </div>
-                      <div style="padding-top:18px;font:900 30px/1.02 'Segoe UI',Arial,sans-serif;letter-spacing:-0.03em;">POKA PRATIKA</div>
+                      <div style="padding-top:18px;font:900 30px/1.02 'Segoe UI',Arial,sans-serif;letter-spacing:-0.03em;">PlayField</div>
                       <div style="padding-top:10px;max-width:420px;font:500 15px/1.6 'Segoe UI',Arial,sans-serif;color:rgba(248,251,255,.92);">
                         Sistema oficial do grupo para manter presenca, temporada e operacao em campo sem gambiarra.
                       </div>
@@ -185,9 +185,9 @@ export async function sendPasswordResetEmail(email: string, name: string, token:
 
   return sendMail(
     email,
-    'POKA PRÁTIKA: ALTERE SUA SENHA',
+    'PlayField: ALTERE SUA SENHA',
     renderActionEmail({
-      preheader: 'Redefina sua senha no POKA PRATIKA.',
+      preheader: 'Redefina sua senha no PlayField.',
       eyebrow: 'Recuperacao de acesso',
       title: `Ola, ${safeName}. Vamos trocar sua senha?`,
       intro: 'Recebemos um pedido para redefinir a senha da sua conta. Toque no botao abaixo para criar uma nova senha e voltar para o jogo sem perder tempo.',
@@ -208,12 +208,12 @@ export async function sendAccountActivationEmail(email: string, name: string, to
 
   return sendMail(
     email,
-    'POKA PRÁTIKA: ATIVE SEU CADASTRO',
+    'PlayField: ATIVE SEU CADASTRO',
     renderActionEmail({
       preheader: 'Ative sua conta e defina sua senha inicial.',
       eyebrow: 'Convite oficial',
       title: `Fala, ${safeName}. Seu cadastro esta pronto.`,
-      intro: 'Voce foi incluido no sistema oficial do POKA PRATIKA. Ative sua conta agora para definir sua senha inicial e entrar no fluxo de confirmacoes, jogos e temporada.',
+      intro: 'Voce foi incluido no sistema oficial do PlayField. Ative sua conta agora para definir sua senha inicial e entrar no fluxo de confirmacoes, jogos e temporada.',
       actionLabel: 'Ativar minha conta',
       actionUrl: activationUrl,
       actionToken: token,
