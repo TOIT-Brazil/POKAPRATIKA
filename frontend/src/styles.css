@@ -3352,10 +3352,12 @@ textarea {
 }
 
 .next-match-date-stack {
-  display: grid;
-  gap: 2px;
-  min-width: 62px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .next-match-date-stack span,
@@ -3374,21 +3376,29 @@ textarea {
 
 .next-match-title-block {
   min-width: 0;
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .next-match-title-block strong {
+  min-width: 0;
   color: #0d2a22;
   font-size: 1.05rem;
   line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .next-match-title-block small {
+  flex: 0 0 auto;
   color: #33584f;
   font-size: .75rem;
   font-weight: 750;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .next-match-footnote,
@@ -4677,8 +4687,23 @@ textarea {
   }
 
   .next-match-date-badge {
-    grid-template-columns: auto auto;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    gap: 7px;
     padding: 9px 10px;
+  }
+
+  .next-match-date-stack {
+    gap: 4px;
+  }
+
+  .next-match-date-stack span,
+  .next-match-date-stack small,
+  .next-match-date-stack em {
+    font-size: .56rem;
+  }
+
+  .next-match-date-badge b {
+    font-size: 1.35rem;
   }
 
   .next-match-leader-card {
@@ -4692,7 +4717,15 @@ textarea {
   }
 
   .next-match-title-block {
-    grid-column: 1 / -1;
+    gap: 4px;
+  }
+
+  .next-match-title-block strong {
+    font-size: .72rem;
+  }
+
+  .next-match-title-block small {
+    font-size: .58rem;
   }
 
   .next-match-leader-copy strong {
