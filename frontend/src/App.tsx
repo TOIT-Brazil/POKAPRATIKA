@@ -1095,6 +1095,7 @@ export function App() {
         </div>
         <div className="brand-lockup">
           <img className="brand-logo" src={logoUrl} alt="Logo PlayField" />
+          <span className="brand-tagline">° sports &amp; gaming hub</span>
         </div>
       </header>
 
