@@ -2,7 +2,7 @@
 
 ## Sintoma
 
-Os modais `Partidas da temporada` e `Estatísticas da temporada` exibiam fundo azul e ocupavam apenas uma região central, próxima de metade da tela em viewports desktop.
+Os modais `Partidas da temporada` e `Estatísticas da temporada` exibiam fundo divergente do padrão visual do projeto e ocupavam apenas uma região central, próxima de metade da tela em viewports desktop.
 
 ## Causa raiz
 
@@ -22,7 +22,7 @@ Os overlays foram criados inicialmente como visualizações dedicadas para celul
 
 - Expandir o card para praticamente toda a viewport no desktop.
 - Definir altura útil explícita e manter rolagem no corpo interno.
-- Aplicar fundo preto ao overlay, card principal e cards internos de partidas e estatísticas.
+- Aplicar ao overlay, card principal e cards internos os mesmos tokens e superfícies claras dos demais modais do projeto.
 - Preservar o comportamento fullscreen já existente no mobile.
 
 ## Prevenção

@@ -3118,7 +3118,8 @@ textarea {
   z-index: 16;
   place-items: stretch;
   padding: 6px;
-  background: rgba(0, 0, 0, .86);
+  background: rgba(15, 82, 87, .18);
+  backdrop-filter: blur(6px);
 }
 
 .mobile-dashboard-modal-card {
@@ -3133,8 +3134,9 @@ textarea {
   gap: 10px;
   padding: 12px;
   border-radius: 20px;
-  background: #050505;
-  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.96);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
 }
 
 .mobile-dashboard-modal-body {
@@ -3147,7 +3149,7 @@ textarea {
 
 .mobile-dashboard-modal-body > .dashboard-finished-card,
 .mobile-dashboard-modal-body > .dashboard-standings-card {
-  background: #050505;
+  background: var(--surface);
 }
 
 .dashboard-next-match-card,
