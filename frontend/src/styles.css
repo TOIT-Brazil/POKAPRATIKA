@@ -3118,11 +3118,14 @@ textarea {
   z-index: 16;
   place-items: stretch;
   padding: 6px;
+  background: rgba(0, 0, 0, .86);
 }
 
 .mobile-dashboard-modal-card {
-  width: min(960px, 100%);
-  max-height: calc(100dvh - 12px);
+  width: calc(100vw - 12px);
+  max-width: none;
+  height: calc(100dvh - 12px);
+  max-height: none;
   min-height: 0;
   overflow: hidden;
   display: grid;
@@ -3130,7 +3133,7 @@ textarea {
   gap: 10px;
   padding: 12px;
   border-radius: 20px;
-  background: rgba(7, 17, 31, .94);
+  background: #050505;
   border: 1px solid rgba(255,255,255,.12);
 }
 
@@ -3140,6 +3143,11 @@ textarea {
   display: grid;
   gap: 10px;
   padding-right: 2px;
+}
+
+.mobile-dashboard-modal-body > .dashboard-finished-card,
+.mobile-dashboard-modal-body > .dashboard-standings-card {
+  background: #050505;
 }
 
 .dashboard-next-match-card,
