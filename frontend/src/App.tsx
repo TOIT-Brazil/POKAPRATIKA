@@ -18,7 +18,7 @@ type RankingPayload = {
 type AwardType = 'RANKING' | 'VOTACAO' | 'SORTEIO' | 'MANUAL';
 type MetricCode = 'TOTAL_POINTS' | 'GOALS' | 'ASSISTS' | 'TOTAL_CARDS' | 'CARD_POINTS' | 'ASSIDUITY' | 'PRESENCE_PERCENTAGE' | 'WIN_PERCENTAGE' | 'WINS' | 'TEAM_GOAL_BALANCE' | 'NET_GOALS' | 'PAID_MONTHS';
 type Suspension = { id: string; userName: string; reason: string; triggerMatchTitle: string; servedAt?: string | null };
-type MatchEventDraft = { id?: string; userId: string; relatedUserId?: string | null; eventType: 'GOL' | 'GOL_CONTRA' | 'ASSISTENCIA' | 'CARTAO_AMARELO' | 'CARTAO_VERMELHO' | 'CARTAO_AZUL'; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null };
+type MatchEventDraft = { id?: string; userId: string; relatedUserId?: string | null; eventType: 'GOL' | 'GOL_CONTRA' | 'ASSISTENCIA' | 'CARTAO_AMARELO' | 'CARTAO_VERMELHO' | 'CARTAO_AZUL'; minute: number; clockSecond?: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null };
 type SheetActivityLogEntry = { id: string; message: string; createdAt: string };
 type MatchCorrection = { id: string; reason: string; previousTeamAScore: number; previousTeamBScore: number; newTeamAScore: number; newTeamBScore: number; correctedByName: string; createdAt: string; previousEvents: MatchEventDraft[]; newEvents: MatchEventDraft[] };
 type CareerProfile = {
@@ -63,7 +63,7 @@ type MatchDetail = MatchListItem & {
   draftClockRunning?: boolean;
   draftSavedAt?: string | null;
   players: Array<{ userId: string; name: string; team: 'A' | 'B' | 'PRESENTE_SEM_JOGAR'; roleInMatch: string; drawOrder?: number | null; rotationOrder?: number | null; startsOnBench: boolean; present?: boolean; position?: AthletePosition | null; avatarDataUrl?: string | null; isGuest?: boolean; fieldLeft?: number | null; fieldTop?: number | null }>;
-  events: Array<{ id?: string; userId: string; relatedUserId?: string | null; eventType: string; minute: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null }>;
+  events: Array<{ id?: string; userId: string; relatedUserId?: string | null; eventType: string; minute: number; clockSecond?: number; team?: 'A' | 'B' | null; occurredAt?: string | null; createdAt?: string | null }>;
   corrections: MatchCorrection[];
   attendance: MatchAttendanceResponse[];
   rotation: Record<'A' | 'B', { reserves: number; firstCycleMinutes: number; secondCycleMinutes: number; schedule: Array<{ minute: number; label: string; entering: string[]; leaving: string[] }> }>;
@@ -1556,7 +1556,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [players, setPlayers] = useState(seededPlayers);
   const [teamAScore, setTeamAScore] = useState(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
   const [teamBScore, setTeamBScore] = useState(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
-  const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
+  const [events, setEvents] = useState<MatchEventDraft[]>(initialEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, clockSecond: event.clockSecond, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
   const [clockSeconds, setClockSeconds] = useState(deriveOperationalClockSeconds(match));
   const [clockRunning, setClockRunning] = useState(deriveOperationalClockRunning(match));
   const [clockFrozen, setClockFrozen] = useState(false);
@@ -1567,6 +1567,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const [activityLog, setActivityLog] = useState<SheetActivityLogEntry[]>([]);
   const [draggedPlayerId, setDraggedPlayerId] = useState('');
   const [dropTargetId, setDropTargetId] = useState('');
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [pitchDrag, setPitchDrag] = useState<{ userId: string; team: 'A' | 'B'; pointerId: number } | null>(null);
   const [pitchPreview, setPitchPreview] = useState<Record<string, { left: number; top: number }>>({});
   const usersById = new Map(users.map((item) => [item.id, item]));
@@ -1597,7 +1598,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setPlayers(normalizeOperationalLineup(seededPlayers()));
     setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
-    setEvents(recoveredEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
+    setEvents(recoveredEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, clockSecond: event.clockSecond, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
     setClockSeconds(deriveOperationalClockSeconds(match));
     setClockRunning(deriveOperationalClockRunning(match));
     setClockFrozen(false);
@@ -1608,6 +1609,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setActivityLog([]);
     setDraggedPlayerId('');
     setDropTargetId('');
+    setSelectedPlayerId('');
     setPitchDrag(null);
     setPitchPreview({});
     skipAutosaveRef.current = true;
@@ -1624,6 +1626,21 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
 
   useEffect(() => () => {
     if (pitchDragFrameRef.current != null) window.cancelAnimationFrame(pitchDragFrameRef.current);
+  }, []);
+
+  useEffect(() => {
+    function closePlayerMenu(event: globalThis.PointerEvent) {
+      if (!(event.target as Element | null)?.closest('.sheet-roster-row')) setSelectedPlayerId('');
+    }
+    function closePlayerMenuOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSelectedPlayerId('');
+    }
+    document.addEventListener('pointerdown', closePlayerMenu);
+    document.addEventListener('keydown', closePlayerMenuOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closePlayerMenu);
+      document.removeEventListener('keydown', closePlayerMenuOnEscape);
+    };
   }, []);
 
   useEffect(() => {
@@ -1880,9 +1897,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const relatedUserId = eventType === 'GOL' ? startersForTeam(eventTeam).find((candidate) => candidate.userId !== player.userId && candidate.roleInMatch !== 'GOLEIRO')?.userId ?? null : null;
     const createdAt = new Date().toISOString();
     const eventId = window.crypto?.randomUUID?.() ?? `${createdAt}-${Math.random().toString(16).slice(2, 10)}`;
-    setEvents((list) => [...list, { id: eventId, userId: player.userId, relatedUserId, eventType, minute: eventMinute, team: eventTeam, occurredAt: createdAt, createdAt }]);
+    setEvents((list) => [...list, { id: eventId, userId: player.userId, relatedUserId, eventType, minute: eventMinute, clockSecond: clockSeconds, team: eventTeam, occurredAt: createdAt, createdAt }]);
     scoreForPreview(eventType, eventTeam);
-    setSheetMessage(`${eventLabel(eventType)} lançado para ${player.name}.`);
+    setSelectedPlayerId('');
+    setSheetMessage(eventType === 'CARTAO_AZUL' ? `${player.name} recebeu cartão azul e fica 2 minutos fora.` : `${eventLabel(eventType)} lançado para ${player.name}.`);
   }
 
   function recalculateScoreFromEvents(nextEvents: MatchEventDraft[]) {
@@ -2141,33 +2159,35 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     return `${summaryTime(item)} - ${teamLabel}: ${detail}`;
   }
 
-  function rosterSubtitle(player: MatchDetail['players'][number]) {
-    const user = usersById.get(player.userId);
-    const position = player.position ?? user?.position ?? 'MC';
-    if (player.roleInMatch === 'GOLEIRO') return 'GO • Goleiro';
-    if (position === 'GO') return 'GO • Linha';
-    return positionLabel(position);
+  function bluePenaltyRemaining(playerId: string) {
+    const blueCardSecond = events
+      .filter((event) => event.userId === playerId && event.eventType === 'CARTAO_AZUL')
+      .reduce((latest, event) => Math.max(latest, event.clockSecond ?? event.minute * 60), -1);
+    if (blueCardSecond < 0 || match.status === 'CONFIRMED') return 0;
+    return Math.max(0, 120 - (clockSeconds - blueCardSecond));
   }
 
   function rosterRow(player: MatchDetail['players'][number], index: number, reserve = false) {
-    const user = usersById.get(player.userId);
     const dragged = draggedPlayerId === player.userId;
     const dropTarget = dropTargetId === player.userId;
     const pending = playerIsDimmed(player);
+    const selected = selectedPlayerId === player.userId;
+    const penaltyRemaining = bluePenaltyRemaining(player.userId);
+    const penaltyLabel = `${String(Math.floor(penaltyRemaining / 60)).padStart(2, '0')}:${String(penaltyRemaining % 60).padStart(2, '0')}`;
     return (
-      <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${pending ? 'is-pending' : ''}`} key={player.userId} role="group" draggable={canRepositionPlayers} onDragStart={() => setDraggedPlayerId(player.userId)} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canRepositionPlayers && canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); if (canRepositionPlayers) executeDragSwap(player.userId); }}>
-        <div className="ops-roster-avatar">{user?.avatarDataUrl ? <img src={user.avatarDataUrl} alt={player.name} /> : <span>{player.name.slice(0, 1)}</span>}</div>
+      <div className={`ops-roster-row sheet-roster-row ${reserve ? 'is-reserve' : ''} ${dragged ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''} ${pending ? 'is-pending' : ''} ${selected ? 'is-selected' : ''} ${penaltyRemaining > 0 ? 'is-blue-penalty' : ''}`} key={player.userId} role="button" tabIndex={0} aria-expanded={selected} draggable={canRepositionPlayers} onClick={() => setSelectedPlayerId((current) => current === player.userId ? '' : player.userId)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedPlayerId((current) => current === player.userId ? '' : player.userId); } }} onDragStart={() => { setSelectedPlayerId(''); setDraggedPlayerId(player.userId); }} onDragEnd={() => { setDraggedPlayerId(''); setDropTargetId(''); }} onDragOver={(event) => { const sourcePlayer = players.find((current) => current.userId === draggedPlayerId); if (canRepositionPlayers && canSwapPlayers(sourcePlayer, player)) { event.preventDefault(); setDropTargetId(player.userId); } }} onDragLeave={() => { if (dropTargetId === player.userId) setDropTargetId(''); }} onDrop={(event) => { event.preventDefault(); if (canRepositionPlayers) executeDragSwap(player.userId); }}>
         <div className="ops-roster-copy">
-          <strong>#{playerBoardNumber(player, index)} {player.name}</strong>
-          <small>{rosterSubtitle(player)}</small>
+          <strong>{player.name}</strong>
         </div>
-        <div className="ops-roster-actions">
-          {player.isGuest && match.status === 'DRAFT' && !gameStarted && canRepositionPlayers && <button type="button" className="ghost small" title="Remover convidado" onClick={(event) => { event.stopPropagation(); removeGuestPlayer(player.userId); }}>Remover</button>}
-          <button type="button" className="ops-icon-card is-yellow" title={canRegisterEvents ? 'Cartão amarelo' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>🟨</button>
-          <button type="button" className="ops-icon-card is-red" title={canRegisterEvents ? 'Cartão vermelho' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>🟥</button>
-          <button type="button" className="ops-icon-card is-goal" title={canRegisterEvents ? 'Gol' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>⚽</button>
-          <button type="button" className="ops-icon-card is-more" title={canRegisterEvents ? 'Assistência' : 'Inicie o jogo para lançar eventos'} disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>A</button>
-        </div>
+        {penaltyRemaining > 0 && <span className="sheet-blue-penalty-time">Fora {penaltyLabel}</span>}
+        {selected && <div className="sheet-player-event-menu" role="menu" aria-label={`Ações para ${player.name}`}>
+          <button type="button" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'GOL'); }}>Gol</button>
+          <button type="button" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'ASSISTENCIA'); }}>Assistência</button>
+          <button type="button" className="is-yellow" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AMARELO'); }}>Amarelo</button>
+          <button type="button" className="is-red" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_VERMELHO'); }}>Vermelho</button>
+          <button type="button" className="is-blue" disabled={!canRegisterEvents} onClick={(event) => { event.stopPropagation(); addQuickEvent(player, 'CARTAO_AZUL'); }}>Azul · 2 min</button>
+          {player.isGuest && match.status === 'DRAFT' && !gameStarted && canRepositionPlayers && <button type="button" className="is-remove" onClick={(event) => { event.stopPropagation(); setSelectedPlayerId(''); removeGuestPlayer(player.userId); }}>Remover</button>}
+        </div>}
       </div>
     );
   }
@@ -2201,51 +2221,47 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         </section>
       </div>
 
-      <div className="sheet-preview-arena">
-        <section className="ops-roster-column sheet-roster-panel">
-          <div className="ops-roster-head team-a-head"><strong>{match.teamAName}</strong><div className="sheet-crest-pair small"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div></div>
+      <div className="sheet-lineups-grid">
+        <section className="ops-roster-column sheet-roster-panel team-a-roster">
+          <div className="ops-roster-head team-a-head"><strong>{match.teamAName}</strong></div>
           <span className="sheet-panel-label">Titulares</span>
           <div className="ops-roster-list">{startersForTeam('A').length ? startersForTeam('A').map((player, index) => rosterRow(player, index)) : <small className="muted">Sem titulares definidos.</small>}</div>
           <div className="ops-roster-head reserve-head"><strong>Banco de reservas</strong><span>{reservesForTeam('A').length}</span></div>
           <div className="ops-roster-list reserve-list">{reservesForTeam('A').length ? reservesForTeam('A').map((player, index) => rosterRow(player, index, true)) : <small className="muted">Sem reservas definidos.</small>}</div>
         </section>
 
-        <div className="sheet-center-column">
-          <section className="ops-pitch-card sheet-pitch-panel">
-            <div className="ops-pitch-surface sheet-pitch-surface" ref={pitchSurfaceRef}>
-              <div className="ops-pitch-center-circle" />
-              <div className="ops-pitch-midline" />
-              <div className="ops-pitch-box ops-pitch-box-a" />
-              <div className="ops-pitch-box ops-pitch-box-b" />
-              {fieldPlayers('A').map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
-              {fieldPlayers('B').map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
-            </div>
-          </section>
-
-          <div className="sheet-preview-bottom">
-            <section className="sheet-log-panel is-sheet-main">
-              <div className="match-control-feed-head">
-                <div>
-                  <strong>Log da súmula</strong>
-                </div>
-                <small>{sheetMessage}</small>
-              </div>
-              <div className="event-log ops-event-log" ref={eventLogRef}>{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small>{item.kind === 'event' && match.status !== 'CONFIRMED' && <button type="button" className="ghost small sheet-log-remove-button" onClick={() => removeLoggedEvent(item.eventId)}>Excluir</button>}</span>)}</div>
-              <div className="sheet-footer-actions">
-                {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
-                {match.status !== 'CONFIRMED' && gameStarted && !finalizationRequested && !clockFrozen && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => void toggleGamePause()}>{clockRunning ? 'PAUSAR JOGO' : 'RETOMAR JOGO'}</button>}
-                {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}
-              </div>
-            </section>
-          </div>
-        </div>
-
-        <section className="ops-roster-column sheet-roster-panel">
-          <div className="ops-roster-head team-b-head"><div className="sheet-crest-pair small"><span className="sheet-crest is-solid" /><span className="sheet-crest is-outline" /></div><strong>{match.teamBName}</strong></div>
+        <section className="ops-roster-column sheet-roster-panel team-b-roster">
+          <div className="ops-roster-head team-b-head"><strong>{match.teamBName}</strong></div>
           <span className="sheet-panel-label">Titulares</span>
           <div className="ops-roster-list">{startersForTeam('B').length ? startersForTeam('B').map((player, index) => rosterRow(player, index)) : <small className="muted">Sem titulares definidos.</small>}</div>
           <div className="ops-roster-head reserve-head"><strong>Banco de reservas</strong><span>{reservesForTeam('B').length}</span></div>
           <div className="ops-roster-list reserve-list">{reservesForTeam('B').length ? reservesForTeam('B').map((player, index) => rosterRow(player, index, true)) : <small className="muted">Sem reservas definidos.</small>}</div>
+        </section>
+      </div>
+
+      <div className="sheet-center-column">
+        <section className="ops-pitch-card sheet-pitch-panel">
+          <div className="ops-pitch-surface sheet-pitch-surface" ref={pitchSurfaceRef}>
+            <div className="ops-pitch-center-circle" />
+            <div className="ops-pitch-midline" />
+            <div className="ops-pitch-box ops-pitch-box-a" />
+            <div className="ops-pitch-box ops-pitch-box-b" />
+            {fieldPlayers('A').filter(({ player }) => bluePenaltyRemaining(player.userId) === 0).map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+            {fieldPlayers('B').filter(({ player }) => bluePenaltyRemaining(player.userId) === 0).map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+          </div>
+        </section>
+
+        <section className="sheet-log-panel is-sheet-main">
+          <div className="match-control-feed-head">
+            <div><strong>Log da súmula</strong></div>
+            <small>{sheetMessage}</small>
+          </div>
+          <div className="event-log ops-event-log" ref={eventLogRef}>{summaryLines.length === 0 ? <small className="muted">Sem eventos registrados ainda.</small> : summaryLines.map((item) => <span key={item.id}><b>{item.timeLabel}</b><small>{item.detail}</small>{item.kind === 'event' && match.status !== 'CONFIRMED' && <button type="button" className="ghost small sheet-log-remove-button" onClick={() => removeLoggedEvent(item.eventId)}>Excluir</button>}</span>)}</div>
+          <div className="sheet-footer-actions">
+            {match.status === 'DRAFT' && !gameStarted && <button type="button" className="primary sheet-green-button" onClick={() => void startGame()}>INICIAR JOGO</button>}
+            {match.status !== 'CONFIRMED' && gameStarted && !finalizationRequested && !clockFrozen && <button type="button" className="ghost sheet-guest-trigger-button" onClick={() => void toggleGamePause()}>{clockRunning ? 'PAUSAR JOGO' : 'RETOMAR JOGO'}</button>}
+            {match.status !== 'CONFIRMED' && gameStarted && <button type="button" className="primary danger-action sheet-danger-button" onClick={() => void finalizeGame()}>{match.status === 'SUBMITTED' ? 'CONFIRMAR FINALIZAÇÃO' : 'FINALIZAR JOGO'}</button>}
+          </div>
         </section>
       </div>
     </div>
