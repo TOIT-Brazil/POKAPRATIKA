@@ -1447,20 +1447,50 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
     }
   }
 
+  function toggleMode() {
+    setMode((currentMode) => currentMode === 'forgot' ? 'login' : 'forgot');
+    setPassword('');
+    setMessage('');
+  }
+
   return (
     <main className="login-wrap">
-      <form className="login-card card" onSubmit={submit}>
-        <img className="login-logo" src={logoUrl} alt="Logo PlayField" />
-        <p className="eyebrow">PlayField • Balneário Camboriú / SC</p>
-        <h1>{mode === 'forgot' ? 'Recuperar senha' : 'Entrar no ferino'}</h1>
-        <p className="muted">O sistema oficial de quem talvez erre o domínio, mas nunca falta na quarta.</p>
-        <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" required />
-        {mode !== 'forgot' && <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha" type="password" autoComplete="current-password" required minLength={8} />}
-        <button className="primary">{mode === 'forgot' ? 'Enviar recuperação' : 'Acessar'}</button>
-        {message && <p className="muted">{message}</p>}
-        <div className="login-actions">
-          <button type="button" className="ghost" onClick={() => setMode(mode === 'forgot' ? 'login' : 'forgot')}>{mode === 'forgot' ? 'Voltar ao login' : 'Esqueci minha senha'}</button>
-        </div>
+      <form className="login-card login-card-auth card" onSubmit={submit}>
+        <section className="login-brand-panel">
+          <img className="login-logo" src={logoUrl} alt="Logo PlayField" />
+          <div className="login-brand-copy">
+            <p className="eyebrow">Balneário Camboriú / SC</p>
+            <strong>O jogo começa antes da bola rolar.</strong>
+            <span>Organização, presença e temporada em um só lugar.</span>
+          </div>
+        </section>
+
+        <section className="login-form-panel">
+          <header className="login-heading">
+            <span className="login-kicker">Acesso ao clube</span>
+            <h1>{mode === 'forgot' ? 'Recuperar senha' : 'Entrar no PlayField'}</h1>
+            <p>{mode === 'forgot' ? 'Informe seu e-mail para receber as instruções de recuperação.' : 'Use seu e-mail cadastrado para continuar.'}</p>
+          </header>
+
+          <div className="login-fields">
+            <label className="login-field">
+              <span>E-mail</span>
+              <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="voce@exemplo.com" type="email" autoComplete="email" required />
+            </label>
+            {mode !== 'forgot' && (
+              <label className="login-field">
+                <span>Senha</span>
+                <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Digite sua senha" type="password" autoComplete="current-password" required minLength={8} />
+              </label>
+            )}
+          </div>
+
+          <button className="primary login-submit">{mode === 'forgot' ? 'Enviar recuperação' : 'Entrar'}</button>
+          {message && <p className="login-message" role="status">{message}</p>}
+          <div className="login-actions">
+            <button type="button" className="ghost" onClick={toggleMode}>{mode === 'forgot' ? 'Voltar ao login' : 'Esqueci minha senha'}</button>
+          </div>
+        </section>
       </form>
     </main>
   );

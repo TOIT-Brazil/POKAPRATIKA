@@ -2,27 +2,28 @@
 
 ## Sintoma
 
-Após tornar o tema escuro padrão, o site passou a usar um tom verde-grafite diferente do modo escuro original e algumas superfícies auxiliares continuaram brancas.
+Após tornar o tema escuro padrão, o site passou por uma restauração azul-marinho que não correspondia ao visual histórico percebido pelos usuários. Algumas superfícies auxiliares também continuaram brancas.
 
 ## Causa raiz
 
-A migração anterior substituiu os tokens claros por uma nova paleta verde, em vez de restaurar os valores do tema escuro já existente no início da folha (`#07111f`, cards azul-marinho e acento azul). A camada de compatibilidade cobriu as famílias principais, mas alguns cards com cores claras hardcoded e seletores mais específicos permaneceram fora dela.
+A identificação inicial do tema histórico considerou apenas a primeira camada antiga da folha, azul-marinho, e ignorou a camada oficial posterior. O histórico Git confirmou que o visual efetivamente utilizado era grafite esverdeado (`#071311`), com superfícies `#0d1d1a/#132723`, acentos verdes `#35b86b/#69d0b0` e uma luz amarela discreta à direita. A camada de compatibilidade cobriu as famílias principais, mas alguns cards com cores claras hardcoded e seletores mais específicos permaneceram fora dela.
 
 ## Impacto
 
-A identidade visual mudou além do solicitado e a coexistência de fundos escuros e brancos deixou o tema inconsistente.
+A identidade visual perdeu o acabamento grafite, os detalhes verdes e a luz amarela característica. A coexistência de fundos escuros e brancos também deixou o tema inconsistente.
 
 ## Origem
 
-Interpretação incorreta de “deixar o padrão escuro”: foi criada uma nova direção cromática, quando o requisito era promover o modo escuro existente a padrão único.
+Interpretação incorreta de “modo escuro existente” baseada na primeira declaração CSS encontrada, sem conferir qual camada posterior vencia a cascata nem comparar o resultado com o histórico Git e a referência visual do usuário.
 
 ## Correção
 
-- Restaurar nos tokens oficiais a paleta azul-marinho original.
-- Converter a camada final de compatibilidade para os mesmos tons originais.
+- Restaurar nos tokens oficiais a paleta grafite esverdeada comprovada no histórico.
+- Restaurar as luzes verde à esquerda e amarela à direita no fundo global.
+- Converter a camada final de compatibilidade para as mesmas superfícies grafite.
 - Incluir superfícies auxiliares que ainda usam branco explícito.
 - Preservar cores semânticas somente para sucesso, alerta, perigo, cartões e campo.
 
 ## Prevenção
 
-Antes de migrar um tema existente, identificar e reutilizar os tokens cromáticos originais. Não criar nova paleta sem solicitação explícita e validar superfícies computadas em componentes representativos, não apenas os tokens globais.
+Antes de migrar um tema existente, identificar qual declaração vence a cascata, comparar com o histórico Git e validar contra uma referência visual. Não concluir a identidade pelo primeiro bloco CSS encontrado. Validar superfícies computadas em componentes representativos, não apenas os tokens globais.
