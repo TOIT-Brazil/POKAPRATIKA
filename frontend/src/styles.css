@@ -26,7 +26,7 @@ button { cursor: pointer; }
 .glass { backdrop-filter: blur(16px); }
 .hero { min-height: clamp(76px, 10vw, 96px); display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 9px; }
 .brand-lockup { display: flex; align-items: center; gap: 3px; min-width: 0; margin-left: 0; }
-.brand-symbol { position: relative; width: 72px; height: 70px; display: block; flex: 0 0 72px; overflow: visible; }
+.brand-symbol { position: relative; width: 64px; height: 70px; display: block; flex: 0 0 64px; overflow: visible; }
 .brand-logo { position: absolute; top: -2px; left: -24px; width: auto; height: 74px; display: block; object-fit: contain; filter: drop-shadow(0 12px 22px rgba(0,0,0,.22)); }
 .brand-copy { display: grid; gap: 3px; min-width: 0; }
 .brand-name { color: #f4fbf8; font-family: "Manrope", sans-serif; font-size: 1.12rem; font-weight: 800; line-height: 1; letter-spacing: 0; white-space: nowrap; }
@@ -3945,9 +3945,9 @@ textarea {
   }
 
   .brand-symbol {
-    width: 56px;
+    width: 48px;
     height: 54px;
-    flex-basis: 56px;
+    flex-basis: 48px;
   }
 
   .brand-logo {
