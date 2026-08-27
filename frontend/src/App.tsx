@@ -3743,7 +3743,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                 <span className="eyebrow">Súmula Inteligente</span>
               
               </div>
-              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }}>X</button>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setConfirmDrawOpen(false); setOpen(false); }} />
             </div>
 
             {saveStatus && <p className="status-line draw-status-line">{saveStatus}</p>}
