@@ -22,6 +22,8 @@ A regressão surgiu ao ampliar a tabela para ocupar a tela inteira sem neutraliz
 
 Aplicar uma regra específica da página de Estatísticas, após os overrides responsivos, restaurando `overflow: auto !important`, altura flexível mínima e tabela com largura mínima responsiva.
 
+Após a restauração das linhas, a página também foi fixada em `100%` da área útil com `overflow: hidden !important`. Assim, o override mobile global de `.home-stack` não cria uma segunda barra de rolagem e somente `.dashboard-standings-wrap` permanece rolável.
+
 ## Prevenção
 
 Ao reutilizar componentes compactos em páginas de altura fixa, validar a cascata completa nos breakpoints e evitar que regras globais com `!important` anulem o container rolável específico.
