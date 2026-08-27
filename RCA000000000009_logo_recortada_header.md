@@ -6,7 +6,7 @@ O símbolo PlayField aparecia parcialmente cortado no lado esquerdo do header e 
 
 ## Causa raiz
 
-O recorte criado para neutralizar margens transparentes do PNG foi combinado com margem negativa no conjunto inteiro. Embora o recorte interno estivesse dimensionado para o conteúdo visível, o deslocamento externo empurrou parte do símbolo para fora da área útil do header.
+O recorte criado para neutralizar margens transparentes do PNG usava `overflow: hidden` com limites justos ao conteúdo opaco. A antisserrilha e a sombra nas bordas ultrapassavam esses limites e eram cortadas, mesmo após remover o deslocamento externo do conjunto.
 
 ## Impacto
 
@@ -20,11 +20,11 @@ A tentativa de corrigir o espaço transparente do arquivo tratou simultaneamente
 
 ## Correção
 
-- Remover a margem negativa do conjunto.
-- Manter o recorte apenas dentro do container do símbolo.
-- Remover o nome adicional.
-- Posicionar `° sports & gaming hub` diretamente ao lado do símbolo, centralizado verticalmente.
+- Manter o conjunto sem margem negativa.
+- Compensar a transparência pela posição interna da imagem sem mascarar suas bordas.
+- Restaurar `PlayField` acima de `sports & gaming hub`.
+- Fixar 3px entre o símbolo e o bloco textual em desktop e mobile.
 
 ## Prevenção
 
-Compensações da margem transparente devem ocorrer somente dentro do container de recorte da imagem. O lockup completo deve permanecer dentro do padding do header.
+Compensações da margem transparente devem ocorrer pela posição interna da imagem, preservando margem para antisserrilha e sombra. O lockup completo deve permanecer dentro do padding do header.
