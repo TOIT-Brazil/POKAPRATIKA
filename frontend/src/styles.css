@@ -28,7 +28,7 @@ button { cursor: pointer; }
 .brand-lockup { display: flex; align-items: center; gap: 3px; min-width: 0; margin-left: 10px; }
 .brand-symbol { position: relative; width: 64px; height: 70px; display: block; flex: 0 0 64px; overflow: visible; }
 .brand-logo { position: absolute; top: -2px; left: -24px; width: auto; height: 74px; display: block; object-fit: contain; filter: drop-shadow(0 12px 22px rgba(0,0,0,.22)); }
-.brand-copy { display: grid; gap: 3px; min-width: 0; }
+.brand-copy { display: grid; gap: 3px; min-width: 0; transform: translateX(-8px); }
 .brand-name { color: #f4fbf8; font-family: "Manrope", sans-serif; font-size: 1.12rem; font-weight: 800; line-height: 1; letter-spacing: 0; white-space: nowrap; }
 .brand-tagline { color: #16a8c4; font-family: "Manrope", sans-serif; font-size: .64rem; font-weight: 800; line-height: 1; letter-spacing: 0; white-space: nowrap; }
 h1, h2, p { margin: 0; }
