@@ -99,8 +99,8 @@ function toOptionalNumber(value: unknown): number | null {
 }
 
 function clampPitchSlot(team: 'A' | 'B', left: number, top: number) {
-  const minLeft = team === 'A' ? 8 : 44;
-  const maxLeft = team === 'A' ? 56 : 92;
+  const minLeft = team === 'A' ? 8 : 53;
+  const maxLeft = team === 'A' ? 47 : 92;
   return {
     left: Number(clampValue(left, minLeft, maxLeft).toFixed(2)),
     top: Number(clampValue(top, 12, 88).toFixed(2))
@@ -279,18 +279,18 @@ type TacticalPitchSlot = { left: number; top: number; preferredPositions: Athlet
 const balancedPositionOrder: AthletePosition[] = ['GO', 'ZG', 'LE', 'LD', 'MC', 'MD', 'MA', 'AT'];
 
 const teamATacticalPitchSlots: TacticalPitchSlot[] = [
-  { left: 26, top: 24, preferredPositions: ['LE', 'LD', 'ZG', 'MD', 'MC', 'MA', 'AT'] },
-  { left: 28, top: 40, preferredPositions: ['ZG', 'LE', 'LD', 'MC', 'MD', 'MA', 'AT'] },
-  { left: 28, top: 60, preferredPositions: ['ZG', 'LD', 'LE', 'MC', 'MD', 'MA', 'AT'] },
-  { left: 26, top: 76, preferredPositions: ['LD', 'LE', 'ZG', 'MD', 'MC', 'MA', 'AT'] },
-  { left: 46, top: 50, preferredPositions: ['MC', 'MD', 'MA', 'AT', 'ZG', 'LE', 'LD'] },
-  { left: 62, top: 50, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'ZG', 'LE', 'LD'] },
-  { left: 56, top: 30, preferredPositions: ['MA', 'AT', 'MC', 'MD', 'LE', 'LD', 'ZG'] },
-  { left: 56, top: 70, preferredPositions: ['MA', 'AT', 'MC', 'MD', 'LD', 'LE', 'ZG'] },
-  { left: 40, top: 28, preferredPositions: ['MD', 'MC', 'MA', 'ZG', 'LE', 'LD', 'AT'] },
-  { left: 40, top: 72, preferredPositions: ['MD', 'MC', 'MA', 'ZG', 'LD', 'LE', 'AT'] },
-  { left: 70, top: 34, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'LE', 'LD', 'ZG'] },
-  { left: 70, top: 66, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'LD', 'LE', 'ZG'] }
+  { left: 20, top: 22, preferredPositions: ['LE', 'ZG', 'LD', 'MD', 'MC', 'MA', 'AT'] },
+  { left: 20, top: 42, preferredPositions: ['ZG', 'LE', 'LD', 'MC', 'MD', 'MA', 'AT'] },
+  { left: 20, top: 62, preferredPositions: ['ZG', 'LD', 'LE', 'MC', 'MD', 'MA', 'AT'] },
+  { left: 20, top: 82, preferredPositions: ['LD', 'LE', 'ZG', 'MD', 'MC', 'MA', 'AT'] },
+  { left: 33, top: 34, preferredPositions: ['MD', 'MC', 'MA', 'LE', 'ZG', 'LD', 'AT'] },
+  { left: 33, top: 66, preferredPositions: ['MC', 'MD', 'MA', 'LD', 'ZG', 'LE', 'AT'] },
+  { left: 44, top: 24, preferredPositions: ['MA', 'AT', 'MC', 'MD', 'LE', 'LD', 'ZG'] },
+  { left: 44, top: 50, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'ZG', 'LE', 'LD'] },
+  { left: 44, top: 76, preferredPositions: ['MA', 'AT', 'MC', 'MD', 'LD', 'LE', 'ZG'] },
+  { left: 28, top: 18, preferredPositions: ['MD', 'MC', 'MA', 'ZG', 'LE', 'LD', 'AT'] },
+  { left: 28, top: 82, preferredPositions: ['MD', 'MC', 'MA', 'ZG', 'LD', 'LE', 'AT'] },
+  { left: 46, top: 64, preferredPositions: ['AT', 'MA', 'MC', 'MD', 'LD', 'LE', 'ZG'] }
 ];
 
 function tacticalGoalkeeperSlot(team: 'A' | 'B') {
@@ -1816,7 +1816,13 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       }
     }
 
-    return normalizePlayersForBoard(normalized);
+    const bounded = normalized.map((player) => {
+      if ((player.team !== 'A' && player.team !== 'B') || player.fieldLeft == null || player.fieldTop == null) return player;
+      const slot = clampPitchSlot(player.team, player.fieldLeft, player.fieldTop);
+      return { ...player, fieldLeft: slot.left, fieldTop: slot.top };
+    });
+
+    return normalizePlayersForBoard(bounded);
   }
 
   function playerBoardNumber(player: MatchDetail['players'][number], fallbackIndex: number) {

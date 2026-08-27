@@ -29,6 +29,12 @@ const playerSchema = z.object({
   startsOnBench: z.boolean().default(false),
   present: z.boolean().default(true)
 }).superRefine((player, ctx) => {
+  if (player.fieldLeft != null && player.team === 'A' && (player.fieldLeft < 8 || player.fieldLeft > 47)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Atleta do Time A precisa permanecer na metade esquerda do campo.' });
+  }
+  if (player.fieldLeft != null && player.team === 'B' && (player.fieldLeft < 53 || player.fieldLeft > 92)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Atleta do Time B precisa permanecer na metade direita do campo.' });
+  }
   const guest = player.isGuest === true || guestIdentityPattern.test(player.userId);
   if (guest) {
     if (!guestIdentityPattern.test(player.userId)) {
