@@ -25,12 +25,10 @@ button { cursor: pointer; }
 .card { border: 1px solid rgba(255,255,255,.1); background: rgba(10, 20, 38, .88); border-radius: 14px; box-shadow: 0 12px 36px rgba(0,0,0,.22); }
 .glass { backdrop-filter: blur(16px); }
 .hero { min-height: clamp(76px, 10vw, 96px); display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 9px; }
-.brand-lockup { display: flex; align-items: center; gap: 9px; min-width: 0; margin-left: -10px; }
+.brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: 0; }
 .brand-symbol { position: relative; width: 72px; height: 70px; display: block; flex: 0 0 72px; overflow: hidden; }
 .brand-logo { position: absolute; top: -2px; left: -24px; width: auto; height: 74px; display: block; object-fit: contain; filter: drop-shadow(0 12px 22px rgba(0,0,0,.22)); }
-.brand-copy { display: grid; gap: 4px; min-width: 0; }
-.brand-name { color: #f4fbf8; font-family: "Manrope", sans-serif; font-size: 1.18rem; font-weight: 800; line-height: 1; letter-spacing: 0; }
-.brand-tagline { color: #1598b4; font-family: "Manrope", sans-serif; font-size: .64rem; font-weight: 800; line-height: 1; letter-spacing: 0; white-space: nowrap; }
+.brand-tagline { color: #16a8c4; font-family: "Manrope", sans-serif; font-size: .82rem; font-weight: 800; line-height: 1; letter-spacing: 0; white-space: nowrap; }
 h1, h2, p { margin: 0; }
 h1 { font-size: clamp(1.35rem, 4vw, 2.2rem); line-height: .9; letter-spacing: -.04em; }
 h2 { font-size: 1rem; letter-spacing: -.02em; }
@@ -967,7 +965,6 @@ h3 { margin: 0; font-size: .98rem; letter-spacing: -.02em; }
 }
 
 .brand-lockup { gap: 9px; }
-.brand-copy { display: grid; gap: 2px; }
 .brand-logo { filter: drop-shadow(0 10px 20px rgba(15,82,87,.14)); }
 .eyebrow { color: var(--primary-deep); margin-bottom: 0; }
 .muted { color: var(--muted); }
@@ -3938,15 +3935,7 @@ textarea {
   .brand-lockup {
     gap: 7px;
     min-width: 0;
-    margin-left: -8px;
-  }
-
-  .brand-copy {
-    min-width: 0;
-  }
-
-  .brand-copy .eyebrow {
-    display: none;
+    margin-left: 0;
   }
 
   .brand-symbol {
@@ -3961,12 +3950,8 @@ textarea {
     height: 59px;
   }
 
-  .brand-name {
-    font-size: .92rem;
-  }
-
   .brand-tagline {
-    font-size: .56rem;
+    font-size: .64rem;
   }
 
   h1 {
