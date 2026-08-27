@@ -60,6 +60,11 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .grid { min-height: 0; display: grid; gap: 8px; overflow: hidden; }
 .home-stack { min-height: 0; display: grid; gap: 7px; overflow: auto; padding-right: 2px; }
 .home-stack.dashboard-main { overflow: hidden; max-height: 100%; }
+.standard-page { align-content: start; }
+.standard-page-header { flex: 0 0 auto; }
+.standard-page-header .card-head { align-items: flex-start; }
+.schedule-page-content { min-height: 320px; }
+.schedule-page-content .schedule-table-wrap { min-height: 0; }
 .season-home { grid-template-rows: minmax(285px, auto) minmax(360px, 1fr); }
 .season-lower { min-height: 0; display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(280px, 1fr); gap: 7px; }
 .grid.two { grid-template-columns: 1.1fr .9fr; }
@@ -357,11 +362,6 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .modal-card { width: min(460px, 100%); padding: 16px; display: grid; gap: 9px; }
 .prompt-modal { z-index: 12; place-items: start center; padding-top: 92px; background: rgba(0,0,0,.34); pointer-events: none; }
 .confirmation-popup { width: min(540px, calc(100% - 18px)); border-color: rgba(255,205,86,.28); background: linear-gradient(145deg, rgba(7,17,31,.98), rgba(22,43,70,.96)); box-shadow: 0 22px 70px rgba(0,0,0,.5); pointer-events: auto; }
-.schedule-modal-layer { place-items: stretch; padding: 4px; overflow: hidden; overscroll-behavior: none; }
-.schedule-modal { width: 100%; height: calc(100dvh - 8px); max-height: none; min-height: 0; overflow: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding: 16px; }
-.schedule-modal::-webkit-scrollbar { width: 10px; }
-.schedule-modal::-webkit-scrollbar-track { background: rgba(255,255,255,.08); border-radius: 999px; }
-.schedule-modal::-webkit-scrollbar-thumb { background: #3b82f6; border: 2px solid rgba(7,17,31,.9); border-radius: 999px; }
 .schedule-form { display: grid; gap: 14px; padding: 18px; border-radius: 18px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
 .schedule-create-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .schedule-create-actions button { min-width: 150px; }
@@ -445,7 +445,6 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .voting-popup { border-color: rgba(59,130,246,.32); }
 .admin-modal-card { width: min(620px, 100%); }
 .modal-card.wide { width: min(980px, 100%); max-height: min(86dvh, 760px); overflow: auto; }
-.schedule-modal.modal-card.wide { width: calc(100vw - 8px); max-width: none; height: calc(100dvh - 8px); max-height: none; overflow: hidden; }
 .payments-panel { overflow: auto; }
 .payments-table-wrap { max-height: 52dvh; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
 .payments-table { min-width: 1260px; font-size: .75rem; }
@@ -3114,44 +3113,6 @@ textarea {
   display: none;
 }
 
-.mobile-dashboard-modal-layer {
-  z-index: 16;
-  place-items: stretch;
-  padding: 6px;
-  background: rgba(15, 82, 87, .18);
-  backdrop-filter: blur(6px);
-}
-
-.mobile-dashboard-modal-card {
-  width: calc(100vw - 12px);
-  max-width: none;
-  height: calc(100dvh - 12px);
-  max-height: none;
-  min-height: 0;
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px;
-  border-radius: 20px;
-  background: rgba(255,255,255,.96);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-md);
-}
-
-.mobile-dashboard-modal-body {
-  min-height: 0;
-  overflow: auto;
-  display: grid;
-  gap: 10px;
-  padding-right: 2px;
-}
-
-.mobile-dashboard-modal-body > .dashboard-finished-card,
-.mobile-dashboard-modal-body > .dashboard-standings-card {
-  background: var(--surface);
-}
-
 .dashboard-next-match-card,
 .dashboard-ops-card,
 .dashboard-finished-card,
@@ -4023,10 +3984,6 @@ textarea {
     padding-right: 0;
   }
 
-  .schedule-modal-layer .schedule-table-wrap {
-    overflow: auto !important;
-  }
-
   .modal:not(.prompt-modal) {
     place-items: stretch;
     padding: 4px;
@@ -4454,11 +4411,6 @@ textarea {
     -webkit-overflow-scrolling: touch;
   }
 
-  .schedule-modal-layer .schedule-table-wrap {
-    overflow-x: auto !important;
-    overflow-y: auto !important;
-  }
-
   .championship-table,
   .management-table,
   .payments-table,
@@ -4599,7 +4551,6 @@ textarea {
 
   .match-modal-card,
   .sheet-modal-card,
-  .schedule-modal,
   .profile-modal-card,
   .athlete-profile-modal-card,
   .payment-card,
@@ -4610,18 +4561,6 @@ textarea {
     max-width: none;
     max-height: calc(100dvh - 8px);
     overflow: auto;
-    padding: 10px;
-  }
-
-  .schedule-modal-layer {
-    padding: 2px;
-  }
-
-  .schedule-modal-layer .schedule-modal {
-    width: 100%;
-    height: calc(100dvh - 4px);
-    overflow: hidden;
-    overscroll-behavior: contain;
     padding: 10px;
   }
 
@@ -4643,18 +4582,6 @@ textarea {
     width: 100%;
     max-height: calc(100dvh - 8px);
     overflow: auto;
-  }
-
-  .mobile-dashboard-modal-layer {
-    padding: 2px;
-  }
-
-  .mobile-dashboard-modal-card {
-    width: 100%;
-    max-height: none;
-    height: calc(100dvh - 4px);
-    padding: 10px;
-    border-radius: 18px;
   }
 
   .sheet-preview-arena,

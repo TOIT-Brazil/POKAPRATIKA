@@ -7,7 +7,7 @@ import { AthletePosition, MatchListItem, PointSetting, Season, Standing, User } 
 const logoUrl = '/logo_playfield.png';
 const paymentMonthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-type View = 'temporada' | 'pagamentos' | 'premios' | 'usuarios' | 'admin';
+type View = 'temporada' | 'partidas' | 'estatisticas' | 'agenda' | 'pagamentos' | 'premios' | 'usuarios' | 'admin';
 type AuthPayload = { token: string; user: User };
 type RankingPayload = {
   goals: Array<{ userId: string; name: string; goals: number; ownGoals: number; netGoals: number; gamesPlayed: number; average: string | number }>;
@@ -966,8 +966,6 @@ export function App() {
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [operationalDialogOpen, setOperationalDialogOpen] = useState(false);
-  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
-  const [mobileDashboardOverlay, setMobileDashboardOverlay] = useState<'matches' | 'standings' | null>(null);
   const canCoordinate = auth?.user.role === 'ADMIN' || auth?.user.role === 'COORDENADOR';
   const isAdmin = auth?.user.role === 'ADMIN';
   const activeSeason = seasons.find((season) => season.id === activeSeasonId) ?? seasons.find((season) => season.status === 'OPEN') ?? seasons[0];
@@ -1059,10 +1057,6 @@ export function App() {
     };
   }, [accountMenuOpen]);
 
-  useEffect(() => {
-    if (view !== 'temporada') setMobileDashboardOverlay(null);
-  }, [view]);
-
   function saveAuth(payload: AuthPayload) {
     localStorage.setItem(storageKey, JSON.stringify(payload));
     setAuth(payload);
@@ -1086,15 +1080,27 @@ export function App() {
   }
 
   return (
-    <main className={`shell ${view === 'temporada' ? 'shell-home' : ''} ${accountMenuOpen ? 'menu-open' : ''}`}>
+    <main
+      className={`shell ${view === "temporada" ? "shell-home" : ""} ${accountMenuOpen ? "menu-open" : ""}`}
+    >
       <header className="hero card glass app-header">
         <div className="header-admin-cluster">
           <div className="account-area">
-            <button type="button" className={`header-menu-trigger ${accountMenuOpen ? 'is-open' : ''}`} onClick={() => setAccountMenuOpen((value) => !value)} aria-label="Abrir menu principal" title="Abrir menu principal"><MdMenu /></button>
+            <button
+              type="button"
+              className={`header-menu-trigger ${accountMenuOpen ? "is-open" : ""}`}
+              onClick={() => setAccountMenuOpen((value) => !value)}
+              aria-label="Abrir menu principal"
+              title="Abrir menu principal"
+            >
+              <MdMenu />
+            </button>
           </div>
         </div>
         <div className="brand-lockup">
-          <span className="brand-symbol"><img className="brand-logo" src={logoUrl} alt="Logo PlayField" /></span>
+          <span className="brand-symbol">
+            <img className="brand-logo" src={logoUrl} alt="Logo PlayField" />
+          </span>
           <span className="brand-copy">
             <strong className="brand-name">PlayField</strong>
             <span className="brand-tagline">sports &amp; gaming hub</span>
@@ -1102,23 +1108,294 @@ export function App() {
         </div>
       </header>
 
-      {accountMenuOpen && <div className="account-menu-layer"><button type="button" className="account-menu-backdrop" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)} /><aside className="account-menu" role="dialog" aria-modal="true" aria-label="Menu principal"><div className="account-menu-top"><button type="button" className="account-menu-close" aria-label="Fechar menu" onClick={() => setAccountMenuOpen(false)}>x</button><div className="account-menu-profile">{auth.user.avatarDataUrl ? <img src={auth.user.avatarDataUrl} alt="Avatar" /> : <span>{auth.user.name.slice(0, 1)}</span>}<div><strong>{auth.user.name}</strong><small>{auth.user.role}</small></div></div></div><nav className="account-menu-actions">{canCoordinate && <><button onClick={() => { setOperationalDialogOpen(true); setAccountMenuOpen(false); }}>Criar jogo</button><button onClick={() => { setView('temporada'); setMobileDashboardOverlay(null); setAccountMenuOpen(false); }}>Temporada</button><button onClick={() => { setView('temporada'); setMobileDashboardOverlay('matches'); setAccountMenuOpen(false); }}>Partidas</button><button onClick={() => { setView('temporada'); setMobileDashboardOverlay('standings'); setAccountMenuOpen(false); }}>Estatísticas</button><button onClick={() => { setView('pagamentos'); setMobileDashboardOverlay(null); setAccountMenuOpen(false); }}>Mensalidades</button><button onClick={() => { setView('premios'); setMobileDashboardOverlay(null); setAccountMenuOpen(false); }}>Prêmios</button><button onClick={() => { setView('usuarios'); setMobileDashboardOverlay(null); setAccountMenuOpen(false); }}>Usuários</button><button onClick={() => { setView('admin'); setMobileDashboardOverlay(null); setAccountMenuOpen(false); }}>Config.</button><button onClick={() => { setScheduleDialogOpen(true); setAccountMenuOpen(false); }}>Agenda</button></>}<button onClick={() => { setProfileUserId(auth.user.id); setAccountMenuOpen(false); }}>Meu perfil</button><button className="danger-menu" onClick={() => { localStorage.removeItem(storageKey); setAuth(null); }}>Sair</button></nav></aside></div>}
+      {accountMenuOpen && (
+        <div className="account-menu-layer">
+          <button
+            type="button"
+            className="account-menu-backdrop"
+            aria-label="Fechar menu"
+            onClick={() => setAccountMenuOpen(false)}
+          />
+          <aside
+            className="account-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu principal"
+          >
+            <div className="account-menu-top">
+              <button
+                type="button"
+                className="account-menu-close"
+                aria-label="Fechar menu"
+                onClick={() => setAccountMenuOpen(false)}
+              >
+                x
+              </button>
+              <div className="account-menu-profile">
+                {auth.user.avatarDataUrl ? (
+                  <img src={auth.user.avatarDataUrl} alt="Avatar" />
+                ) : (
+                  <span>{auth.user.name.slice(0, 1)}</span>
+                )}
+                <div>
+                  <strong>{auth.user.name}</strong>
+                  <small>{auth.user.role}</small>
+                </div>
+              </div>
+            </div>
+            <nav className="account-menu-actions">
+              {canCoordinate && (
+                <>
+                  <button
+                    onClick={() => {
+                      setOperationalDialogOpen(true);
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Criar jogo
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("temporada");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Temporada
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("partidas");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Partidas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("estatisticas");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Estatísticas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("pagamentos");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Mensalidades
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("premios");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Prêmios
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("usuarios");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Usuários
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("admin");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Config.
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView("agenda");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Agenda
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => {
+                  setProfileUserId(auth.user.id);
+                  setAccountMenuOpen(false);
+                }}
+              >
+                Meu perfil
+              </button>
+              <button
+                className="danger-menu"
+                onClick={() => {
+                  localStorage.removeItem(storageKey);
+                  setAuth(null);
+                }}
+              >
+                Sair
+              </button>
+            </nav>
+          </aside>
+        </div>
+      )}
 
-      {canCoordinate && <ScheduleManagerDialog api={api} matches={matches} activeSeasonId={activeSeasonId} onDone={loadData} controlledOpen={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen} hideTrigger />}
-      {canCoordinate && <OperationalMatchDialog api={api} users={users} activeSeasonId={activeSeasonId} onDone={loadData} controlledOpen={operationalDialogOpen} onOpenChange={setOperationalDialogOpen} hideTrigger />}
+      {canCoordinate && (
+        <OperationalMatchDialog
+          api={api}
+          users={users}
+          activeSeasonId={activeSeasonId}
+          onDone={loadData}
+          controlledOpen={operationalDialogOpen}
+          onOpenChange={setOperationalDialogOpen}
+          hideTrigger
+        />
+      )}
 
-      {changePasswordOpen && <ChangePasswordDialog api={api} onClose={() => setChangePasswordOpen(false)} />}
-      {profileUserId && <div className="modal profile-modal"><div className="profile-modal-card athlete-profile-modal-card"><div className="card-head athlete-profile-modal-head"><h2>Perfil do atleta</h2><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setProfileUserId(null)}>X</button></div><ProfilesPanel api={api} currentUserId={auth.user.id} initialUserId={profileUserId} onCurrentUserUpdated={updateAuthenticatedUser} onRequestChangePassword={() => { setProfileUserId(null); setChangePasswordOpen(true); }} /></div></div>}
+      {changePasswordOpen && (
+        <ChangePasswordDialog
+          api={api}
+          onClose={() => setChangePasswordOpen(false)}
+        />
+      )}
+      {profileUserId && (
+        <div className="modal profile-modal">
+          <div className="profile-modal-card athlete-profile-modal-card">
+            <div className="card-head athlete-profile-modal-head">
+              <h2>Perfil do atleta</h2>
+              <button
+                type="button"
+                className="ghost modal-close-button"
+                aria-label="Fechar modal"
+                title="Fechar"
+                onClick={() => setProfileUserId(null)}
+              >
+                X
+              </button>
+            </div>
+            <ProfilesPanel
+              api={api}
+              currentUserId={auth.user.id}
+              initialUserId={profileUserId}
+              onCurrentUserUpdated={updateAuthenticatedUser}
+              onRequestChangePassword={() => {
+                setProfileUserId(null);
+                setChangePasswordOpen(true);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
-      {error && <button className="alert" onClick={() => setError('')}>{error}</button>}
-      {loading && <div className="mini-loading">Carregando dados reais da Railway...</div>}
-      {!loading && activeSeason && <GlobalVotingPrompt api={api} users={users} activeSeason={activeSeason} isAdmin={isAdmin} />}
-      {view === 'temporada' && <div className="home-stack dashboard-main"><div className="dashboard-top-grid"><DashboardMatchesPanel api={api} canCoordinate={canCoordinate} users={users} matches={matches} rankings={rankings} standings={standings} activeSeasonId={activeSeasonId} currentUserId={auth.user.id} onReload={loadData} selectedMatch={selectedMatch} setSelectedMatch={setSelectedMatch} /></div><div className="dashboard-bottom-grid"><DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} /></div></div>}
-      {mobileDashboardOverlay && view === 'temporada' && <div className="modal mobile-dashboard-modal-layer"><section className="card mobile-dashboard-modal-card"><div className="card-head"><div><h2>{mobileDashboardOverlay === 'matches' ? 'Partidas da temporada' : 'Estatísticas da temporada'}</h2><p className="muted">{mobileDashboardOverlay === 'matches' ? 'Histórico confirmado da rodada em leitura dedicada para celular.' : 'Classificação e destaque estatístico em uma área própria no mobile.'}</p></div><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setMobileDashboardOverlay(null)}>X</button></div><div className="mobile-dashboard-modal-body">{mobileDashboardOverlay === 'matches' ? <DashboardFinishedMatchesPanel matches={matches} /> : <DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} />}</div></section></div>}
-      {view === 'pagamentos' && <PaymentsPanel api={api} canCoordinate={canCoordinate} users={users} activeSeasonId={activeSeasonId} />}
-      {view === 'premios' && canCoordinate && <div className="home-stack"><AwardSettingsCard api={api} /></div>}
-      {view === 'usuarios' && canCoordinate && <UsersManagementTablePanel api={api} users={users} onReload={loadData} isAdmin={isAdmin} />}
-      {view === 'admin' && canCoordinate && <AdminPanel api={api} users={users} seasons={seasons} points={points} activeSeasonId={activeSeasonId} onReload={loadData} isAdmin={isAdmin} />}
+      {error && (
+        <button className="alert" onClick={() => setError("")}>
+          {error}
+        </button>
+      )}
+      {loading && (
+        <div className="mini-loading">Carregando dados reais da Railway...</div>
+      )}
+      {!loading && activeSeason && (
+        <GlobalVotingPrompt
+          api={api}
+          users={users}
+          activeSeason={activeSeason}
+          isAdmin={isAdmin}
+        />
+      )}
+      {view === "temporada" && (
+        <div className="home-stack dashboard-main">
+          <div className="dashboard-top-grid">
+            <DashboardMatchesPanel
+              api={api}
+              canCoordinate={canCoordinate}
+              users={users}
+              matches={matches}
+              rankings={rankings}
+              standings={standings}
+              activeSeasonId={activeSeasonId}
+              currentUserId={auth.user.id}
+              onReload={loadData}
+              selectedMatch={selectedMatch}
+              setSelectedMatch={setSelectedMatch}
+            />
+          </div>
+          <div className="dashboard-bottom-grid">
+            <DashboardStandingsPanel
+              standings={standings}
+              onOpenProfile={setProfileUserId}
+            />
+          </div>
+        </div>
+      )}
+      {view === "partidas" && (
+        <div className="home-stack standard-page">
+          <section className="card compact standard-page-header">
+            <div className="card-head">
+              <div>
+                <h2>Partidas</h2>
+                <p className="muted">Histórico de jogos confirmados da temporada.</p>
+              </div>
+            </div>
+          </section>
+          <DashboardFinishedMatchesPanel matches={matches} />
+        </div>
+      )}
+      {view === "estatisticas" && (
+        <div className="home-stack standard-page">
+          <section className="card compact standard-page-header">
+            <div className="card-head">
+              <div>
+                <h2>Estatísticas</h2>
+                <p className="muted">Classificação e desempenho dos atletas na temporada.</p>
+              </div>
+            </div>
+          </section>
+          <DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} />
+        </div>
+      )}
+      {view === "agenda" && canCoordinate && (
+        <ScheduleManagerPanel
+          api={api}
+          matches={matches}
+          activeSeasonId={activeSeasonId}
+          onDone={loadData}
+        />
+      )}
+      {view === "pagamentos" && (
+        <PaymentsPanel
+          api={api}
+          canCoordinate={canCoordinate}
+          users={users}
+          activeSeasonId={activeSeasonId}
+        />
+      )}
+      {view === "premios" && canCoordinate && (
+        <div className="home-stack">
+          <AwardSettingsCard api={api} />
+        </div>
+      )}
+      {view === "usuarios" && canCoordinate && (
+        <UsersManagementTablePanel
+          api={api}
+          users={users}
+          onReload={loadData}
+          isAdmin={isAdmin}
+        />
+      )}
+      {view === "admin" && canCoordinate && (
+        <AdminPanel
+          api={api}
+          users={users}
+          seasons={seasons}
+          points={points}
+          activeSeasonId={activeSeasonId}
+          onReload={loadData}
+          isAdmin={isAdmin}
+        />
+      )}
     </main>
   );
 }
@@ -3315,10 +3592,7 @@ function CorrectionHistory({ corrections }: { corrections: MatchCorrection[] }) 
   return <div className="audit-box"><strong>Histórico de correções</strong>{corrections.map((item) => <article className="row-card" key={item.id}><strong>{item.previousTeamAScore} x {item.previousTeamBScore} → {item.newTeamAScore} x {item.newTeamBScore}</strong><span>{item.correctedByName}</span><small>{new Date(item.createdAt).toLocaleString('pt-BR')} • {item.reason}</small><small>Eventos: {item.previousEvents.length} → {item.newEvents.length}</small></article>)}</div>;
 }
 
-function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlledOpen, onOpenChange, hideTrigger = false }: { api: ApiClient; matches: MatchListItem[]; activeSeasonId: string; onDone: () => Promise<void>; controlledOpen?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean }) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
-  const setOpen = onOpenChange ?? setInternalOpen;
+function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: ApiClient; matches: MatchListItem[]; activeSeasonId: string; onDone: () => Promise<void> }) {
   const [mode, setMode] = useState<ScheduleMode>('recurring');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState('');
@@ -3427,20 +3701,21 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
 
   return (
     <>
-      {!hideTrigger && <button className="ghost small" onClick={() => setOpen(true)}>Agenda</button>}
-      {open && <div className="modal schedule-modal-layer">
-        <section className="card modal-card wide schedule-modal">
+      <div className="home-stack standard-page schedule-page">
+        <section className="card compact standard-page-header">
           <div className="card-head">
             <div>
-              <h2>Agenda e confirmação dos jogos</h2>
+              <h2>Agenda</h2>
+              <p className="muted">Agendamentos e janelas de confirmação dos jogos.</p>
             </div>
-            <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setEditorOpen(false); setOpen(false); }}>X</button>
           </div>
           {message && <p className="status-line">{message}</p>}
           <div className="schedule-create-actions">
             <button type="button" className="primary" onClick={() => { setMode('recurring'); setEditingId(''); setEditorOpen(true); }}>Recorrente</button>
             <button type="button" className="ghost" onClick={() => { setMode('manual'); setEditingId(''); setEditorOpen(true); }}>Data específica</button>
           </div>
+        </section>
+        <section className="card compact schedule-page-content">
           <div className="championship-wrap management-table-wrap schedule-table-wrap">
             <table className="championship-table management-table schedule-table">
               <thead>
@@ -3468,6 +3743,7 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
             </table>
           </div>
         </section>
+      </div>
         {editorOpen && <div className="modal schedule-editor-layer">
           <form className="card modal-card wide schedule-form schedule-editor-card" onSubmit={saveSchedule}>
             <div className="card-head">
@@ -3491,7 +3767,6 @@ function ScheduleManagerDialog({ api, matches, activeSeasonId, onDone, controlle
             <button className="primary">{editingId ? 'Salvar edição' : mode === 'recurring' ? 'Gerar jogos recorrentes' : 'Criar jogo avulso'}</button>
           </form>
         </div>}
-      </div>}
     </>
   );
 }
