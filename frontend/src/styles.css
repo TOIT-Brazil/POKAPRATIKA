@@ -2115,7 +2115,6 @@ textarea {
 
 .draw-title-row,
 .draw-team-heading,
-.draw-position-label,
 .draw-selected-head strong {
   display: inline-flex;
   align-items: center;
@@ -2227,44 +2226,6 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 150px;
   gap: 8px;
-}
-
-.draw-position-list {
-  display: grid;
-  gap: 0;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #e1dbcf;
-  background: #fff;
-}
-
-.draw-position-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-bottom: 1px solid #eee8de;
-}
-
-.draw-position-row:last-child {
-  border-bottom: 0;
-}
-
-.draw-position-row span {
-  color: #1f2937;
-  font-size: .8rem;
-  font-weight: 700;
-}
-
-.draw-position-row strong {
-  color: #111827;
-  font-size: .82rem;
-  text-align: right;
-}
-
-.draw-position-total {
-  background: #f7f5ee;
 }
 
 .draw-card-note {
@@ -2735,8 +2696,6 @@ textarea {
   }
 
   .draw-sheet-copy .muted,
-  .draw-position-row span,
-  .draw-position-row strong,
   .draw-selected-head strong {
     font-size: .74rem;
   }

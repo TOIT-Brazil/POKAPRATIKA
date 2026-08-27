@@ -3727,7 +3727,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   }
 
   const rosterRows = [...players].sort((left, right) => Number(left.drawOrder || 0) - Number(right.drawOrder || 0) || left.name.localeCompare(right.name, 'pt-BR'));
-  const positionOverview = ([['GO', 'Goleiros', 'goalkeeper'], ['DEFESA', 'Defesa', 'defense'], ['MEIO', 'Meio', 'midfield'], ['ATAQUE', 'Ataque', 'attack']] as const).map(([group, label, icon]) => ({ group, label, icon, count: players.filter((player) => positionBalanceGroup(player.position) === group).length }));
   const drawStatus = players.length < 2 ? 'Adicione pelo menos 2 atletas para liberar o sorteio.' : teamsDrawn ? 'Equipes sorteadas. Você ainda pode sortear novamente ou ajustar sequência/banco.' : 'Elenco pronto para sorteio aleatório por posições.';
   const drawTitle = teamsDrawn ? 'Sorteio concluído.' : 'Divisão automática obrigatória.';
   const drawButtonLabel = teamsDrawn ? 'SORTEAR TIMES NOVAMENTE' : 'SORTEAR TIMES AUTOMATICAMENTE';
@@ -3820,19 +3819,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                     <p className="draw-card-note">O jogo atual vira a data base e o sistema agenda automaticamente os próximos {recurringWeekdayLabel.toLowerCase()} até {new Date(`${recurringEndDate}T12:00:00-03:00`).toLocaleDateString('pt-BR')}.</p>
                   </div>
                 )}
-
-                <div className="draw-position-list">
-                  <div className="draw-position-row draw-position-total">
-                    <span className="draw-position-label"><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Elenco</span>
-                    <strong>{players.length}</strong>
-                  </div>
-                  {positionOverview.map((item) => (
-                    <div className="draw-position-row" key={item.group}>
-                      <span className="draw-position-label"><DrawIcon kind={item.icon} className="draw-icon draw-icon-inline" /> {item.label}</span>
-                      <strong>{item.count}</strong>
-                    </div>
-                  ))}
-                </div>
 
                 <p className="draw-card-note">Escalação salva no banco.</p>
               </section>
