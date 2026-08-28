@@ -1374,7 +1374,7 @@ export function App() {
         />
       )}
       {view === "premios" && canCoordinate && (
-        <div className="home-stack">
+        <div className="home-stack awards-page">
           <AwardSettingsCard api={api} />
         </div>
       )}
@@ -4770,7 +4770,7 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
         <button className="ghost" onClick={addCategory}>Adicionar regra</button>
       </div>
 
-      <div className="championship-wrap management-table-wrap">
+      <div className="championship-wrap management-table-wrap awards-table-wrap">
         <table className="championship-table management-table rules-table">
           <thead>
           </thead>

@@ -5363,10 +5363,11 @@ select optgroup { color: var(--text); background: #10231f; }
 
 .schedule-page-content .schedule-table-wrap {
   flex: 1 1 0;
+  height: 100%;
   width: 100%;
   min-width: 0;
   min-height: 220px;
-  max-height: calc(100dvh - 250px) !important;
+  max-height: none !important;
   overflow-x: scroll !important;
   overflow-y: scroll !important;
   overscroll-behavior: contain;
@@ -5388,6 +5389,29 @@ select optgroup { color: var(--text); background: #10231f; }
   background: #4f7568;
   border: 2px solid #0b1a17;
   border-radius: 4px;
+}
+
+.awards-page {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.awards-page .rules-center {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+}
+
+.awards-page .awards-table-wrap {
+  flex: 1 1 0;
+  min-height: 220px;
+  max-height: none;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 @media (max-width: 980px) {
@@ -5425,7 +5449,5 @@ select optgroup { color: var(--text); background: #10231f; }
     justify-items: stretch;
   }
 
-  .schedule-page-content .schedule-table-wrap {
-    max-height: calc(100dvh - 230px) !important;
-  }
+  .schedule-page-content .schedule-table-wrap { max-height: none !important; }
 }
