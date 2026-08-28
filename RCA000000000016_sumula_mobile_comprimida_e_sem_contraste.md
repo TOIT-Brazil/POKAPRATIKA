@@ -31,3 +31,11 @@ A composição mobile anterior foi criada ainda sobre superfícies claras. A mig
 ## Prevenção
 
 Validar a súmula em viewport mobile real após mudanças globais de tema e evitar que componentes operacionais densos compartilhem meia largura abaixo de `820px`.
+
+## Resultado
+
+- Time A e Time B passaram a ocupar painéis independentes de largura total no mobile.
+- Titulares e reservas usam duas colunas internas até `380px`, reduzindo altura sem sacrificar a largura dos nomes; abaixo desse limite voltam a uma coluna.
+- Cabeçalho, placar, nomes, rótulos e log receberam contraste explícito dentro da súmula.
+- O campo mobile passou de `240px` para `340px`, com peças e nomes menores para reduzir sobreposição.
+- Typecheck e build de produção do frontend concluídos sem erros. A inspeção visual automatizada não foi concluída porque o navegador integrado encerrou a página local protegida pela ausência de `VITE_API_URL` e também a aba neutra usada para o cenário isolado.
