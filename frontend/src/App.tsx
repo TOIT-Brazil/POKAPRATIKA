@@ -1081,7 +1081,7 @@ export function App() {
 
   return (
     <main
-      className={`shell ${view === "temporada" ? "shell-home" : ""} ${accountMenuOpen ? "menu-open" : ""}`}
+      className={`shell ${view === "temporada" ? "shell-home" : ""} ${view === "agenda" ? "shell-agenda" : ""} ${view === "premios" ? "shell-premios" : ""} ${accountMenuOpen ? "menu-open" : ""}`}
     >
       <header className="hero card glass app-header">
         <div className="header-admin-cluster">

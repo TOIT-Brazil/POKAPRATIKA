@@ -9,6 +9,7 @@
 
 - O wrapper da Agenda está dentro de uma linha flexível que já limita sua altura, porém conserva `max-height: calc(100dvh - 250px)`, reduzindo novamente a área disponível.
 - A página de Prêmios não possui classe de geometria própria. O card `.rules-center` mantém `max-height: min(76dvh, 720px)` e o wrapper genérico `.management-table-wrap` limita a tabela a `56dvh`.
+- No breakpoint mobile, a `.shell` muda para `height: auto` e os `.home-stack` recebem `overflow: visible`. Assim, os `height: 100%` adicionados às páginas não possuem uma altura de referência e os wrappers continuam encolhendo até a altura das poucas linhas.
 
 ## Impacto
 
@@ -31,4 +32,5 @@ Não combinar linhas flexíveis limitadas pelo pai com novos tetos em `dvh`. Pá
 - A página de Prêmios recebeu `.awards-page`; o card `.rules-center` perdeu os limites de `76dvh/720px` dentro dessa página.
 - A tabela de Prêmios recebeu `.awards-table-wrap`, cresce com `flex: 1 1 0` e rola internamente até o final da área útil.
 - Os seletores finais são mais específicos que o override mobile global, preservando a rolagem das duas tabelas.
+- No mobile, as views receberam `shell-agenda` e `shell-premios`; somente nessas telas a shell volta a `100dvh` com a terceira linha `minmax(0, 1fr)`, dando referência real para card e tabela preencherem todo o espaço até o rodapé mesmo com poucos registros.
 - Typecheck, build de produção e diagnósticos do frontend concluídos sem erros.
