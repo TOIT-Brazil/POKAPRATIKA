@@ -5304,6 +5304,11 @@ select optgroup { color: var(--text); background: #10231f; }
 }
 
 /* Súmula Inteligente compacta e Agenda com rolagem nos dois eixos. */
+.modal.draw-modal-layer {
+  place-items: center;
+  overflow: auto;
+}
+
 .draw-modal.draw-modal-sheet {
   width: min(760px, calc(100vw - 24px));
   height: fit-content;

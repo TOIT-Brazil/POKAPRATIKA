@@ -4108,7 +4108,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
     <>
       {!hideTrigger && <button className="primary small" onClick={openCreation}>Criar jogo</button>}
       {open && (
-        <div className="modal">
+        <div className="modal draw-modal-layer">
           <form className="card modal-card wide draw-modal draw-modal-sheet" onSubmit={submit}>
             <div className="draw-sheet-head">
               <div className="draw-sheet-copy">

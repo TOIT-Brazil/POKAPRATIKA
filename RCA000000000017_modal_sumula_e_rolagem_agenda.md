@@ -28,6 +28,7 @@ Componentes que precisam de rolagem própria devem possuir regra final específi
 ## Resultado
 
 - O modal passou de `980px` para até `760px`, usa altura do conteúdo com limite da viewport e possui paddings/gaps menores no cabeçalho, card e rodapé.
+- O overlay da `Súmula Inteligente` recebeu identificação própria e mantém o modal centralizado horizontal e verticalmente em desktop e mobile, neutralizando somente para esse fluxo o `place-items: stretch` global.
 - O rodapé permanece horizontal até `560px`; abaixo disso, empilha os controles para preservar a largura dos botões.
 - A Agenda ocupa a altura útil da shell em duas linhas (`cabeçalho` e `tabela`) e impede rolagem concorrente da página.
 - O wrapper da tabela usa rolagem vertical e horizontal explícita, barras de `12px`, gutter estável e altura máxima responsiva.
