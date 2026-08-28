@@ -4282,7 +4282,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
               <button type="button" className="ghost" onClick={() => creationStep === 'players' ? setCreationStep('details') : void cancelCreation()}>{creationStep === 'players' ? 'Voltar' : 'Cancelar'}</button>
               <div className="draw-footer-save">
                 <button className="primary" disabled={creationStep === 'players' && players.length === 0}>{creationStep === 'details' ? 'PRÓXIMO' : isRecurring ? 'SALVAR CONVOCAÇÃO + RECORRÊNCIA' : 'SALVAR CONVOCAÇÃO'}</button>
-                <small>{creationStep === 'details' ? 'Avance para selecionar os jogadores.' : 'Os convocados confirmarão presença antes do sorteio.'}</small>
               </div>
             </div>
           </form>
