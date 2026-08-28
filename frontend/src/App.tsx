@@ -892,9 +892,9 @@ function formatMoney(cents: number): string {
   return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function matchCountdownLabel(match?: MatchListItem | null): string {
+function matchCountdownLabel(match?: MatchListItem | null, now = Date.now()): string {
   if (!match) return 'Sem agenda';
-  const diffSeconds = Math.floor((getMatchStartTime(match) - Date.now()) / 1000);
+  const diffSeconds = Math.floor((getMatchStartTime(match) - now) / 1000);
   if (diffSeconds <= 0) return match.status === 'RUNNING' ? 'Em andamento' : '00:00:00';
   const days = Math.floor(diffSeconds / 86400);
   const hours = Math.floor((diffSeconds % 86400) / 3600);
@@ -1298,12 +1298,20 @@ export function App() {
         <div className="mini-loading">Carregando dados reais da Railway...</div>
       )}
       {!loading && activeSeason && (
-        <GlobalVotingPrompt
-          api={api}
-          users={users}
-          activeSeason={activeSeason}
-          isAdmin={isAdmin}
-        />
+        <>
+          <GlobalAttendancePrompt
+            api={api}
+            activeSeason={activeSeason}
+            currentUserId={auth.user.id}
+            onSaved={loadData}
+          />
+          <GlobalVotingPrompt
+            api={api}
+            users={users}
+            activeSeason={activeSeason}
+            isAdmin={isAdmin}
+          />
+        </>
       )}
       {view === "temporada" && (
         <div className="home-stack dashboard-main">
@@ -1493,6 +1501,52 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
         </section>
       </form>
     </main>
+  );
+}
+
+function GlobalAttendancePrompt({ api, activeSeason, currentUserId, onSaved }: { api: ApiClient; activeSeason: Season; currentUserId: string; onSaved: () => Promise<void> }) {
+  const [match, setMatch] = useState<MatchDetail | null>(null);
+  const [dismissedMatchId, setDismissedMatchId] = useState('');
+
+  async function loadPrompt() {
+    const prompt = await api.request<{ kind: 'ATTENDANCE' | null; match: MatchListItem | null }>(`/matches/confirmation-prompt?seasonId=${activeSeason.id}`);
+    if (prompt.kind !== 'ATTENDANCE' || !prompt.match || prompt.match.id === dismissedMatchId) {
+      setMatch(null);
+      return;
+    }
+    setMatch(await api.request<MatchDetail>(`/matches/${prompt.match.id}`));
+  }
+
+  useEffect(() => {
+    void loadPrompt().catch(() => setMatch(null));
+    const timer = window.setInterval(() => void loadPrompt().catch(() => undefined), 15000);
+    return () => window.clearInterval(timer);
+  }, [api, activeSeason.id, dismissedMatchId]);
+
+  if (!match) return null;
+
+  return (
+    <div className="modal prompt-modal">
+      <section className="match-modal-card confirmation-popup">
+        <div className="card-head">
+          <div>
+            <h2>Confirmação aberta</h2>
+            <p className="muted">{match.title} • {matchDateLabel(match)}</p>
+          </div>
+          <button type="button" className="ghost" onClick={() => setDismissedMatchId(match.id)}>Depois</button>
+        </div>
+        <AttendancePanel
+          api={api}
+          match={match}
+          currentUserId={currentUserId}
+          showRecentCard={false}
+          onSaved={async () => {
+            setMatch(null);
+            await onSaved();
+          }}
+        />
+      </section>
+    </div>
   );
 }
 
@@ -1698,6 +1752,14 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
   const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
+  const [countdownNow, setCountdownNow] = useState(Date.now());
+  const [dismissedSheetMatchId, setDismissedSheetMatchId] = useState('');
+  const sheetPromptCheckRef = useRef('');
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCountdownNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function openMatch(id: string) {
     try {
@@ -1738,8 +1800,26 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
 
   const sortedMatches = sortMatchesByOperationalRelevance(matches);
   const activeUserCount = Math.max(1, users.filter((user) => user.active !== false).length);
-  const nextMatch = sortedMatches.filter((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED').find((match) => getMatchStartTime(match) >= Date.now()) ?? sortedMatches.find((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED') ?? null;
+  const nextMatch = sortedMatches.filter((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED').find((match) => getMatchStartTime(match) >= countdownNow) ?? sortedMatches.find((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED') ?? null;
   const lastConfirmedMatch = [...matches].filter((match) => match.status === 'CONFIRMED').sort((left, right) => getMatchStartTime(right) - getMatchStartTime(left))[0] ?? null;
+
+  useEffect(() => {
+    if (!canCoordinate || !nextMatch || nextMatch.status !== 'DRAFT' || selectedSheetMatch || dismissedSheetMatchId === nextMatch.id) return;
+    const sheetOpensAt = getMatchStartTime(nextMatch) - 60 * 60 * 1000;
+    if (countdownNow < sheetOpensAt) return;
+
+    const checkKey = `${nextMatch.id}:${Math.floor(countdownNow / 15000)}`;
+    if (sheetPromptCheckRef.current === checkKey) return;
+    sheetPromptCheckRef.current = checkKey;
+
+    void api.request<MatchDetail>(`/matches/${nextMatch.id}`)
+      .then((detail) => {
+        const hasTeamA = detail.players.some((player) => player.team === 'A');
+        const hasTeamB = detail.players.some((player) => player.team === 'B');
+        if (hasTeamA && hasTeamB) setSelectedSheetMatch(detail);
+      })
+      .catch(() => undefined);
+  }, [api, canCoordinate, countdownNow, dismissedSheetMatchId, nextMatch?.id, nextMatch?.status, selectedSheetMatch?.id]);
   const topEfficiency = useMemo(() => [...standings]
     .map((row) => ({
       userId: row.user_id,
@@ -1782,6 +1862,11 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}
       {leaderBubbles.length > 0 && <div className="next-match-leader-strip">{leaderBubbles.map((item) => <button type="button" className={`next-match-leader-card ${item.accent}`} key={item.key} onClick={() => onOpenProfile(item.userId)} aria-label={`Abrir perfil de ${item.name}`}><div className="next-match-leader-value"><strong>{item.value}</strong><small>{item.detail}</small></div><div className="next-match-leader-copy"><span>{item.label}</span><strong>{item.name}</strong></div></button>)}</div>}
       {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
+      {canCoordinate && nextMatch?.status === 'DRAFT' && dismissedSheetMatchId === nextMatch.id && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && (
+        <div className="next-match-actions">
+          <button type="button" className="ghost" onClick={() => void openSheet(nextMatch.id)}>Reabrir súmula</button>
+        </div>
+      )}
       {lastConfirmedMatch && <button type="button" className="dashboard-last-match-button" onClick={() => void openSheet(lastConfirmedMatch.id)}><span className="dashboard-last-match-label">Último jogo</span><div className="finished-list-row dashboard-last-match-card"><div className="finished-list-main"><span className="finished-list-date">{compactMatchDateLabel(lastConfirmedMatch)}</span><strong className="finished-list-title">{lastConfirmedMatch.title}</strong><small className="finished-list-outcome">{matchOutcomeLabel(lastConfirmedMatch)}</small></div><div className="finished-list-duel"><div className="finished-list-team"><span className="finished-team-mark">{teamBadgeLabel(lastConfirmedMatch.teamAName)}</span><strong>{lastConfirmedMatch.teamAName}</strong></div><div className="finished-list-score"><b>{lastConfirmedMatch.teamAScore}</b><span>x</span><b>{lastConfirmedMatch.teamBScore}</b></div><div className="finished-list-team is-away"><strong>{lastConfirmedMatch.teamBName}</strong><span className="finished-team-mark">{teamBadgeLabel(lastConfirmedMatch.teamBName)}</span></div></div></div></button>}
       {selectedMatch && (
         <div className="modal match-modal">
@@ -1823,9 +1908,9 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
             <div className="card-head">
               <div>
                 <h2>{selectedSheetMatch.title}</h2>
-                <p className="muted">Último jogo confirmado • {formatDateOnly(selectedSheetMatch.matchDate, 'sem data')} • {matchStatusLabel(selectedSheetMatch.status)}</p>
+                <p className="muted">{selectedSheetMatch.status === 'CONFIRMED' ? 'Último jogo confirmado' : 'Súmula liberada para escalação'} • {formatDateOnly(selectedSheetMatch.matchDate, 'sem data')} • {matchStatusLabel(selectedSheetMatch.status)}</p>
               </div>
-              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setSelectedSheetMatch(null)}>X</button>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setDismissedSheetMatchId(selectedSheetMatch.id); setSelectedSheetMatch(null); }}>X</button>
             </div>
             <OpenMatchSheetBoard
               api={api}
