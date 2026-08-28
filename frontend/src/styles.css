@@ -4974,37 +4974,41 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 
   .sheet-lineups-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    padding: 0;
-    background: transparent;
-    border: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    padding: 8px;
+    background: #10231f;
+    border: 1px solid var(--line);
   }
 
   .sheet-lineups-grid::after {
-    display: none;
+    display: block;
+    top: 8px;
+    bottom: 8px;
+    background: var(--line-strong);
   }
 
   .sheet-roster-panel,
   .sheet-roster-panel.team-a-roster,
   .sheet-roster-panel.team-b-roster {
-    grid-column: 1;
     grid-row: auto;
-    padding: 8px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    padding: 0 8px 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
-  .team-b-roster .ops-roster-head strong,
-  .team-b-roster .sheet-panel-label,
-  .team-b-roster .sheet-roster-row,
-  .team-b-roster .sheet-roster-row .ops-roster-copy strong {
-    margin-left: 0;
-    text-align: left;
+  .sheet-roster-panel.team-a-roster {
+    grid-column: 1;
+  }
+
+  .sheet-roster-panel.team-b-roster {
+    grid-column: 2;
+    padding: 0 0 0 8px;
   }
 
   .sheet-roster-panel .ops-roster-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 5px;
   }
 
@@ -5014,7 +5018,24 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 
   .sheet-roster-row .ops-roster-copy strong {
+    font-size: .72rem;
+  }
+
+  .sheet-log-panel .event-log span {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    min-height: 30px;
+    font-size: .82rem;
+  }
+
+  .sheet-log-panel .event-log b {
+    color: #86efac;
     font-size: .76rem;
+  }
+
+  .sheet-log-panel .event-log small {
+    color: #f1faf6;
+    font-size: .8rem;
+    line-height: 1.35;
   }
 
   .sheet-pitch-surface {
@@ -5042,11 +5063,6 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 }
 
-@media (max-width: 380px) {
-  .sheet-roster-panel .ops-roster-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 .account-menu-actions button { color: var(--text); background: var(--surface); border-color: var(--line); }
 .account-menu-actions button:hover { background: var(--surface-soft); }
 .account-menu-actions .danger-menu { color: #fda4af; background: rgba(244,63,94,.12); }
@@ -5261,3 +5277,28 @@ select optgroup { color: var(--text); background: #10231f; }
 .sheet-player-event-menu button.is-remove { color: #fda4af; background: rgba(127,29,29,.28); }
 
 .account-menu-backdrop { background: rgba(2, 8, 7, .62); }
+
+/* Uniformes da súmula: autoridade final após o tema global. */
+.sheet-pitch-surface .team-a-player span {
+  color: #10231f;
+  background: #f8faf9;
+  border: 2px solid #b9d2c8;
+}
+
+.sheet-pitch-surface .team-b-player span {
+  color: #ffffff;
+  background: #d2393d;
+  border: 2px solid #ff9a9d;
+}
+
+.sheet-pitch-surface .team-a-player.is-goalkeeper span {
+  color: #082f49;
+  background: #67e8f9;
+  border-color: #cffafe;
+}
+
+.sheet-pitch-surface .team-b-player.is-goalkeeper span {
+  color: #431407;
+  background: #fb923c;
+  border-color: #fed7aa;
+}
