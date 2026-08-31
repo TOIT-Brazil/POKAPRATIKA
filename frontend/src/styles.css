@@ -5321,6 +5321,33 @@ select optgroup { color: var(--text); background: #10231f; }
   border-color: #fed7aa;
 }
 
+/* A linha de detalhe contém outra tabela; neutraliza o fundo claro herdado em cada célula interna. */
+.payments-panel .payments-group-detail-row > td,
+.payments-panel .payments-subtable-wrap,
+.payments-panel .payments-subtable,
+.payments-panel .payments-subtable tbody,
+.payments-panel .payments-subtable tr,
+.payments-panel .payments-subtable td {
+  color: var(--text);
+  background: #0b1a17;
+}
+
+.payments-panel .payments-subtable th {
+  color: #9fe3cb;
+  background: #10241f;
+  border-bottom-color: var(--line-strong);
+}
+
+.payments-panel .payments-subtable tbody tr:nth-child(odd),
+.payments-panel .payments-subtable tbody tr:nth-child(odd) td {
+  background: #10231f;
+}
+
+.payments-panel .payments-subtable tbody tr:hover,
+.payments-panel .payments-subtable tbody tr:hover td {
+  background: #17312b;
+}
+
 /* Súmula Inteligente compacta e Agenda com rolagem nos dois eixos. */
 .modal.draw-modal-layer {
   place-items: center;
