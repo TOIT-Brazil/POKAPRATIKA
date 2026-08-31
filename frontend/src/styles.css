@@ -4899,6 +4899,16 @@ select optgroup { color: var(--text); background: #10231f; }
 .schedule-table tbody tr:hover,
 .import-table tbody tr:hover { background: rgba(52,211,153,.08); }
 
+.payments-group-detail-row > td,
+.payments-subtable-wrap {
+  color: var(--text);
+  background: #0b1a17;
+}
+
+.payments-subtable-head span {
+  color: var(--muted);
+}
+
 .table-filter-button,
 .table-filter-popover,
 .table-filter-popover input,
@@ -5257,6 +5267,14 @@ select optgroup { color: var(--text); background: #10231f; }
   background: #10231f;
   border-color: var(--line);
   box-shadow: none;
+}
+
+.sheet-modal-card .sheet-log-panel .event-log b {
+  color: #86efac;
+}
+
+.sheet-modal-card .sheet-log-panel .event-log small {
+  color: #f1faf6;
 }
 
 .team-a-player span,
