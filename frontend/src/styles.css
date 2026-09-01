@@ -4162,7 +4162,6 @@ textarea {
   .dashboard-bottom-grid,
   .season-lower,
   .ops-widget-grid,
-  .next-match-leader-strip,
   .leader-strip,
   .ranking-grid,
   .podium,
@@ -4177,6 +4176,14 @@ textarea {
   .stat-grid,
   .season-stats {
     grid-template-columns: 1fr;
+  }
+
+  .next-match-leader-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .next-match-leader-value small {
+    display: none;
   }
 
   .dashboard-bottom-grid {
@@ -4661,10 +4668,13 @@ textarea {
 }
 
 @media (max-width: 520px) {
-  .next-match-leader-strip,
   .next-match-actions,
   .ops-widget-grid {
     grid-template-columns: 1fr;
+  }
+
+  .next-match-leader-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ops-widget-grid > .ops-highlight:last-child {
@@ -4725,9 +4735,14 @@ textarea {
   }
 
   .next-match-leader-card {
-    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-columns: minmax(36px, auto) minmax(0, 1fr);
+    gap: 7px;
     min-height: 58px;
-    padding-block: 7px;
+    padding: 7px 7px 7px 10px;
+  }
+
+  .next-match-leader-value {
+    padding-right: 7px;
   }
 
   .next-match-leader-value strong {
