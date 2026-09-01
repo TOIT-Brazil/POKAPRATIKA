@@ -4758,18 +4758,34 @@ textarea {
   }
 
   .next-match-leader-card {
-    grid-template-columns: minmax(36px, auto) minmax(0, 1fr);
-    gap: 7px;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 6px;
     min-height: 58px;
     padding: 7px 7px 7px 10px;
   }
 
   .next-match-leader-value {
-    padding-right: 7px;
+    width: auto;
+    min-width: 0;
+    padding-right: 5px;
+    justify-items: end;
   }
 
   .next-match-leader-value strong {
     font-size: 1rem;
+  }
+
+  .next-match-leader-card.efficiency {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  .next-match-leader-card.efficiency .next-match-leader-value {
+    width: auto;
+  }
+
+  .next-match-leader-card.efficiency .next-match-leader-value strong {
+    font-size: .82rem;
+    white-space: nowrap;
   }
 
   .next-match-title-block {
