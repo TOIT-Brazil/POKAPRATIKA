@@ -33,3 +33,5 @@ Em 2026-09-01, uma nova transcrição foi anexada ao mesmo import durante outra 
 Na mesma data, a palavra `ser` foi inserida dentro de `AuthPayload`, antes da propriedade `user`. A assinatura foi restaurada para `{ token: string; user: User }`; todos os erros de acesso a `auth.user` eram consequências dessa única corrupção.
 
 Em nova recorrência, a propriedade `user` foi substituída pelo texto `use vice very best lostr`. A assinatura foi novamente restaurada; os erros apresentados continuavam concentrados nessa única linha.
+
+Ainda em 2026-09-01, uma transcrição substituiu parcialmente o identificador `RankingPayload` na declaração do tipo. O identificador foi restaurado sem alteração do contrato; o frontend voltou a compilar após a correção localizada.

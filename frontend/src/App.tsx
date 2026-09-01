@@ -2925,6 +2925,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
   const [dinnerConfirmed, setDinnerConfirmed] = useState(own?.dinnerConfirmed ?? false);
   const [guestCount, setGuestCount] = useState(own?.guestCount ?? 0);
   const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
   const openForResponse = isConfirmationReallyOpen(match);
 
   useEffect(() => {
@@ -2957,11 +2958,19 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
   }
 
   async function saveAttendance() {
+    if (saving) return;
+    setSaving(true);
     setMessage('Salvando confirmação...');
-    const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
-    await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: null }) });
-    setMessage(responseStatus === 'JOGAR' ? 'Confirmação salva: você ficou disponível para o jogo e para a escalação.' : responseStatus === 'PRESENTE_SEM_JOGAR' ? 'Confirmação salva: você ficou apenas presente, fora do jogo e da escalação.' : 'Confirmação salva: ausência registrada para esta rodada.');
-    await onSaved();
+    try {
+      const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
+      await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: null }) });
+      setMessage(responseStatus === 'JOGAR' ? 'Confirmação salva: você ficou disponível para o jogo e para a escalação.' : responseStatus === 'PRESENTE_SEM_JOGAR' ? 'Confirmação salva: você ficou apenas presente, fora do jogo e da escalação.' : 'Confirmação salva: ausência registrada para esta rodada.');
+      await onSaved();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Não foi possível salvar sua confirmação.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -3014,8 +3023,6 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
                   </button>
                 </div>
 
-                <small className="attendance-dashboard-note">Escalação salva no banco.</small>
-
                 <div className="attendance-summary-grid">
                   <article className="attendance-summary-card is-game">
                     <RoundIcon kind="play" className="attendance-summary-icon" />
@@ -3051,7 +3058,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
               </div>
             </div>
 
-            <button type="button" className="primary attendance-save-button" onClick={() => void saveAttendance()}>Salvar minha confirmação</button>
+            <button type="button" className="primary attendance-save-button" disabled={saving} onClick={() => void saveAttendance()}>{saving ? 'Salvando confirmação...' : 'Salvar minha confirmação'}</button>
             
           </>
         ) : (

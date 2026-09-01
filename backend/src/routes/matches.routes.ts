@@ -163,7 +163,7 @@ async function buildAutomaticInvitationPlayers(requestedPlayers: MatchPlayerInpu
   const activeAthletes = await execute<{ id: string; name: string; position: string | null }>(
     `SELECT id, name, position
      FROM users
-     WHERE active = TRUE AND role = 'ATLETA'
+     WHERE active = TRUE
      ORDER BY name ASC`
   );
   const fixedPlayers: MatchPlayerInput[] = activeAthletes.rows.map((athlete, index) => ({
@@ -716,8 +716,8 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
     `SELECT m.id, m.season_id AS "seasonId", m.match_date AS "matchDate", m.title, m.referee_name AS "refereeName", m.status,
       m.team_a_name AS "teamAName", m.team_b_name AS "teamBName", m.team_a_score AS "teamAScore", m.team_b_score AS "teamBScore", m.created_at AS "createdAt",
       ${scheduleSelect.join(', ')}, ${attendanceSelect},
-      (SELECT count(*)::INTEGER FROM users invited WHERE invited.active = TRUE AND invited.role = 'ATLETA') AS "invitedCount",
-      EXISTS (SELECT 1 FROM users invited WHERE invited.id = $2::UUID AND invited.active = TRUE AND invited.role = 'ATLETA') AS "isInvited"
+      (SELECT count(*)::INTEGER FROM users invited WHERE invited.active = TRUE) AS "invitedCount",
+      EXISTS (SELECT 1 FROM users invited WHERE invited.id = $2::UUID AND invited.active = TRUE) AS "isInvited"
      FROM matches m
      ${attendanceJoin}
     WHERE ($1::UUID IS NULL OR m.season_id = $1)
@@ -772,7 +772,7 @@ matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, 
      WHERE ($1::UUID IS NULL OR m.season_id = $1)
        AND m.status = 'DRAFT'
        AND ${openCondition}
-       AND EXISTS (SELECT 1 FROM users invited WHERE invited.id = $2::UUID AND invited.active = TRUE AND invited.role = 'ATLETA')
+      AND EXISTS (SELECT 1 FROM users invited WHERE invited.id = $2::UUID AND invited.active = TRUE)
        AND NOT EXISTS (
          SELECT 1
          FROM match_attendance_responses mar
@@ -1172,12 +1172,12 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
   if (match.rows[0].status !== 'DRAFT') throw httpError(409, 'A confirmação de presença só fica aberta enquanto a súmula está em rascunho.');
   if (!match.rows[0].confirmationOpen) throw httpError(409, 'A confirmação desta rodada não está aberta no momento. Verifique a janela de abertura e fechamento configurada pela coordenação.');
 
-  const athlete = await query(
+  const activeUser = await query(
     `SELECT 1 FROM users
-     WHERE id = $1::UUID AND active = TRUE AND role = 'ATLETA'`,
+     WHERE id = $1::UUID AND active = TRUE`,
     [req.user?.id]
   );
-  if (!athlete.rowCount) throw httpError(403, 'A confirmação de presença está disponível somente para atletas ativos.');
+  if (!activeUser.rowCount) throw httpError(403, 'A confirmação de presença está disponível somente para usuários ativos.');
 
   const dinnerConfirmed = body.responseStatus !== 'AUSENTE' && body.dinnerConfirmed;
   const guestCount = dinnerConfirmed ? body.guestCount : 0;
