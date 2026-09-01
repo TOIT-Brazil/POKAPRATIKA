@@ -29,3 +29,7 @@ Executar `tsc --noEmit` antes e depois de alterações e manter ditados, prompts
 ## Recorrência
 
 Em 2026-09-01, uma nova transcrição foi anexada ao mesmo import durante outra solicitação e voltou a quebrar o parser. O import foi restaurado pela segunda vez; a prevenção permanece bloquear a entrada de ditado no editor enquanto `App.tsx` estiver com foco.
+
+Na mesma data, a palavra `ser` foi inserida dentro de `AuthPayload`, antes da propriedade `user`. A assinatura foi restaurada para `{ token: string; user: User }`; todos os erros de acesso a `auth.user` eram consequências dessa única corrupção.
+
+Em nova recorrência, a propriedade `user` foi substituída pelo texto `use vice very best lostr`. A assinatura foi novamente restaurada; os erros apresentados continuavam concentrados nessa única linha.
