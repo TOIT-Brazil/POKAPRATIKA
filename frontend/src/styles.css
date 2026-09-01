@@ -3387,7 +3387,7 @@ textarea {
 }
 
 .next-match-date-badge b {
-  font-size: 2.25rem;
+  font-size: 2.45rem;
   line-height: .92;
   color: #0d2a22;
 }
@@ -3405,6 +3405,7 @@ textarea {
 .next-match-date-stack small,
 .next-match-date-stack em {
   color: #27483f;
+  font-size: .9rem;
   font-style: normal;
   font-weight: 800;
   text-transform: uppercase;
@@ -3426,7 +3427,7 @@ textarea {
 .next-match-title-block strong {
   min-width: 0;
   color: #0d2a22;
-  font-size: 1.05rem;
+  font-size: 1.18rem;
   line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4263,7 +4264,7 @@ textarea {
   .next-match-date-stack span,
   .next-match-date-stack small,
   .next-match-date-stack em {
-    font-size: .78rem;
+    font-size: .84rem;
   }
 
   .next-match-date-badge b,
@@ -4272,7 +4273,7 @@ textarea {
   }
 
   .next-match-title-block strong {
-    font-size: 1.02rem;
+    font-size: 1.08rem;
   }
 
   .next-match-title-block small {
@@ -4749,7 +4750,7 @@ textarea {
   .next-match-date-stack span,
   .next-match-date-stack small,
   .next-match-date-stack em {
-    font-size: .66rem;
+    font-size: .72rem;
   }
 
   .next-match-date-badge b {
@@ -4776,7 +4777,7 @@ textarea {
   }
 
   .next-match-title-block strong {
-    font-size: .82rem;
+    font-size: .9rem;
   }
 
   .next-match-title-block small {

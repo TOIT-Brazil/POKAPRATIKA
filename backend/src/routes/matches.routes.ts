@@ -159,6 +159,32 @@ function isGuestPlayer(player: Pick<MatchPlayerInput, 'userId' | 'isGuest'>): bo
   return player.isGuest === true || isGuestIdentity(player.userId);
 }
 
+async function buildAutomaticInvitationPlayers(requestedPlayers: MatchPlayerInput[], execute: QueryExecutor = query): Promise<MatchPlayerInput[]> {
+  const activeAthletes = await execute<{ id: string; name: string; position: string | null }>(
+    `SELECT id, name, position
+     FROM users
+     WHERE active = TRUE AND role = 'ATLETA'
+     ORDER BY name ASC`
+  );
+  const fixedPlayers: MatchPlayerInput[] = activeAthletes.rows.map((athlete, index) => ({
+    userId: athlete.id,
+    name: athlete.name,
+    position: athletePositionSchema.safeParse(athlete.position).success ? athlete.position as MatchPlayerInput['position'] : 'MC',
+    team: 'PRESENTE_SEM_JOGAR',
+    roleInMatch: 'PRESENTE_SEM_JOGAR',
+    drawOrder: index + 1,
+    rotationOrder: null,
+    startsOnBench: false,
+    present: false
+  }));
+  const guestPlayers = requestedPlayers.filter(isGuestPlayer).map((player, index) => ({
+    ...player,
+    drawOrder: fixedPlayers.length + index + 1,
+    present: false
+  }));
+  return [...fixedPlayers, ...guestPlayers];
+}
+
 async function getTableColumns(tableName: string): Promise<Set<string>> {
   const result = await query<{ column_name: string }>(
     `SELECT column_name
@@ -690,8 +716,8 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
     `SELECT m.id, m.season_id AS "seasonId", m.match_date AS "matchDate", m.title, m.referee_name AS "refereeName", m.status,
       m.team_a_name AS "teamAName", m.team_b_name AS "teamBName", m.team_a_score AS "teamAScore", m.team_b_score AS "teamBScore", m.created_at AS "createdAt",
       ${scheduleSelect.join(', ')}, ${attendanceSelect},
-      (SELECT count(*)::INTEGER FROM match_players invited WHERE invited.match_id = m.id AND invited.user_id IS NOT NULL) AS "invitedCount",
-      EXISTS (SELECT 1 FROM match_players invited WHERE invited.match_id = m.id AND invited.user_id = $2::UUID) AS "isInvited"
+      (SELECT count(*)::INTEGER FROM users invited WHERE invited.active = TRUE AND invited.role = 'ATLETA') AS "invitedCount",
+      EXISTS (SELECT 1 FROM users invited WHERE invited.id = $2::UUID AND invited.active = TRUE AND invited.role = 'ATLETA') AS "isInvited"
      FROM matches m
      ${attendanceJoin}
     WHERE ($1::UUID IS NULL OR m.season_id = $1)
@@ -746,12 +772,7 @@ matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, 
      WHERE ($1::UUID IS NULL OR m.season_id = $1)
        AND m.status = 'DRAFT'
        AND ${openCondition}
-       AND EXISTS (
-         SELECT 1
-         FROM match_players invited
-         WHERE invited.match_id = m.id
-           AND invited.user_id = $2::UUID
-       )
+       AND EXISTS (SELECT 1 FROM users invited WHERE invited.id = $2::UUID AND invited.active = TRUE AND invited.role = 'ATLETA')
        AND NOT EXISTS (
          SELECT 1
          FROM match_attendance_responses mar
@@ -773,7 +794,8 @@ matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, 
 
 matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
   const body = validate(createMatchSchema, req.body);
-  const players = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: player.present ?? true }));
+  const requestedPlayers = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: false }));
+  const players = await buildAutomaticInvitationPlayers(requestedPlayers);
   await validatePlayersInput(players);
   const matchPlayerColumns = await getTableColumns('match_players');
   const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
@@ -814,7 +836,8 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
 
 matchesRouter.patch('/:id/lineup', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req, res) => {
   const body = validate(lineupSchema, req.body);
-  const players = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: player.present ?? true }));
+  const requestedPlayers = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: player.present ?? true }));
+  const players = requestedPlayers.some((player) => !isGuestPlayer(player)) ? requestedPlayers : await buildAutomaticInvitationPlayers(requestedPlayers);
   await validatePlayersInput(players);
   const matchPlayerColumns = await getTableColumns('match_players');
   const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
@@ -876,13 +899,21 @@ matchesRouter.post('/schedule/manual', requireRoles('ADMIN', 'COORDENADOR'), asy
      RETURNING id`,
     [seasonId, body.matchDate, body.title, body.refereeName ?? null, body.teamAName, body.teamBName, scheduledStart, scheduledEnd, confirmationOpenAt, confirmationOpensHoursBefore, confirmationCloseAt, confirmationClosesHoursBefore, req.user?.id]
   );
+  const matchPlayerColumns = await getTableColumns('match_players');
+  const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+  const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
+  const players = await buildAutomaticInvitationPlayers([]);
+  for (const player of players) {
+    await insertMatchPlayerRecord(query, result.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
+  }
   res.status(201).json({ id: result.rows[0].id, confirmationOpenAt, confirmationCloseAt });
 }));
 
 matchesRouter.post('/schedule/recurring', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
   await ensureScheduleAvailable();
   const body = validate(recurringScheduleSchema, req.body);
-  const players = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: false }));
+  const requestedPlayers = (body.players ?? []).map((player) => ({ ...player, startsOnBench: player.startsOnBench ?? false, present: false }));
+  const players = await buildAutomaticInvitationPlayers(requestedPlayers);
   await validatePlayersInput(players);
   const matchPlayerColumns = await getTableColumns('match_players');
   const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
@@ -1141,11 +1172,12 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
   if (match.rows[0].status !== 'DRAFT') throw httpError(409, 'A confirmação de presença só fica aberta enquanto a súmula está em rascunho.');
   if (!match.rows[0].confirmationOpen) throw httpError(409, 'A confirmação desta rodada não está aberta no momento. Verifique a janela de abertura e fechamento configurada pela coordenação.');
 
-  const invitation = await query(
-    'SELECT 1 FROM match_players WHERE match_id = $1 AND user_id = $2::UUID',
-    [params.id, req.user?.id]
+  const athlete = await query(
+    `SELECT 1 FROM users
+     WHERE id = $1::UUID AND active = TRUE AND role = 'ATLETA'`,
+    [req.user?.id]
   );
-  if (!invitation.rowCount) throw httpError(403, 'Você não foi convocado para confirmar presença neste jogo.');
+  if (!athlete.rowCount) throw httpError(403, 'A confirmação de presença está disponível somente para atletas ativos.');
 
   const dinnerConfirmed = body.responseStatus !== 'AUSENTE' && body.dinnerConfirmed;
   const guestCount = dinnerConfirmed ? body.guestCount : 0;

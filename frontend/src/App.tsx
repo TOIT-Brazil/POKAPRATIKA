@@ -1845,7 +1845,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
     const responses = playing + presentOnly + absent;
     const pending = Math.max((match.invitedCount ?? activeUserCount) - responses, 0);
     const myAttendanceStatus = match.myAttendanceStatus ?? null;
-    const confirmationReallyOpen = isConfirmationReallyOpen(match) && match.isInvited !== false;
+    const confirmationReallyOpen = isConfirmationReallyOpen(match);
     const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
     const confirmationDetail = match.confirmationOpen ? `${attendanceStatusLabel(myAttendanceStatus)}${match.confirmationCloseAt ? ` • fecha ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}` : confirmationWindowHasEnded(match) ? `Janela encerrada${match.confirmationCloseAt ? ` em ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}.` : `Janela configurada: ${confirmationWindowScheduleLabel(match)}.`;
     const segments = [
@@ -3204,7 +3204,7 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
     const pending = Math.max(invitedCount - responses, 0);
     const responsePercent = Math.min(100, Math.round((responses / invitedCount) * 100));
     const confirmationText = match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação';
-    const confirmationReallyOpen = isConfirmationReallyOpen(match) && match.isInvited !== false;
+    const confirmationReallyOpen = isConfirmationReallyOpen(match);
     const myAttendanceStatus = match.myAttendanceStatus ?? null;
     const confirmationDetail = match.confirmationOpen
       ? `${attendanceStatusLabel(myAttendanceStatus)}${match.confirmationCloseAt ? ` • fecha ${formatBrasiliaTime(match.confirmationCloseAt)}` : ''}`
@@ -3897,15 +3897,11 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   const [refereeName, setRefereeName] = useState('');
   const [teamAName, setTeamAName] = useState('Time A');
   const [teamBName, setTeamBName] = useState('Time B');
-  const [query, setQuery] = useState('');
   const [players, setPlayers] = useState<MatchDraftPlayer[]>([]);
   const [draggedUserId, setDraggedUserId] = useState('');
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
 
-  const assignedIds = new Set(players.map((player) => player.userId));
-  const search = query.trim().toLowerCase();
-  const searchResults = search.length < 3 ? [] : users.filter((user) => user.active !== false && user.role === 'ATLETA' && !assignedIds.has(user.id) && `${user.name} ${user.email}`.toLowerCase().includes(search)).slice(0, 8);
   const recurringWeekdayLabel = weekdayOptions.find((item) => item.value === recurringWeekday)?.label ?? 'Quarta-feira';
 
   useEffect(() => {
@@ -3974,17 +3970,11 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
         setDraftMatchId(created.id);
       }
       setCreationStep('players');
-      setSaveStatus('Detalhes salvos. Selecione os atletas que deverão confirmar presença.');
+      setSaveStatus('Detalhes salvos. Todos os atletas ativos poderão confirmar presença.');
       await onDone();
     } catch (err) {
       setSaveStatus(err instanceof Error ? err.message : 'Não foi possível salvar os detalhes do jogo.');
     }
-  }
-
-  function addParticipant(user: User) {
-    const position = user.position ?? 'MC';
-    setPlayers((list) => [...list, { userId: user.id, name: user.name, email: user.email, position, team: 'PRESENTE_SEM_JOGAR', roleInMatch: 'PRESENTE_SEM_JOGAR', drawOrder: String(list.length + 1), startsOnBench: false, present: true }]);
-    setQuery('');
   }
 
   function addGuestParticipant() {
@@ -4008,7 +3998,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
     }]);
     setGuestName('');
     setGuestPosition('MC');
-    setSaveStatus(`${normalizedName} foi incluído na convocação.`);
+    setSaveStatus(`${normalizedName} foi incluído como suplente externo.`);
   }
 
   function removePlayer(userId: string) {
@@ -4021,10 +4011,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       await advanceToPlayers();
       return;
     }
-    if (!players.length) {
-      setSaveStatus('Selecione pelo menos um atleta para abrir a confirmação.');
-      return;
-    }
     if (isRecurring && weekdayFromInputDate(date) !== recurringWeekday) {
       setSaveStatus('Para jogo recorrente, a data base precisa cair no mesmo dia escolhido na recorrência. Ex.: quarta-feira com repetição às quartas.');
       return;
@@ -4034,7 +4020,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       return;
     }
     try {
-      setSaveStatus(isRecurring ? 'Salvando convocação e gerando recorrência...' : 'Salvando convocação...');
+      setSaveStatus(isRecurring ? 'Salvando jogo e gerando recorrência...' : 'Salvando jogo...');
       await saveLineup();
       if (isRecurring) {
         const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', {
@@ -4056,7 +4042,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
           })
         });
         const extraDuplicates = Math.max(0, result.skipped - 1);
-        setSaveStatus(`Convocação salva. Recorrência semanal configurada: ${result.generated} jogo(s) futuro(s) criado(s)${extraDuplicates ? ` e ${extraDuplicates} data(s) já existiam.` : '.'}`);
+        setSaveStatus(`Recorrência semanal configurada: ${result.generated} jogo(s) futuro(s) criado(s)${extraDuplicates ? ` e ${extraDuplicates} data(s) já existiam.` : '.'}`);
       }
       await api.request(`/matches/${draftMatchId}/open-confirmation`, { method: 'POST' });
       setOpen(false);
@@ -4065,7 +4051,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       setCreationStep('details');
       await onDone();
     } catch (err) {
-      setSaveStatus(err instanceof Error ? err.message : 'Falha ao salvar a convocação.');
+      setSaveStatus(err instanceof Error ? err.message : 'Falha ao salvar o jogo.');
     }
   }
 
@@ -4104,7 +4090,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   }
 
   const rosterRows = [...players].sort((left, right) => Number(left.drawOrder || 0) - Number(right.drawOrder || 0) || left.name.localeCompare(right.name, 'pt-BR'));
-  const selectedLabel = rosterRows.length === 0 ? 'Vazios (0)' : `${rosterRows.length} atleta${rosterRows.length === 1 ? '' : 's'}`;
+  const selectedLabel = `${rosterRows.length} suplente${rosterRows.length === 1 ? '' : 's'}`;
 
   return (
     <>
@@ -4195,7 +4181,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   </div>
                 )}
 
-                <p className="draw-card-note">Na próxima etapa você selecionará os atletas convocados.</p>
+                <p className="draw-card-note">Todos os atletas ativos serão convidados automaticamente. Na próxima etapa, você poderá incluir um suplente externo se necessário.</p>
               </section>
               )}
 
@@ -4205,35 +4191,13 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   <div className="draw-card-head">
                     <div className="draw-title-row">
                       <DrawIcon kind="playerPlus" className="draw-icon" />
-                      <h3>Adicionar Jogadores</h3>
+                      <h3>Suplente externo (opcional)</h3>
                     </div>
                   </div>
-
-                  <div className="draw-search-input">
-                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar atleta por nome ou e-mail" />
-                  </div>
-
-                  {query.trim().length > 0 && query.trim().length < 3 && <p className="muted draw-inline-hint">Digite pelo menos 3 caracteres.</p>}
-
-                  {query.trim().length >= 3 && (
-                    <div className="draw-search-results">
-                      {searchResults.length === 0 ? (
-                        <p className="muted draw-inline-hint">Nenhum atleta encontrado para essa busca.</p>
-                      ) : searchResults.map((user) => (
-                        <article key={user.id}>
-                          <div>
-                            <strong>{user.name}</strong>
-                            <small>{user.email} • {positionLabel(user.position)}</small>
-                          </div>
-                          <button type="button" className="primary small" onClick={() => addParticipant(user)}>Adicionar</button>
-                        </article>
-                      ))}
-                    </div>
-                  )}
 
                   <div className="draw-guest-builder">
                     <div className="draw-guest-head">
-                      <strong>Suplente convidado</strong>
+                      <strong>Adicionar pessoa de fora do Ferino</strong>
                     </div>
                     <div className="draw-guest-grid">
                       <label className="field-shell">
@@ -4246,12 +4210,12 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                           {athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                       </label>
-                      <button type="button" className="ghost draw-guest-add-button" onClick={addGuestParticipant} disabled={guestName.trim().length < 2}>Adicionar convidado</button>
+                      <button type="button" className="ghost draw-guest-add-button" onClick={addGuestParticipant} disabled={guestName.trim().length < 2}>Adicionar suplente</button>
                     </div>
                   </div>
 
                   <div className="draw-selected-head">
-                    <strong><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Convocados: {selectedLabel}</strong>
+                    <strong><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Suplentes externos: {selectedLabel}</strong>
                   </div>
 
                   {rosterRows.length > 0 && (
@@ -4267,7 +4231,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                                 <span className="draw-selected-name">{player.name.trim().split(/\s+/)[0] ?? player.name}</span>
                                 <span className="draw-selected-position">{positionLabel(player.position)}</span>
                               </div>
-                              <span className={`draw-selected-badge ${player.isGuest ? 'is-guest' : ''}`}>{player.isGuest ? 'Convidado' : 'Atleta'}</span>
+                              <span className="draw-selected-badge is-guest">Suplente</span>
                               <button type="button" className="ghost draw-inline-remove" aria-label={`Remover ${player.name}`} title="Remover" onClick={() => removePlayer(player.userId)}>X</button>
                             </div>
                           ))}
@@ -4283,7 +4247,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
             <div className="draw-sheet-footer">
               <button type="button" className="ghost" onClick={() => creationStep === 'players' ? setCreationStep('details') : void cancelCreation()}>{creationStep === 'players' ? 'Voltar' : 'Cancelar'}</button>
               <div className="draw-footer-save">
-                <button className="primary" disabled={creationStep === 'players' && players.length === 0}>{creationStep === 'details' ? 'PRÓXIMO' : isRecurring ? 'SALVAR CONVOCAÇÃO + RECORRÊNCIA' : 'SALVAR CONVOCAÇÃO'}</button>
+                <button className="primary">{creationStep === 'details' ? 'PRÓXIMO' : isRecurring ? 'SALVAR JOGO + RECORRÊNCIA' : 'SALVAR JOGO'}</button>
               </div>
             </div>
           </form>
