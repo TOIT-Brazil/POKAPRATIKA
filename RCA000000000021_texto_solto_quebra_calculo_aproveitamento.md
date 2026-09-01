@@ -2,7 +2,7 @@
 
 ## Sintoma
 
-O frontend apresentava erros de compilação em cascata no cálculo do destaque de Aproveitamento, incluindo `',' expected`, nomes inexistentes e propriedades ausentes em `topEfficiency`.
+O frontend apresentava erros de compilação em cascata no cálculo do destaque de Aproveitamento, incluindo `',' expected`, nomes inexistentes e propriedades au allsentes em `topEfficiency`.
 
 ## Causa raiz
 
