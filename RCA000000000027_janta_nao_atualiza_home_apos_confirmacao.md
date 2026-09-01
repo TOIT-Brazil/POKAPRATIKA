@@ -21,3 +21,7 @@ Propagar a resposta persistida pelo `PUT` até o estado da aplicação e recalcu
 ## Prevenção
 
 Fluxos de gravação que retornam a entidade persistida devem usar essa resposta para atualizar o estado visível, sem depender somente de uma segunda consulta.
+
+## Correção posterior
+
+A aplicação inicial do delta após a recarga causava dupla contagem. Essa ordem foi supersedida pelo RCA 028: o estado local é atualizado primeiro e a listagem do backend faz a reconciliação final.

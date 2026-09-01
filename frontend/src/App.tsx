@@ -1847,8 +1847,8 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
               currentUserId={currentUserId}
               showRecentCard={!canCoordinate}
               onSaved={async (saved, previousDinnerPeople) => {
-                await onReload();
                 onAttendanceSaved(selectedMatch.id, previousDinnerPeople, saved);
+                await onReload();
                 setSelectedMatch(null);
               }}
             />
@@ -3008,7 +3008,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
 
               <div className="attendance-dashboard-side">
                 <label className="attendance-field">
-                  <span>Número de pessoas para Janta/Churrasco:</span>
+                  <span>Convidados adicionais para Janta/Churrasco:</span>
                   <input type="number" min="0" max="20" value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))} disabled={responseStatus === 'AUSENTE' || !dinnerConfirmed} placeholder="0" />
                 </label>
 
