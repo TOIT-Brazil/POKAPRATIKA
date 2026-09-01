@@ -1841,6 +1841,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
     const playing = match.attendancePlaying ?? 0;
     const presentOnly = match.attendancePresentOnly ?? 0;
     const absent = match.attendanceAbsent ?? 0;
+    const dinnerPeople = match.attendanceDinnerPeople ?? 0;
     const responses = playing + presentOnly + absent;
     const pending = Math.max((match.invitedCount ?? activeUserCount) - responses, 0);
     const myAttendanceStatus = match.myAttendanceStatus ?? null;
@@ -1851,7 +1852,8 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       { label: 'Confirmados', value: playing, className: 'confirmed' },
       { label: 'Presença', value: presentOnly, className: 'present-only' },
       { label: 'Ausentes', value: absent, className: 'absent' },
-      { label: 'Não responderam', value: pending, className: 'pending' }
+      { label: 'Não responderam', value: pending, className: 'pending' },
+      { label: 'Janta', value: dinnerPeople, className: 'dinner' }
     ];
 
     return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><div className="next-match-pitch-field" /></div><div className="next-match-main"><div className="next-match-date-badge"><b>{date.day}</b><div className="next-match-date-stack"><span>{date.month}</span><em>{date.time}</em><small>{date.weekday}</small></div><div className="next-match-title-block"><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><small className="next-match-footnote">{match.isInvited === false ? 'Você não foi convocado para este jogo.' : confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><div className="next-match-cta-row"><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><button type="button" className={`primary attendance-action-button next-match-presence-button ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={match.isInvited === false ? 'Confirmação disponível somente para atletas convocados.' : confirmationReallyOpen ? myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.' : match.status === 'DRAFT' ? 'Prazo de confirmação encerrado.' : 'Confirmação encerrada porque o jogo já começou.'} disabled={!confirmationReallyOpen} onClick={() => void openMatch(match.id)}>Confirmar presença</button></div>{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <div className="next-match-actions"><button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button></div>}</div></article>;

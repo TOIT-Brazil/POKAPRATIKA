@@ -3452,11 +3452,15 @@ textarea {
 }
 
 .next-match-metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
 }
 
 .next-match-metrics span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 52px;
   padding: 6px 8px;
   border-radius: 10px;
@@ -3484,6 +3488,11 @@ textarea {
 
 .next-match-metrics .metric-pill.pending b {
   color: #fff;
+}
+
+.next-match-metrics .metric-pill.dinner {
+  background: rgba(118, 72, 18, .9);
+  border-color: rgba(255, 203, 112, .42);
 }
 
 .next-match-metrics b {
@@ -4251,7 +4260,7 @@ textarea {
   .next-match-date-stack span,
   .next-match-date-stack small,
   .next-match-date-stack em {
-    font-size: .68rem;
+    font-size: .72rem;
   }
 
   .next-match-date-badge b,
@@ -4260,11 +4269,11 @@ textarea {
   }
 
   .next-match-title-block strong {
-    font-size: .98rem;
+    font-size: 1.02rem;
   }
 
   .next-match-title-block small {
-    font-size: .72rem;
+    font-size: .76rem;
   }
 
   .next-match-metrics {
@@ -4281,6 +4290,16 @@ textarea {
   .next-match-metrics span {
     min-height: 44px;
     border-radius: 12px;
+    font-size: .74rem;
+    line-height: 1.1;
+  }
+
+  .next-match-metrics b {
+    font-size: 1.08rem;
+  }
+
+  .next-match-metrics .metric-pill.dinner {
+    grid-column: 1 / -1;
   }
 
   .confirmation-progress-track {
@@ -4288,7 +4307,7 @@ textarea {
   }
 
   .next-match-footnote {
-    font-size: .68rem;
+    font-size: .72rem;
     line-height: 1.3;
   }
 
