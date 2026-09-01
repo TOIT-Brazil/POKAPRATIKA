@@ -1886,8 +1886,8 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
               currentUserId={currentUserId}
               showRecentCard={!canCoordinate}
               onSaved={async () => {
-                await openMatch(selectedMatch.id);
                 await onReload();
+                setSelectedMatch(null);
               }}
             />
           </section>
@@ -3232,8 +3232,8 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
               currentUserId={currentUserId}
               showRecentCard={!canCoordinate}
               onSaved={async () => {
-                await openMatch(selectedMatch.id);
                 await onReload();
+                setSelectedMatch(null);
               }}
             />
           </section>
