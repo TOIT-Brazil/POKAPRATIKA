@@ -1890,17 +1890,6 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
                 await onReload();
               }}
             />
-            {canCoordinate && selectedMatch.status === 'DRAFT' && (
-              <ExistingLineupEditor
-                api={api}
-                match={selectedMatch}
-                users={users}
-                onSaved={async () => {
-                  await openMatch(selectedMatch.id);
-                  await onReload();
-                }}
-              />
-            )}
           </section>
         </div>
       )}
@@ -2935,7 +2924,6 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
   const [responseStatus, setResponseStatus] = useState<AttendanceStatus>(own?.responseStatus ?? 'JOGAR');
   const [dinnerConfirmed, setDinnerConfirmed] = useState(own?.dinnerConfirmed ?? false);
   const [guestCount, setGuestCount] = useState(own?.guestCount ?? 0);
-  const [notes, setNotes] = useState(own?.notes ?? '');
   const [message, setMessage] = useState('');
   const openForResponse = isConfirmationReallyOpen(match);
 
@@ -2943,7 +2931,6 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
     setResponseStatus(own?.responseStatus ?? 'JOGAR');
     setDinnerConfirmed(own?.dinnerConfirmed ?? false);
     setGuestCount(own?.guestCount ?? 0);
-    setNotes(own?.notes ?? '');
     setMessage('');
   }, [match.id, own?.updatedAt]);
 
@@ -2972,7 +2959,7 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
   async function saveAttendance() {
     setMessage('Salvando confirmação...');
     const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
-    await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: notes || null }) });
+    await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: null }) });
     setMessage(responseStatus === 'JOGAR' ? 'Confirmação salva: você ficou disponível para o jogo e para a escalação.' : responseStatus === 'PRESENTE_SEM_JOGAR' ? 'Confirmação salva: você ficou apenas presente, fora do jogo e da escalação.' : 'Confirmação salva: ausência registrada para esta rodada.');
     await onSaved();
   }
@@ -2982,13 +2969,6 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
       <div className="attendance-header-row">
         <div className="attendance-header-copy">
           <h2>Confirmação da rodada</h2>
-          <p className="muted">Atletas escolhem uma única situação na rodada e, se forem ao evento, informam jantar/churrasco.</p>
-
-          <div className="attendance-global-strip">
-            <span className="attendance-global-chip attendance-global-chip-label"><RoundIcon kind="status" className="attendance-inline-icon" /> Status Global:</span>
-            <span className={`attendance-global-chip ${match.confirmationOpen ? 'is-open' : 'is-neutral'}`}>{match.confirmationOpen ? 'Aberto para Confirmação' : 'Fechado para Confirmação'}</span>
-            <span className="attendance-global-chip is-neutral">{match.status === 'DRAFT' ? 'Aguardando Início Oficial' : matchStatusLabel(match.status)}</span>
-          </div>
         </div>
 
         <div className="attendance-hero-statuses">
@@ -3013,7 +2993,6 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
             <strong>Confirmation Dashboard</strong>
             <p className="muted">Escolha única: qual sua situação?</p>
           </div>
-          <span className="attendance-club-name">Club no: PlayField</span>
         </div>
 
         {openForResponse ? (
@@ -3069,11 +3048,6 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
                   <span>Fico para Janta?</span>
                 </label>
 
-                <label className="attendance-field attendance-field-notes">
-                  <span>Observação Rápida:</span>
-                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ex: Chego atrasado, tenho que sair cedo..." maxLength={300} rows={2} />
-                  <small>Observação rápida para a comissão.</small>
-                </label>
               </div>
             </div>
 
@@ -3255,17 +3229,6 @@ function MatchesPanel({ api, canCoordinate, users, matches, activeSeasonId, curr
                 await onReload();
               }}
             />
-            {canCoordinate && selectedMatch.status === 'DRAFT' && (
-              <ExistingLineupEditor
-                api={api}
-                match={selectedMatch}
-                users={users}
-                onSaved={async () => {
-                  await openMatch(selectedMatch.id);
-                  await onReload();
-                }}
-              />
-            )}
           </section>
         </div>
       )}
@@ -3417,7 +3380,7 @@ function ExistingLineupEditor({ api, match, users, onSaved }: { api: ApiClient; 
 
   return (
     <>
-      {!open && <button className="ghost small" onClick={() => setOpen(true)}>Editar escalação</button>}
+      {!open && null}
       {open && (
         <section className="card team-builder">
           <div className="card-head">

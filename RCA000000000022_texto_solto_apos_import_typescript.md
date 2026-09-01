@@ -25,3 +25,7 @@ Remover somente o conteúdo posterior ao ponto e vírgula, preservando o import 
 ## Prevenção
 
 Executar `tsc --noEmit` antes e depois de alterações e manter ditados, prompts ou anotações fora dos arquivos de código.
+
+## Recorrência
+
+Em 2026-09-01, uma nova transcrição foi anexada ao mesmo import durante outra solicitação e voltou a quebrar o parser. O import foi restaurado pela segunda vez; a prevenção permanece bloquear a entrada de ditado no editor enquanto `App.tsx` estiver com foco.

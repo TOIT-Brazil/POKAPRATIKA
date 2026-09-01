@@ -5262,6 +5262,69 @@ select optgroup { color: var(--text); background: #10231f; }
 .attendance-summary-card small,
 .attendance-recent-stats small { color: var(--muted); }
 
+.attendance-dashboard-panel {
+  color: var(--text);
+  background: linear-gradient(180deg, #0d1d1a, #091714);
+  border-color: var(--line-strong);
+}
+
+.attendance-dashboard-panel .attendance-header-copy h2,
+.attendance-dashboard-panel .attendance-field > span,
+.attendance-dashboard-panel .attendance-summary-card strong,
+.attendance-dashboard-panel .attendance-summary-card span {
+  color: var(--text);
+}
+
+.attendance-dashboard-panel .attendance-dashboard-shell,
+.attendance-dashboard-panel .attendance-summary-card,
+.attendance-dashboard-panel .attendance-dinner-toggle {
+  color: var(--text);
+  background: #10231f;
+  border-color: var(--line-strong);
+}
+
+.attendance-dashboard-panel .attendance-choice-button {
+  color: var(--muted);
+  background: #132723;
+  border-color: var(--line-strong);
+}
+
+.attendance-dashboard-panel .attendance-choice-button.is-active.is-game {
+  color: #fff;
+  background: linear-gradient(180deg, #147c45, #0d6035);
+  border-color: #238b58;
+}
+
+.attendance-dashboard-panel .attendance-choice-button.is-active.is-present {
+  color: #fff;
+  background: linear-gradient(180deg, #287253, #1d5940);
+  border-color: #357e60;
+}
+
+.attendance-dashboard-panel .attendance-choice-button.is-active.is-absent {
+  color: #fff;
+  background: linear-gradient(180deg, #a63f3b, #7f2d2a);
+  border-color: #b5534e;
+}
+
+.attendance-dashboard-panel .attendance-dinner-toggle {
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.attendance-dashboard-panel .attendance-dinner-toggle-box {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+}
+
+.attendance-dashboard-panel .attendance-dinner-check {
+  width: 12px;
+  height: 12px;
+}
+
 .team-a.draw-result-card,
 .team-b.draw-result-card {
   color: var(--text);
