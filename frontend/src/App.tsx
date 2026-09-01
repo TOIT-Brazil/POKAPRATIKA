@@ -47,6 +47,7 @@ type MatchDraftPlayer = { userId: string; name: string; email: string; position:
 type PositionBalanceGroup = 'GO' | 'DEFESA' | 'MEIO' | 'ATAQUE';
 type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
+type AttendanceSaveResult = Pick<MatchAttendanceResponse, 'userId' | 'responseStatus' | 'dinnerConfirmed' | 'guestCount' | 'notes' | 'updatedAt'>;
 type ScheduleMode = 'manual' | 'recurring';
 type SeasonStatsTab = 'GERAL' | 'ARTILHARIA' | 'ASSISTENCIAS' | 'CARTOES';
 
@@ -1004,6 +1005,17 @@ export function App() {
     }
   }
 
+  function applyAttendanceResult(matchId: string, previousDinnerPeople: number, saved: AttendanceSaveResult) {
+    const savedDinnerPeople = saved.dinnerConfirmed ? 1 + saved.guestCount : 0;
+    setMatches((current) => current.map((match) => match.id === matchId
+      ? {
+          ...match,
+          attendanceDinnerPeople: Math.max(0, (match.attendanceDinnerPeople ?? 0) - previousDinnerPeople + savedDinnerPeople),
+          myAttendanceStatus: saved.responseStatus
+        }
+      : match));
+  }
+
   useEffect(() => {
     void loadData();
   }, [auth?.token]);
@@ -1320,6 +1332,7 @@ export function App() {
               activeSeasonId={activeSeasonId}
               currentUserId={auth.user.id}
               onReload={loadData}
+              onAttendanceSaved={applyAttendanceResult}
               selectedMatch={selectedMatch}
               setSelectedMatch={setSelectedMatch}
               onOpenProfile={setProfileUserId}
@@ -1696,7 +1709,7 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
 */
 }
 
-function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, standings, activeSeasonId, currentUserId, onReload, selectedMatch, setSelectedMatch, onOpenProfile }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; rankings: RankingPayload; standings: Standing[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void; onOpenProfile: (userId: string) => void }) {
+function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, standings, activeSeasonId, currentUserId, onReload, onAttendanceSaved, selectedMatch, setSelectedMatch, onOpenProfile }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; rankings: RankingPayload; standings: Standing[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; onAttendanceSaved: (matchId: string, previousDinnerPeople: number, saved: AttendanceSaveResult) => void; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void; onOpenProfile: (userId: string) => void }) {
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
   const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
@@ -1833,8 +1846,9 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
               match={selectedMatch}
               currentUserId={currentUserId}
               showRecentCard={!canCoordinate}
-              onSaved={async () => {
+              onSaved={async (saved, previousDinnerPeople) => {
                 await onReload();
+                onAttendanceSaved(selectedMatch.id, previousDinnerPeople, saved);
                 setSelectedMatch(null);
               }}
             />
@@ -2867,7 +2881,7 @@ function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated
   );
 }
 
-function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = true }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: () => Promise<void>; showRecentCard?: boolean }) {
+function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = true }: { api: ApiClient; match: MatchDetail; currentUserId: string; onSaved: (saved: AttendanceSaveResult, previousDinnerPeople: number) => Promise<void>; showRecentCard?: boolean }) {
   const own = match.attendance.find((item) => item.userId === currentUserId);
   const [responseStatus, setResponseStatus] = useState<AttendanceStatus>(own?.responseStatus ?? 'JOGAR');
   const [dinnerConfirmed, setDinnerConfirmed] = useState(own?.dinnerConfirmed ?? false);
@@ -2911,9 +2925,10 @@ function AttendancePanel({ api, match, currentUserId, onSaved, showRecentCard = 
     setMessage('Salvando confirmação...');
     try {
       const normalizedDinnerConfirmed = responseStatus !== 'AUSENTE' && dinnerConfirmed;
-      await api.request(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: null }) });
+      const previousDinnerPeople = own?.dinnerConfirmed ? 1 + own.guestCount : 0;
+      const saved = await api.request<AttendanceSaveResult>(`/matches/${match.id}/attendance/me`, { method: 'PUT', body: JSON.stringify({ responseStatus, dinnerConfirmed: normalizedDinnerConfirmed, guestCount: normalizedDinnerConfirmed ? guestCount : 0, notes: null }) });
       setMessage(responseStatus === 'JOGAR' ? 'Confirmação salva: você ficou disponível para o jogo e para a escalação.' : responseStatus === 'PRESENTE_SEM_JOGAR' ? 'Confirmação salva: você ficou apenas presente, fora do jogo e da escalação.' : 'Confirmação salva: ausência registrada para esta rodada.');
-      await onSaved();
+      await onSaved(saved, previousDinnerPeople);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Não foi possível salvar sua confirmação.');
     } finally {
