@@ -3882,42 +3882,20 @@ textarea {
   max-height: 420px;
 }
 
-.dashboard-standings-toolbar {
-  margin-left: auto;
-}
-
-.dashboard-standings-toolbar label {
-  display: grid;
-  gap: 4px;
-  min-width: 220px;
-}
-
-.dashboard-standings-toolbar span {
-  color: #4d645d;
-  font-size: .7rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-}
-
-.dashboard-standings-toolbar select {
-  min-height: 38px;
-  color: #16332f;
-  background: #ffffff;
-  border: 1px solid rgba(15,82,87,.12);
-}
-
 .dashboard-standings-table {
-  min-width: 720px;
+  min-width: 560px;
+  table-layout: fixed;
 }
 
 .dashboard-standings-table th,
 .dashboard-standings-table td {
   font-size: .76rem;
+  padding: 6px 4px;
 }
 
 .dashboard-standings-table .athlete-cell {
-  min-width: 220px;
+  width: 140px;
+  min-width: 140px;
 }
 
 @media (max-width: 1100px) {
@@ -4375,10 +4353,6 @@ textarea {
     font-size: .72rem;
   }
 
-  .dashboard-standings-toolbar {
-    margin-left: 0;
-  }
-
   .finished-list-duel {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     grid-template-areas: "home score away";
@@ -4538,7 +4512,13 @@ textarea {
   }
 
   .dashboard-standings-table {
-    min-width: 620px;
+    min-width: 420px;
+    table-layout: fixed;
+  }
+
+  .dashboard-standings-table th,
+  .dashboard-standings-table td {
+    padding: 5px 3px;
   }
 
   .championship-table th,
@@ -4592,7 +4572,6 @@ textarea {
   }
 
   .championship-table .athlete-cell,
-  .dashboard-standings-table .athlete-cell,
   .management-main-cell,
   .management-hint-cell,
   .management-feedback-cell,
@@ -4603,6 +4582,12 @@ textarea {
   .schedule-detail-cell {
     min-width: 180px !important;
     white-space: normal !important;
+  }
+
+  .dashboard-standings-table .athlete-cell {
+    width: 108px;
+    min-width: 108px !important;
+    white-space: nowrap !important;
   }
 
   .payments-table .payments-action-cell,
@@ -5346,9 +5331,6 @@ select optgroup { color: var(--text); background: #10231f; }
   color: var(--text);
   background: linear-gradient(180deg, #112820, #0d1f1b);
 }
-
-.dashboard-standings-toolbar span { color: var(--muted); }
-.dashboard-standings-toolbar select { color: var(--text); background: #10231f; border-color: var(--line-strong); }
 
 .payments-subtable-head strong,
 .payments-history-head strong,
