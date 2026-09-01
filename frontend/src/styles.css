@@ -4242,6 +4242,14 @@ textarea {
     font-size: .72rem;
   }
 
+  .next-match-leader-card.efficiency .next-match-leader-value {
+    width: 54px;
+  }
+
+  .next-match-leader-card.efficiency .next-match-leader-value strong {
+    font-size: .9rem;
+  }
+
   .next-match-leader-name {
     font-size: .82rem;
   }
