@@ -37,3 +37,5 @@ Em nova recorrência, a propriedade `user` foi substituída pelo texto `use vice
 Ainda em 2026-09-01, uma transcrição substituiu parcialmente o identificador `RankingPayload` na declaração do tipo. O identificador foi restaurado sem alteração do contrato; o frontend voltou a compilar após a correção localizada.
 
 Na recorrência seguinte, a transcrição foi inserida no nome da propriedade `goals` dentro de `RankingPayload`, produzindo 106 diagnósticos em cascata. A propriedade foi restaurada para `goals: number` sem alterar o contrato da API.
+
+Na recorrência posterior, outra transcrição interrompeu o identificador `gamesPlayed` no item de assistências de `RankingPayload`, causando 61 diagnósticos em cascata. A propriedade foi restaurada para `gamesPlayed: number`.

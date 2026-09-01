@@ -1299,12 +1299,6 @@ export function App() {
       )}
       {!loading && activeSeason && (
         <>
-          <GlobalAttendancePrompt
-            api={api}
-            activeSeason={activeSeason}
-            currentUserId={auth.user.id}
-            onSaved={loadData}
-          />
           <GlobalVotingPrompt
             api={api}
             users={users}
@@ -1501,52 +1495,6 @@ function LoginScreen({ onAuth }: { onAuth: (payload: AuthPayload) => void }) {
         </section>
       </form>
     </main>
-  );
-}
-
-function GlobalAttendancePrompt({ api, activeSeason, currentUserId, onSaved }: { api: ApiClient; activeSeason: Season; currentUserId: string; onSaved: () => Promise<void> }) {
-  const [match, setMatch] = useState<MatchDetail | null>(null);
-  const [dismissedMatchId, setDismissedMatchId] = useState('');
-
-  async function loadPrompt() {
-    const prompt = await api.request<{ kind: 'ATTENDANCE' | null; match: MatchListItem | null }>(`/matches/confirmation-prompt?seasonId=${activeSeason.id}`);
-    if (prompt.kind !== 'ATTENDANCE' || !prompt.match || prompt.match.id === dismissedMatchId) {
-      setMatch(null);
-      return;
-    }
-    setMatch(await api.request<MatchDetail>(`/matches/${prompt.match.id}`));
-  }
-
-  useEffect(() => {
-    void loadPrompt().catch(() => setMatch(null));
-    const timer = window.setInterval(() => void loadPrompt().catch(() => undefined), 15000);
-    return () => window.clearInterval(timer);
-  }, [api, activeSeason.id, dismissedMatchId]);
-
-  if (!match) return null;
-
-  return (
-    <div className="modal prompt-modal">
-      <section className="match-modal-card confirmation-popup">
-        <div className="card-head">
-          <div>
-            <h2>Confirmação aberta</h2>
-            <p className="muted">{match.title} • {matchDateLabel(match)}</p>
-          </div>
-          <button type="button" className="ghost" onClick={() => setDismissedMatchId(match.id)}>Depois</button>
-        </div>
-        <AttendancePanel
-          api={api}
-          match={match}
-          currentUserId={currentUserId}
-          showRecentCard={false}
-          onSaved={async () => {
-            setMatch(null);
-            await onSaved();
-          }}
-        />
-      </section>
-    </div>
   );
 }
 
