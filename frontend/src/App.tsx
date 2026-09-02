@@ -1202,7 +1202,7 @@ export function App() {
                       setAccountMenuOpen(false);
                     }}
                   >
-                    Mensalidades
+                    Gestão financeira
                   </button>
                   <button
                     onClick={() => {
@@ -4466,7 +4466,7 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
       return {
         key: group.key,
         userId: group.userId,
-        userName: group.userName,
+        userName: abbreviatedAthleteName(group.userName),
         payments: historyPayments,
         openPayments,
         totalOpenCents: openPayments.reduce((sum, payment) => sum + (payment.balanceCents ?? 0), 0),
@@ -4505,8 +4505,7 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     <section className="card compact payments-panel">
       <div className="card-head">
         <div>
-          <h2>Mensalidades</h2>
-          <p className="muted">Acompanhamento financeiro da temporada com ações operacionais em modal.</p>
+          <h2>Gestão financeira</h2>
         </div>
         {canCoordinate && <div className="actions panel-actions"><button className="primary small" onClick={() => setPaymentModal('generate')}>Gerar mensalidades</button><button className="ghost" onClick={() => setPaymentModal('cash')}>Lançar caixa</button>{filteredPayments.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-mensalidades.csv', filteredPayments.map((payment) => ({ atleta: payment.userName ?? 'Minha mensalidade', mes: paymentMonthLabel(payment.referenceMonth), vencimento: formatDateOnly(payment.dueDate, ''), pagoEm: formatDateOnly(payment.paidAt, ''), valor: (payment.amountCents / 100).toFixed(2), pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2), saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2), status: payment.status, pontoAntecipado: payment.earnsPoint, observacao: payment.notes ?? '' })))}>Exportar mensalidades</button>}{filteredCashEntries.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-caixa.csv', filteredCashEntries.map((entry) => ({ data: formatDateOnly(entry.entryDate, ''), tipo: entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa', descricao: entry.description, valor: (entry.amountCents / 100).toFixed(2), origem: entry.paymentId ? 'Mensalidade' : 'Manual', responsavel: entry.recordedByName ?? '' })))}>Exportar caixa</button>}</div>}
       </div>
