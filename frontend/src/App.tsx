@@ -3627,6 +3627,15 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
   const [tableFilters, setTableFilters] = useState({ date: '', title: '', time: '', status: '', window: '', attendance: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
+
+  useEffect(() => {
+    if (!editorOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEditorOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [editorOpen]);
   const scheduledMatches = [...matches].filter((match) => match.status === 'DRAFT').sort((left, right) => `${left.matchDate}${left.scheduledStart ?? ''}`.localeCompare(`${right.matchDate}${right.scheduledStart ?? ''}`));
 
   useEffect(() => {
@@ -3760,10 +3769,10 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
           </div>
         </section>
       </div>
-        {editorOpen && <div className="modal schedule-editor-layer">
+        {editorOpen && <div className="modal schedule-editor-layer" role="dialog" aria-modal="true" aria-labelledby="schedule-editor-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditorOpen(false); }}>
           <form className="card modal-card wide schedule-form schedule-editor-card" onSubmit={saveSchedule}>
             <div className="card-head">
-              <div><h2>{editingId ? 'Editar agendamento' : mode === 'recurring' ? 'Agendamento recorrente' : 'Agendamento em data específica'}</h2></div>
+              <div><h2 id="schedule-editor-title">{editingId ? 'Editar agendamento' : mode === 'recurring' ? 'Agendamento recorrente' : 'Agendamento em data específica'}</h2></div>
               <button type="button" className="ghost modal-close-button" aria-label="Fechar formulário" title="Fechar" onClick={() => setEditorOpen(false)}>X</button>
             </div>
             <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Título do jogo" required />

@@ -1938,6 +1938,113 @@ textarea {
   }
 }
 
+/* Agenda em página natural e editor compacto como os demais modais. */
+.shell-page .schedule-page {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: start;
+  overflow: visible !important;
+}
+
+.shell-page .schedule-page-content {
+  display: block;
+  flex: none;
+  min-height: 0;
+  overflow: visible !important;
+}
+
+.shell-page .schedule-page-content .schedule-table-wrap {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-gutter: auto;
+}
+
+.shell-page .schedule-page-content .schedule-table {
+  display: table;
+  height: auto;
+}
+
+.modal.schedule-editor-layer {
+  place-items: center;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.modal.schedule-editor-layer > .schedule-editor-card {
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 10px;
+  gap: 7px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 10px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+}
+
+.schedule-editor-card > .card-head {
+  position: sticky;
+  top: -10px;
+  z-index: 2;
+  min-height: 34px;
+  padding: 3px 0 5px;
+  background: var(--surface);
+}
+
+.schedule-editor-card > .card-head h2 {
+  font-size: .9rem;
+}
+
+.schedule-editor-card input,
+.schedule-editor-card select {
+  min-height: 32px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: .72rem;
+}
+
+.schedule-editor-card .match-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.schedule-editor-card .field-row {
+  min-width: 0;
+  gap: 4px;
+}
+
+.schedule-editor-card .field-row > span {
+  font-size: .62rem;
+}
+
+.schedule-editor-card > .primary {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: .72rem;
+}
+
+@media (max-width: 520px) {
+  .modal.schedule-editor-layer {
+    padding: 8px;
+  }
+
+  .modal.schedule-editor-layer > .schedule-editor-card {
+    width: min(440px, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
+    padding: 8px;
+  }
+
+  .schedule-editor-card > .card-head {
+    top: -8px;
+  }
+}
+
 @media (max-width: 760px) {
   .attendance-choice-group,
   .attendance-dashboard-grid,
@@ -6458,5 +6565,45 @@ select optgroup { color: var(--text); background: #10231f; }
     min-height: 0;
     max-height: none !important;
     overflow-y: visible !important;
+  }
+}
+
+/* Agenda: prevalece sobre todas as geometrias legadas acima. */
+.shell-page .schedule-page-content .schedule-table-wrap {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+.modal.schedule-editor-layer {
+  place-items: center;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.modal.schedule-editor-layer > .schedule-editor-card {
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 10px;
+  gap: 7px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 10px;
+}
+
+@media (max-width: 520px) {
+  .modal.schedule-editor-layer {
+    padding: 8px;
+  }
+
+  .modal.schedule-editor-layer > .schedule-editor-card {
+    width: min(440px, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
+    padding: 8px;
   }
 }
