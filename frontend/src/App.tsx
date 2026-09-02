@@ -5059,7 +5059,7 @@ function UsersManagementTablePanel({ api, users, onReload, isAdmin }: { api: Api
           <button className="primary small" onClick={() => setModalOpen(true)}>Novo usuário</button>
         </div>
         {message && <p className="status-line">{message}</p>}
-        <div className="stat-grid users-summary"><span><b>{users.length}</b> cadastrados</span><span><b>{activeUsers}</b> ativos</span><span><b>{athletes}</b> atletas</span><span><b>{coordinators}</b> coord.</span><span><b>{admins}</b> admins</span></div>
+        <div className="stat-grid users-summary"><span><b>{users.length}</b> cadastrados</span><span><b>{activeUsers}</b> ativos</span><span><b>{athletes}</b> atletas</span><span><b>{coordinators}</b> coordenador</span><span><b>{admins}</b> admin</span></div>
       </section>
 
       <section className="card compact users-card">
