@@ -6336,16 +6336,17 @@ select optgroup { color: var(--text); background: #10231f; }
   line-height: 1;
 }
 
-/* Todas as páginas secundárias rolam abaixo do cabeçalho global. */
+/* A página rola como um todo; o header global acompanha fixo no topo. */
 .shell.shell-page {
-  height: 100dvh;
+  height: auto;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .shell-page > .app-header {
-  position: relative;
-  top: auto;
+  position: sticky;
+  top: 6px;
+  z-index: 90;
   flex: 0 0 auto;
 }
 
@@ -6357,17 +6358,14 @@ select optgroup { color: var(--text); background: #10231f; }
 .shell-page > .awards-page,
 .shell-page > .users-home,
 .shell-page > .admin-home {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   width: 100%;
   min-width: 0;
   min-height: 0;
   height: auto;
-  max-height: 100%;
+  max-height: none;
   overflow-x: hidden;
-  overflow-y: auto !important;
-  overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: visible !important;
 }
 
 .shell-page > .schedule-page,
@@ -6391,20 +6389,35 @@ select optgroup { color: var(--text); background: #10231f; }
   overflow: visible;
 }
 
+.shell-page .championship-wrap,
+.shell-page .management-table-wrap,
 .shell-page .schedule-page-content .schedule-table-wrap,
-.shell-page .dashboard-standings-wrap {
+.shell-page .dashboard-standings-wrap,
+.shell-page .payments-table-wrap,
+.shell-page .cash-table-wrap,
+.shell-page .awards-table-wrap {
   height: auto;
-  max-height: 70dvh !important;
+  min-height: 0;
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+
+.shell-page .finished-vertical-list,
+.shell-page .award-rule-list,
+.shell-page .table-cards {
+  height: auto;
+  max-height: none !important;
+  overflow-y: visible !important;
 }
 
 @media (max-width: 820px) {
   .shell.shell-page,
   .shell.shell-page.shell-agenda,
   .shell.shell-page.shell-premios {
-    height: 100dvh;
+    height: auto;
     min-height: 100dvh;
     padding-bottom: max(4px, env(safe-area-inset-bottom));
-    overflow: hidden;
+    overflow: visible;
   }
 
   .shell-page > .dashboard-main,
@@ -6415,15 +6428,15 @@ select optgroup { color: var(--text); background: #10231f; }
   .shell-page > .awards-page,
   .shell-page > .users-home,
   .shell-page > .admin-home {
-    max-height: 100%;
+    max-height: none;
     padding-right: 0;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
   }
 
   .shell.shell-page.shell-home {
-    height: 100dvh;
+    height: auto;
     min-height: 100dvh;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .shell-page .schedule-page-content,
@@ -6434,9 +6447,16 @@ select optgroup { color: var(--text); background: #10231f; }
     overflow: visible !important;
   }
 
+  .shell-page .championship-wrap,
+  .shell-page .management-table-wrap,
   .shell-page .schedule-page-content .schedule-table-wrap,
-  .shell-page .dashboard-standings-wrap {
+  .shell-page .dashboard-standings-wrap,
+  .shell-page .payments-table-wrap,
+  .shell-page .cash-table-wrap,
+  .shell-page .awards-table-wrap {
     height: auto;
-    max-height: 70dvh !important;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: visible !important;
   }
 }
