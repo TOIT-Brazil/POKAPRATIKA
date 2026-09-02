@@ -448,7 +448,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .cash-table { min-width: 880px; font-size: .75rem; }
 .cash-table th,
 .cash-table td { white-space: nowrap; }
-.cash-table .cash-description-cell { min-width: 280px; white-space: normal; text-align: left; }
+.cash-table .cash-description-cell { min-width: 280px; padding-left: 25px; white-space: normal; text-align: left; }
 .cash-table .cash-amount-cell { font-weight: 900; }
 .cash-table .cash-amount-cell.is-revenue { color: #1a7f4b; }
 .cash-table .cash-amount-cell.is-expense { color: #c2410c; }
@@ -5661,6 +5661,7 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 
   .payments-panel .cash-table .cash-description-cell {
+    padding-left: 16px;
     text-align: left;
   }
 
