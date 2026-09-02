@@ -4069,7 +4069,7 @@ textarea {
   }
 
   .modal-close-button,
-  .modal:not(.prompt-modal) .card-head > .ghost {
+  .modal .card-head > .modal-close-button {
     margin-left: auto;
     align-self: flex-start;
     flex: 0 0 auto;
@@ -6172,4 +6172,24 @@ select optgroup { color: var(--text); background: #10231f; }
   .modal:not(.draw-modal-layer):not(.schedule-editor-layer) .award-rule-form-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Um único X visual por modal, mesmo quando o botão legado contém texto ou X no JSX. */
+.modal-close-button,
+.modal:not(.prompt-modal) .card-head > .ghost,
+.draw-hero > .ghost {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  font-size: 0 !important;
+}
+
+.modal-close-button::before,
+.modal:not(.prompt-modal) .card-head > .ghost::before,
+.draw-hero > .ghost::before {
+  content: "X";
+  font-size: .82rem;
+  line-height: 1;
 }
