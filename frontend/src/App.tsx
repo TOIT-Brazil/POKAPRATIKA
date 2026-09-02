@@ -4565,9 +4565,9 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
   const [message, setMessage] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [newMetric, setNewMetric] = useState<MetricCode>('TOTAL_POINTS');
-  const [newType, setNewType] = useState<AwardType>('RANKING');
   const [newIcon, setNewIcon] = useState('🏅');
   const [createRuleModalOpen, setCreateRuleModalOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<AwardSetting | null>(null);
   const [tableFilters, setTableFilters] = useState({ label: '', type: '', metric: '', sortDirection: '', winners: '', minGames: '', voteSlots: '', allowSelfVote: '', badgeIcon: '', badgeColor: '', active: '', hint: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
@@ -4577,13 +4577,16 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
   }, [activeFilterMenu]);
 
   useEffect(() => {
-    if (!createRuleModalOpen) return;
+    if (!createRuleModalOpen && !editingRule) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setCreateRuleModalOpen(false);
+      if (event.key === 'Escape') {
+        setCreateRuleModalOpen(false);
+        setEditingRule(null);
+      }
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [createRuleModalOpen]);
+  }, [createRuleModalOpen, editingRule]);
 
   async function loadSettings() {
     setCategories(await api.request<AwardSetting[]>('/settings/awards'));
@@ -4593,17 +4596,17 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
     void loadSettings().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao carregar configuração de prêmios.'));
   }, []);
 
-  async function save() {
-    const updated = await api.request<AwardSetting[]>('/settings/awards', { method: 'PUT', body: JSON.stringify({ categories }) });
+  async function persistCategories(nextCategories: AwardSetting[], successMessage: string) {
+    const updated = await api.request<AwardSetting[]>('/settings/awards', { method: 'PUT', body: JSON.stringify({ categories: nextCategories }) });
     setCategories(updated);
-    setMessage('Central de regras salva. Rankings, votação e badges passam a usar esta configuração.');
+    setMessage(successMessage);
   }
 
   function patchCategory(code: string, patch: Partial<AwardSetting>) {
     setCategories((list) => list.map((item) => item.code === code ? { ...item, ...patch, votingEnabled: patch.awardType === 'VOTACAO' ? true : patch.awardType ? false : item.votingEnabled } : item));
   }
 
-  function addCategory() {
+  async function addCategory() {
     const label = newLabel.trim();
     if (!label) {
       setMessage('Informe o nome da regra/premiação antes de adicionar.');
@@ -4614,14 +4617,14 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
       setMessage('Já existe uma regra com este nome/código. Ajuste o nome para diferenciar.');
       return;
     }
-    setCategories((list) => [{
+    const newCategory: AwardSetting = {
       code,
       label,
-      votingEnabled: newType === 'VOTACAO',
+      votingEnabled: false,
       adminOnly: false,
       active: true,
-      awardType: newType,
-      metricCode: newType === 'RANKING' ? newMetric : null,
+      awardType: 'RANKING',
+      metricCode: newMetric,
       sortDirection: 'DESC',
       winnersCount: 1,
       minGames: 0,
@@ -4629,11 +4632,24 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
       allowSelfVote: false,
       badgeIcon: newIcon,
       badgeColor: '#3b82f6'
-    }, ...list]);
+    };
+    const nextCategories = [newCategory, ...categories];
+    await persistCategories(nextCategories, 'Regra adicionada e salva. Rankings e badges já usam esta configuração.');
     setNewLabel('');
     setNewIcon('🏅');
     setCreateRuleModalOpen(false);
-    setMessage('Regra adicionada na tela. Clique em salvar para gravar no banco.');
+  }
+
+  async function saveEditingRule() {
+    if (!editingRule) return;
+    const label = editingRule.label.trim();
+    if (!label) {
+      setMessage('Informe o nome da regra antes de salvar.');
+      return;
+    }
+    const nextCategories = categories.map((item) => item.code === editingRule.code ? { ...editingRule, label } : item);
+    await persistCategories(nextCategories, 'Configurações da regra salvas.');
+    setEditingRule(null);
   }
 
   function toggleFilterMenu(key: string) {
@@ -4668,14 +4684,18 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
           <h2>Central de regras, rankings e premiações</h2>
           <p className="muted">Configure pontuação, acompanhamentos individuais, votação e badges sem alterar código.</p>
         </div>
-        <div className="actions"><button type="button" className="ghost" onClick={() => setCreateRuleModalOpen(true)}>Adicionar regra</button><button type="button" className="primary small" onClick={save}>Salvar central</button></div>
+        <button type="button" className="primary small award-add-button" onClick={() => setCreateRuleModalOpen(true)}>Adicionar regra</button>
       </div>
 
       {message && <p className="status-line">{message}</p>}
 
-      {createRuleModalOpen && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="create-award-rule-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateRuleModalOpen(false); }}><form className="card modal-card award-rule-modal" onSubmit={(event) => { event.preventDefault(); addCategory(); }}><div className="card-head"><h2 id="create-award-rule-title">Adicionar regra</h2><button type="button" className="ghost" onClick={() => setCreateRuleModalOpen(false)}>Fechar</button></div><label><span>Nome da regra</span><input autoFocus value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Ex. Rei dos cartões" /></label><label><span>Tipo</span><select value={newType} onChange={(event) => setNewType(event.target.value as AwardType)}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select></label>{newType === 'RANKING' && <label><span>Métrica</span><select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>{metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>}<label><span>Ícone</span><input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" /></label><button className="primary">Adicionar regra</button></form></div>}
+      {createRuleModalOpen && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="create-award-rule-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateRuleModalOpen(false); }}><form className="card modal-card award-rule-modal" onSubmit={(event) => { event.preventDefault(); void addCategory().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao adicionar regra.')); }}><div className="card-head"><h2 id="create-award-rule-title">Adicionar regra</h2><button type="button" className="ghost" onClick={() => setCreateRuleModalOpen(false)}>Fechar</button></div><label><span>Nome da regra</span><input autoFocus value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Ex. Artilheiro" /></label><label><span>Métrica</span><select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>{metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="award-icon-field"><span>Ícone</span><input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" /></label><button className="primary">Adicionar e salvar</button></form></div>}
 
-      <div className="championship-wrap management-table-wrap awards-table-wrap">
+      <div className="award-rule-list">{categories.length === 0 ? <EmptyState title="Sem regras cadastradas" text="Adicione a primeira regra de premiação." /> : categories.map((item) => <button type="button" className="award-rule-list-item" key={item.code} onClick={() => setEditingRule({ ...item })}><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><span className="award-rule-list-copy"><strong>{item.label}</strong><small>{item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.awardType === 'VOTACAO' ? 'Votação' : 'Configuração manual'}</small></span><span className={`status ${item.active ? 'open' : 'draft'}`}>{item.active ? 'Ativa' : 'Inativa'}</span></button>)}</div>
+
+      {editingRule && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-award-rule-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingRule(null); }}><form className="card modal-card award-rule-modal award-rule-edit-modal" onSubmit={(event) => { event.preventDefault(); void saveEditingRule().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao salvar regra.')); }}><div className="card-head"><div><h2 id="edit-award-rule-title">{editingRule.label}</h2><p className="muted">{editingRule.code}</p></div><button type="button" className="ghost" onClick={() => setEditingRule(null)}>Fechar</button></div><div className="award-rule-form-grid"><label><span>Nome</span><input value={editingRule.label} onChange={(event) => setEditingRule((current) => current ? { ...current, label: event.target.value } : current)} /></label>{editingRule.awardType === 'RANKING' && <><label><span>Métrica</span><select value={editingRule.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => setEditingRule((current) => current ? { ...current, metricCode: event.target.value as MetricCode } : current)}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></label><label><span>Ordenação</span><select value={editingRule.sortDirection} onChange={(event) => setEditingRule((current) => current ? { ...current, sortDirection: event.target.value as 'ASC' | 'DESC' } : current)}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select></label><label><span>Vencedores</span><input type="number" min="1" max="20" value={editingRule.winnersCount} onChange={(event) => setEditingRule((current) => current ? { ...current, winnersCount: Number(event.target.value) } : current)} /></label><label><span>Mínimo de jogos</span><input type="number" min="0" max="500" value={editingRule.minGames} onChange={(event) => setEditingRule((current) => current ? { ...current, minGames: Number(event.target.value) } : current)} /></label></>}{editingRule.awardType === 'VOTACAO' && <><label><span>Quantidade de votos</span><input type="number" min="1" max="7" value={editingRule.voteSlots} onChange={(event) => setEditingRule((current) => current ? { ...current, voteSlots: Number(event.target.value) } : current)} /></label><label className="award-rule-check"><input type="checkbox" checked={editingRule.allowSelfVote} onChange={(event) => setEditingRule((current) => current ? { ...current, allowSelfVote: event.target.checked } : current)} /><span>Permitir voto em si mesmo</span></label></>}<label className="award-icon-field"><span>Ícone</span><input value={editingRule.badgeIcon} onChange={(event) => setEditingRule((current) => current ? { ...current, badgeIcon: event.target.value } : current)} maxLength={4} /></label><label><span>Cor</span><input type="color" value={editingRule.badgeColor} onChange={(event) => setEditingRule((current) => current ? { ...current, badgeColor: event.target.value } : current)} /></label><label className="award-rule-check"><input type="checkbox" checked={editingRule.active} onChange={(event) => setEditingRule((current) => current ? { ...current, active: event.target.checked } : current)} /><span>Regra ativa</span></label></div><button className="primary">Salvar alterações</button></form></div>}
+
+      <div className="championship-wrap management-table-wrap awards-table-wrap awards-legacy-table">
         <table className="championship-table management-table rules-table">
           <thead>
           </thead>

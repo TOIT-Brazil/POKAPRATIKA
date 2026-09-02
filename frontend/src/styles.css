@@ -121,9 +121,29 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .award-cards span { color: #a9b9af; font-size: .8rem; }
 .rules-center { max-height: min(76dvh, 720px); }
 .rule-create { display: grid; grid-template-columns: minmax(180px, 1.2fr) .8fr .9fr 72px auto; gap: 7px; padding: 8px; border-radius: 15px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
-.award-rule-modal { width: min(520px, 100%); }
+.award-rule-modal { width: min(440px, 100%); }
 .award-rule-modal label { display: grid; gap: 4px; }
 .award-rule-modal label > span { color: var(--muted); font-size: .72rem; font-weight: 850; }
+.award-rule-modal input,
+.award-rule-modal select { min-height: 34px; padding: 6px 8px; font-size: .78rem; }
+.award-rule-modal .award-icon-field { width: 92px; }
+.award-rule-modal .award-icon-field input { text-align: center; }
+.award-rule-edit-modal { width: min(560px, 100%); max-height: min(88dvh, 720px); overflow: auto; }
+.award-rule-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.award-rule-check { grid-template-columns: auto minmax(0, 1fr); align-items: center; align-content: center; }
+.award-rule-check input { width: 18px; min-height: 18px; }
+.award-add-button { color: #fff; background: #15803d; border-color: #22c55e; }
+.award-add-button:hover { color: #fff; background: #166534; border-color: #4ade80; }
+.award-rule-list { min-height: 0; overflow: auto; display: grid; align-content: start; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 7px; padding-right: 2px; }
+.award-rule-list-item { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: #10231f; text-align: left; cursor: pointer; }
+.award-rule-list-item:hover,
+.award-rule-list-item:focus-visible { background: #17312b; border-color: rgba(125,216,186,.48); outline: none; }
+.award-rule-list-copy { min-width: 0; display: grid; gap: 2px; }
+.award-rule-list-copy strong,
+.award-rule-list-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.award-rule-list-copy strong { color: var(--text); font-size: .8rem; }
+.award-rule-list-copy small { color: var(--muted); font-size: .66rem; }
+.awards-legacy-table { display: none !important; }
 .rule-list { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
 .rule-card { grid-template-columns: 1fr auto; align-content: start; }
 .rule-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -6031,5 +6051,23 @@ select optgroup { color: var(--text); background: #10231f; }
     width: 100%;
     max-height: calc(100dvh - 24px);
     overflow: auto;
+  }
+
+  .award-rule-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .award-rule-list {
+    grid-template-columns: 1fr;
+  }
+
+  .award-rule-list-item {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    padding: 8px;
+  }
+
+  .award-rule-list-item .rule-icon {
+    width: 30px;
+    height: 30px;
   }
 }
