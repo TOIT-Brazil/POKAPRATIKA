@@ -30,6 +30,7 @@ type CareerProfile = {
   suspensions: Array<{ id: string; seasonName?: string | null; reason: string; servedAt?: string | null }>;
 };
 type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'LATE' | 'WAIVED';
+type FinancialOverviewDetail = 'received' | 'pending' | 'late' | 'revenue' | 'expense' | 'balance';
 type PaymentRecord = { id?: string; userId?: string; userName?: string; referenceMonth: string; dueDate: string; amountCents: number; paidAmountCents?: number; balanceCents?: number; status: PaymentStatus; paidAt?: string | null; earnsPoint: boolean; notes?: string | null };
 type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; openPayments: PaymentRecord[]; totalOpenCents: number; totalPaidCents: number; lastPaidPayment?: PaymentRecord | null; nextOpenPayment?: PaymentRecord | null; latePaymentsCount: number };
 type PaymentSummary = { totalCents: number; paidCents: number; openCents: number; total: number; paid: number; pending: number; late: number; waived: number; earlyPoints: number };
@@ -4203,11 +4204,21 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   const [cashAmount, setCashAmount] = useState('0');
   const [message, setMessage] = useState('');
   const [paymentModal, setPaymentModal] = useState<'generate' | 'register' | 'cash' | null>(null);
+  const [overviewDetail, setOverviewDetail] = useState<FinancialOverviewDetail | null>(null);
   const [paymentFilters, setPaymentFilters] = useState({ name: '', month: '', dueDate: '', amount: '', paid: '', balance: '', status: '', paidAt: '', point: '', notes: '' });
   const [cashFilters, setCashFilters] = useState({ date: '', type: '', description: '', origin: '', recordedBy: '', amount: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
   const [expandedPaymentGroupKey, setExpandedPaymentGroupKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!overviewDetail) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOverviewDetail(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [overviewDetail]);
 
   useEffect(() => {
     if (!userId && activeAthletes[0]?.id) setUserId(activeAthletes[0].id);
@@ -4500,6 +4511,33 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
       && recordedByValue.includes(cashFilters.recordedBy.trim().toLowerCase())
       && amountValue.includes(cashFilters.amount.trim().toLowerCase());
   }), [cashFilters, organizedCashEntries]);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const overviewPaymentRows = overviewDetail === 'received'
+    ? organizedPayments.filter((payment) => (payment.paidAmountCents ?? 0) > 0)
+    : overviewDetail === 'pending'
+      ? organizedPayments.filter((payment) => payment.status === 'PENDING' && (payment.dueDate?.slice(0, 10) ?? '') >= todayKey)
+      : overviewDetail === 'late'
+        ? organizedPayments.filter((payment) => paymentIsLateRecord(payment, todayKey))
+        : [];
+  const overviewCashRows = overviewDetail === 'revenue'
+    ? organizedCashEntries.filter((entry) => entry.entryType === 'REVENUE')
+    : overviewDetail === 'expense'
+      ? organizedCashEntries.filter((entry) => entry.entryType === 'EXPENSE')
+      : overviewDetail === 'balance'
+        ? organizedCashEntries
+        : [];
+  const overviewTitle = overviewDetail === 'received' ? 'Valores recebidos'
+    : overviewDetail === 'pending' ? 'Mensalidades pendentes'
+      : overviewDetail === 'late' ? 'Mensalidades em atraso'
+        : overviewDetail === 'revenue' ? 'Receitas do caixa'
+          : overviewDetail === 'expense' ? 'Despesas do caixa'
+            : 'Saldo do caixa';
+  const overviewTotal = overviewDetail === 'received' ? money(summary?.paidCents)
+    : overviewDetail === 'pending' ? `${summary?.pending ?? 0} pendente(s)`
+      : overviewDetail === 'late' ? `${summary?.late ?? 0} atraso(s)`
+        : overviewDetail === 'revenue' ? money(cashSummary?.revenueCents)
+          : overviewDetail === 'expense' ? money(cashSummary?.expenseCents)
+            : money(cashSummary?.balanceCents);
 
   return (
     <section className="card compact payments-panel">
@@ -4509,7 +4547,8 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
         </div>
         {canCoordinate && <div className="actions panel-actions"><button className="primary small" onClick={() => setPaymentModal('generate')}>Gerar mensalidades</button><button className="ghost" onClick={() => setPaymentModal('cash')}>Lançar caixa</button>{filteredPayments.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-mensalidades.csv', filteredPayments.map((payment) => ({ atleta: payment.userName ?? 'Minha mensalidade', mes: paymentMonthLabel(payment.referenceMonth), vencimento: formatDateOnly(payment.dueDate, ''), pagoEm: formatDateOnly(payment.paidAt, ''), valor: (payment.amountCents / 100).toFixed(2), pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2), saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2), status: payment.status, pontoAntecipado: payment.earnsPoint, observacao: payment.notes ?? '' })))}>Exportar mensalidades</button>}{filteredCashEntries.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-caixa.csv', filteredCashEntries.map((entry) => ({ data: formatDateOnly(entry.entryDate, ''), tipo: entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa', descricao: entry.description, valor: (entry.amountCents / 100).toFixed(2), origem: entry.paymentId ? 'Mensalidade' : 'Manual', responsavel: entry.recordedByName ?? '' })))}>Exportar caixa</button>}</div>}
       </div>
-      {canCoordinate && (summary || cashSummary) && <div className="stat-grid payments-overview-strip">{summary && <><span><b>R$ {(summary.paidCents / 100).toFixed(2)}</b> recebido</span><span><b>R$ {(summary.openCents / 100).toFixed(2)}</b> aberto</span><span><b>{summary.pending}</b> pendente(s)</span><span><b>{summary.late}</b> atraso(s)</span><span><b>{summary.earlyPoints}</b> ponto(s) antecipados</span></>}{cashSummary && <><span><b>{money(cashSummary.revenueCents)}</b> receitas</span><span><b>{money(cashSummary.expenseCents)}</b> despesas</span><span><b>{money(cashSummary.balanceCents)}</b> saldo caixa</span></>}</div>}
+      {canCoordinate && (summary || cashSummary) && <div className="stat-grid payments-overview-strip">{summary && <><button type="button" onClick={() => setOverviewDetail('received')}><b>R$ {(summary.paidCents / 100).toFixed(2)}</b> recebido</button><button type="button"><b>R$ {(summary.openCents / 100).toFixed(2)}</b> aberto</button><button type="button" onClick={() => setOverviewDetail('pending')}><b>{summary.pending}</b> pendente(s)</button><button type="button" onClick={() => setOverviewDetail('late')}><b>{summary.late}</b> atraso(s)</button><button type="button"><b>{summary.earlyPoints}</b> ponto(s) antecipados</button></>}{cashSummary && <><button type="button" onClick={() => setOverviewDetail('revenue')}><b>{money(cashSummary.revenueCents)}</b> receitas</button><button type="button" onClick={() => setOverviewDetail('expense')}><b>{money(cashSummary.expenseCents)}</b> despesas</button><button type="button" onClick={() => setOverviewDetail('balance')}><b>{money(cashSummary.balanceCents)}</b> saldo caixa</button></>}</div>}
+      {overviewDetail && <div className="modal financial-detail-modal" role="dialog" aria-modal="true" aria-labelledby="financial-detail-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setOverviewDetail(null); }}><section className="card modal-card financial-detail-card"><div className="card-head"><div><h2 id="financial-detail-title">{overviewTitle}</h2><p className="muted">{overviewTotal}</p></div><button type="button" className="ghost" onClick={() => setOverviewDetail(null)}>Fechar</button></div><div className="financial-detail-list">{overviewPaymentRows.map((payment) => <article className="financial-detail-item" key={payment.id ?? `${payment.userId}-${payment.referenceMonth}`}><div className="financial-detail-item-head"><strong>{payment.userName ?? 'Atleta'}</strong><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></div><div className="financial-detail-meta"><span><small>Mês</small><b>{paymentMonthLabel(payment.referenceMonth)}</b></span><span><small>Vencimento</small><b>{formatDateOnly(payment.dueDate, '-')}</b></span><span><small>Pago</small><b>{money(payment.paidAmountCents)}</b></span><span><small>Saldo</small><b>{money(payment.balanceCents)}</b></span></div></article>)}{overviewCashRows.map((entry) => <article className="financial-detail-item" key={entry.id}><div className="financial-detail-item-head"><strong>{entry.description}</strong><span className={`status ${entry.entryType === 'REVENUE' ? 'open' : 'danger'}`}>{entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa'}</span></div><div className="financial-detail-meta"><span><small>Data</small><b>{formatDateOnly(entry.entryDate, '-')}</b></span><span><small>Origem</small><b>{entry.paymentId ? 'Mensalidade' : 'Manual'}</b></span><span><small>Responsável</small><b>{entry.recordedByName?.trim() || '-'}</b></span><span><small>Valor</small><b>{entry.entryType === 'REVENUE' ? '+' : '-'} {money(entry.amountCents)}</b></span></div></article>)}{overviewPaymentRows.length === 0 && overviewCashRows.length === 0 && <p className="financial-detail-empty">Nenhum registro neste bloco.</p>}</div></section></div>}
       {!canCoordinate && <p className="muted">Você visualiza apenas sua mensalidade e se ela gerou ponto por pagamento antecipado.</p>}
       {message && <p className="muted">{message}</p>}
       {organizedPayments.length === 0 ? <EmptyState title="Sem mensalidades lançadas" text="Gere o mês ou registre uma cobrança individual para começar a acompanhar a tabela financeira." /> : <div className="championship-wrap payments-table-wrap"><table className="championship-table payments-table payments-group-table payments-summary-table"><thead><tr><th>{renderFilterHeader('Atleta', 'payments-name', paymentFilters.name, paymentFilterOptions('name'), (value) => setPaymentFilters((current) => ({ ...current, name: value })), () => setPaymentFilters((current) => ({ ...current, name: '' })), 'Pesquisar atleta')}</th><th>Inadimplência total</th><th>Total pago</th><th>Último mês pago</th><th>Próximo mês em aberto</th><th>Meses em atraso</th></tr></thead><tbody>{paymentGroups.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhum atleta encontrado com os filtros atuais.</td></tr> : paymentGroups.map((group) => <Fragment key={group.key}><tr className={expandedPaymentGroupKey === group.key ? 'payments-group-row is-open' : 'payments-group-row'} onClick={() => setExpandedPaymentGroupKey((current) => current === group.key ? null : group.key)}><td className="athlete-cell payments-name-cell payments-athlete-cell"><strong>{group.userName}</strong></td><td className="payments-summary-cell payments-balance-cell">{money(group.totalOpenCents)}</td><td className="payments-summary-cell">{money(group.totalPaidCents)}</td><td className="payments-summary-cell">{group.lastPaidPayment ? paymentMonthLabel(group.lastPaidPayment.referenceMonth) : <span className="payments-muted">Sem pagamento</span>}</td><td className="payments-summary-cell">{group.nextOpenPayment ? paymentMonthLabel(group.nextOpenPayment.referenceMonth) : <span className="payments-muted">Sem aberto</span>}</td><td className="payments-summary-cell">{group.latePaymentsCount > 0 ? <span className="status danger">{group.latePaymentsCount} atraso(s)</span> : <span className="status open">Em dia</span>}</td></tr>{expandedPaymentGroupKey === group.key && <tr className="payments-group-detail-row"><td colSpan={6}><div className="payments-subtable-wrap"><div className="payments-subtable-head"><strong>Mensalidades abertas do atleta</strong><span>{group.openPayments.length} registro(s) com saldo pendente</span></div>{group.openPayments.length === 0 ? <p className="payments-muted">Este atleta não possui mensalidades abertas ou atrasadas no momento.</p> : <table className="championship-table payments-table payments-subtable"><thead><tr><th>Mês</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Pendente</th><th>Status</th><th>Observação</th>{canCoordinate && <th>Ação</th>}</tr></thead><tbody>{group.openPayments.map((payment) => <tr key={`${group.key}-${payment.id ?? payment.referenceMonth}-${payment.dueDate ?? 'sem-vencimento'}`}><td>{paymentMonthLabel(payment.referenceMonth)}</td><td>{formatDateOnly(payment.dueDate, '-')}</td><td>{money(payment.amountCents)}</td><td>{money(payment.paidAmountCents ?? 0)}</td><td className="payments-balance-cell">{money(payment.balanceCents ?? 0)}</td><td><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></td><td className="payments-notes-cell">{payment.notes?.trim() ? payment.notes : <span className="payments-muted">-</span>}</td>{canCoordinate && <td className="payments-action-cell"><button type="button" className="ghost small" onClick={() => openRegister(payment)}>{(payment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar'}</button></td>}</tr>)}</tbody></table>}</div></td></tr>}</Fragment>)}</tbody></table></div>}
