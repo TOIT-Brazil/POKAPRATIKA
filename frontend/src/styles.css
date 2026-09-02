@@ -6773,8 +6773,8 @@ select optgroup { color: var(--text); background: #10231f; }
   height: auto;
   min-height: 0;
   max-height: none !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
 }
 
 .modal.schedule-editor-layer {
