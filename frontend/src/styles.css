@@ -1960,9 +1960,206 @@ textarea {
   height: auto;
   min-height: 0;
   max-height: none !important;
-  overflow-x: auto !important;
+  overflow-x: hidden !important;
   overflow-y: hidden !important;
   scrollbar-gutter: auto;
+}
+
+.shell-page .schedule-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.shell-page .schedule-table th,
+.shell-page .schedule-table td {
+  min-width: 0 !important;
+  padding: 7px 5px;
+  overflow: hidden;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.shell-page .schedule-table th:nth-child(1),
+.shell-page .schedule-table td:nth-child(1) { width: 22%; }
+.shell-page .schedule-table th:nth-child(2),
+.shell-page .schedule-table td:nth-child(2) { width: 38%; }
+.shell-page .schedule-table th:nth-child(3),
+.shell-page .schedule-table td:nth-child(3) { width: 23%; }
+.shell-page .schedule-table th:nth-child(4),
+.shell-page .schedule-table td:nth-child(4) { width: 17%; }
+
+.schedule-date-cell strong,
+.schedule-date-cell small {
+  display: block;
+}
+
+.schedule-date-cell small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.schedule-detail-trigger {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.schedule-detail-trigger strong,
+.schedule-detail-trigger small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-detail-trigger small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.schedule-detail-trigger .status {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 6px;
+  font-size: .58rem;
+}
+
+.schedule-actions-cell .ghost {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 4px;
+}
+
+.modal.schedule-detail-layer {
+  place-items: center;
+  padding: 12px;
+}
+
+.schedule-detail-card {
+  width: min(580px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 10px;
+  gap: 8px;
+  overflow-y: auto;
+  border-radius: 10px;
+}
+
+.schedule-duplicate-warning {
+  padding: 8px;
+  border: 1px solid rgba(251, 113, 133, .35);
+  border-radius: 8px;
+  color: #fecdd3;
+  background: rgba(127, 29, 29, .22);
+  font-size: .72rem;
+}
+
+.schedule-detail-records {
+  display: grid;
+  gap: 8px;
+}
+
+.schedule-detail-record {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.schedule-detail-record-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.schedule-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.schedule-detail-grid span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 7px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .04);
+}
+
+.schedule-detail-grid small {
+  color: var(--muted);
+  font-size: .6rem;
+}
+
+.schedule-detail-grid b {
+  font-size: .7rem;
+  overflow-wrap: anywhere;
+}
+
+.schedule-detail-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.schedule-detail-actions .danger-action {
+  color: #fecdd3;
+  border-color: rgba(251, 113, 133, .35);
+}
+
+@media (max-width: 520px) {
+  .shell-page .schedule-table th,
+  .shell-page .schedule-table td {
+    padding: 6px 2px;
+    font-size: .56rem;
+    line-height: 1.15;
+  }
+
+  .shell-page .schedule-table th:nth-child(1),
+  .shell-page .schedule-table td:nth-child(1) { width: 24%; }
+  .shell-page .schedule-table th:nth-child(2),
+  .shell-page .schedule-table td:nth-child(2) { width: 35%; }
+  .shell-page .schedule-table th:nth-child(3),
+  .shell-page .schedule-table td:nth-child(3) { width: 24%; }
+  .shell-page .schedule-table th:nth-child(4),
+  .shell-page .schedule-table td:nth-child(4) { width: 17%; }
+
+  .schedule-detail-trigger strong,
+  .schedule-detail-trigger small {
+    font-size: .56rem;
+  }
+
+  .schedule-status-cell .status {
+    display: inline-block;
+    max-width: 100%;
+    padding: 3px 4px;
+    font-size: .5rem;
+    white-space: normal;
+  }
+
+  .schedule-actions-cell .ghost {
+    padding: 5px 1px;
+    font-size: .52rem;
+  }
+
+  .modal.schedule-detail-layer {
+    padding: 8px;
+  }
+
+  .schedule-detail-card {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 8px;
+  }
 }
 
 .shell-page .schedule-page-content .schedule-table {

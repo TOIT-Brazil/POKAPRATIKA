@@ -51,6 +51,7 @@ export type MatchListItem = {
   id: string;
   seasonId?: string | null;
   matchDate: string;
+  createdAt?: string;
   title: string;
   refereeName?: string | null;
   status: string;

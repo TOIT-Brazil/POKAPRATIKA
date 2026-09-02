@@ -50,6 +50,7 @@ type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
 type AttendanceSaveResult = Pick<MatchAttendanceResponse, 'userId' | 'responseStatus' | 'dinnerConfirmed' | 'guestCount' | 'notes' | 'updatedAt'>;
 type ScheduleMode = 'manual' | 'recurring';
+type ScheduleGroup = { key: string; match: MatchListItem; matches: MatchListItem[] };
 type SeasonStatsTab = 'GERAL' | 'ARTILHARIA' | 'ASSISTENCIAS' | 'CARTOES';
 
 type MatchDetail = MatchListItem & {
@@ -3624,25 +3625,44 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
   const [confirmationCloseHours, setConfirmationCloseHours] = useState(2);
   const [teamAName, setTeamAName] = useState('Time A');
   const [teamBName, setTeamBName] = useState('Time B');
-  const [tableFilters, setTableFilters] = useState({ date: '', title: '', time: '', status: '', window: '', attendance: '' });
+  const [tableFilters, setTableFilters] = useState({ date: '', title: '', status: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
+  const [selectedScheduleGroup, setSelectedScheduleGroup] = useState<ScheduleGroup | null>(null);
 
   useEffect(() => {
-    if (!editorOpen) return;
+    if (!editorOpen && !selectedScheduleGroup) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setEditorOpen(false);
+      if (event.key === 'Escape') {
+        setEditorOpen(false);
+        setSelectedScheduleGroup(null);
+      }
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [editorOpen]);
-  const scheduledMatches = [...matches].filter((match) => match.status === 'DRAFT').sort((left, right) => `${left.matchDate}${left.scheduledStart ?? ''}`.localeCompare(`${right.matchDate}${right.scheduledStart ?? ''}`));
+  }, [editorOpen, selectedScheduleGroup]);
+
+  const scheduledMatches = useMemo(() => [...matches].filter((match) => match.status === 'DRAFT').sort((left, right) => `${left.matchDate}${left.scheduledStart ?? ''}`.localeCompare(`${right.matchDate}${right.scheduledStart ?? ''}`)), [matches]);
+  const scheduleGroups = useMemo(() => {
+    const grouped = new Map<string, MatchListItem[]>();
+    scheduledMatches.forEach((match) => {
+      const key = `${match.seasonId ?? 'sem-temporada'}|${match.matchDate.slice(0, 10)}|${match.scheduledStart?.slice(0, 5) ?? '20:00'}`;
+      const current = grouped.get(key);
+      if (current) current.push(match);
+      else grouped.set(key, [match]);
+    });
+    return [...grouped.entries()].map(([key, groupedMatches]): ScheduleGroup => {
+      const orderedMatches = [...groupedMatches].sort((left, right) => (left.createdAt ?? '').localeCompare(right.createdAt ?? ''));
+      return { key, match: orderedMatches[0], matches: orderedMatches };
+    });
+  }, [scheduledMatches]);
 
   useEffect(() => {
     setFilterSearch('');
   }, [activeFilterMenu]);
 
   function loadForEdit(match: MatchListItem) {
+    setSelectedScheduleGroup(null);
     setEditingId(match.id);
     setMode('manual');
     setEditorOpen(true);
@@ -3680,17 +3700,14 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
   function filterValue(match: MatchListItem, key: keyof typeof tableFilters) {
     if (key === 'date') return matchDateLabel(match);
     if (key === 'title') return `${match.title} • ${match.teamAName} x ${match.teamBName}`;
-    if (key === 'time') return `${match.scheduledStart?.slice(0, 5) ?? '20:00'} -> ${match.scheduledEnd?.slice(0, 5) ?? '21:00'}`;
-    if (key === 'status') return confirmationStatus(match);
-    if (key === 'window') return `${confirmationWindowScheduleLabel(match)} • ${match.confirmationOpensHoursBefore ?? 48}h -> ${match.confirmationClosesHoursBefore ?? 2}h antes`;
-    return `${match.attendancePlaying ?? 0} jogar • ${match.attendancePresentOnly ?? 0} só presença • ${match.attendanceAbsent ?? 0} ausente(s)`;
+    return confirmationStatus(match);
   }
 
   function filterOptions(key: keyof typeof tableFilters) {
-    return buildTableFilterOptions(scheduledMatches.map((match) => filterValue(match, key)));
+    return buildTableFilterOptions(scheduleGroups.map((group) => filterValue(group.match, key)));
   }
 
-  const filteredScheduledMatches = useMemo(() => scheduledMatches.filter((match) => Object.entries(tableFilters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(match, key as keyof typeof tableFilters)).includes(normalizeTableFilterValue(value)))), [scheduledMatches, tableFilters]);
+  const filteredScheduleGroups = useMemo(() => scheduleGroups.filter((group) => Object.entries(tableFilters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(group.match, key as keyof typeof tableFilters)).includes(normalizeTableFilterValue(value)))), [scheduleGroups, tableFilters]);
 
   async function saveSchedule(event: FormEvent) {
     event.preventDefault();
@@ -3715,6 +3732,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
     await api.request(`/matches/${matchId}/schedule`, { method: 'DELETE' });
     setMessage('Jogo removido da agenda.');
     await onDone();
+    setSelectedScheduleGroup(null);
   }
 
   async function openConfirmation(matchId: string) {
@@ -3722,6 +3740,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
     await api.request(`/matches/${matchId}/open-confirmation`, { method: 'POST' });
     setMessage('Aberto para Confirmação. Atletas verão o aviso de fácil acesso ao entrar.');
     await onDone();
+    setSelectedScheduleGroup(null);
   }
 
   return (
@@ -3747,28 +3766,23 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
                 <tr>
                   <th><TableFilterHeader label="Data" menuKey="schedule-date" currentValue={tableFilters.date} options={filterOptions('date')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar data" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, date: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, date: '' })); setActiveFilterMenu(null); }} /></th>
                   <th><TableFilterHeader label="Jogo" menuKey="schedule-title" currentValue={tableFilters.title} options={filterOptions('title')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar jogo" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, title: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, title: '' })); setActiveFilterMenu(null); }} /></th>
-                  <th><TableFilterHeader label="Horário" menuKey="schedule-time" currentValue={tableFilters.time} options={filterOptions('time')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar horário" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, time: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, time: '' })); setActiveFilterMenu(null); }} /></th>
                   <th><TableFilterHeader label="Confirmação" menuKey="schedule-status" currentValue={tableFilters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th>
-                  <th><TableFilterHeader label="Janela" menuKey="schedule-window" currentValue={tableFilters.window} options={filterOptions('window')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar janela" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, window: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, window: '' })); setActiveFilterMenu(null); }} /></th>
-                  <th><TableFilterHeader label="Presenças" menuKey="schedule-attendance" currentValue={tableFilters.attendance} options={filterOptions('attendance')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar presença" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, attendance: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, attendance: '' })); setActiveFilterMenu(null); }} /></th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredScheduledMatches.length === 0 ? <tr><td colSpan={7} className="table-empty-cell">Nenhum jogo pré-definido encontrado com os filtros atuais.</td></tr> : filteredScheduledMatches.map((match) => <tr key={match.id}>
-                  <td>{matchDateLabel(match)}</td>
-                  <td className="management-main-cell schedule-title-cell"><strong>{match.title}</strong><small>{match.teamAName} x {match.teamBName}</small></td>
-                  <td>{match.scheduledStart?.slice(0, 5) ?? '20:00'} {'->'} {match.scheduledEnd?.slice(0, 5) ?? '21:00'}</td>
-                  <td><span className={`status ${match.confirmationOpen ? 'open' : confirmationWindowHasEnded(match) ? 'danger' : 'draft'}`}>{confirmationStatus(match)}</span></td>
-                  <td className="schedule-detail-cell"><strong>{confirmationWindowScheduleLabel(match)}</strong><small>Janela {match.confirmationOpensHoursBefore ?? 48}h {'->'} {match.confirmationClosesHoursBefore ?? 2}h antes</small></td>
-                  <td>{match.attendancePlaying ?? 0} jogar<br />{match.attendancePresentOnly ?? 0} só presença<br />{match.attendanceAbsent ?? 0} ausente(s)</td>
-                  <td><div className="actions compact-actions"><button type="button" className="ghost" onClick={() => loadForEdit(match)}>Editar</button>{!match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}<button type="button" className="ghost" onClick={() => void removeScheduledMatch(match.id)}>Remover</button></div></td>
-                </tr>)}
+                {filteredScheduleGroups.length === 0 ? <tr><td colSpan={4} className="table-empty-cell">Nenhum jogo pré-definido encontrado com os filtros atuais.</td></tr> : filteredScheduleGroups.map((group) => { const match = group.match; return <tr key={group.key}>
+                  <td className="schedule-date-cell"><strong>{matchDateLabel(match)}</strong><small>{match.scheduledStart?.slice(0, 5) ?? '20:00'} - {match.scheduledEnd?.slice(0, 5) ?? '21:00'}</small></td>
+                  <td className="management-main-cell schedule-title-cell"><button type="button" className="schedule-detail-trigger" onClick={() => setSelectedScheduleGroup(group)}><strong>{match.title}</strong><small>{match.teamAName} x {match.teamBName}</small>{group.matches.length > 1 && <span className="status danger">{group.matches.length} registros</span>}</button></td>
+                  <td className="schedule-status-cell"><span className={`status ${match.confirmationOpen ? 'open' : confirmationWindowHasEnded(match) ? 'danger' : 'draft'}`}>{confirmationStatus(match)}</span></td>
+                  <td className="schedule-actions-cell"><button type="button" className="ghost" onClick={() => loadForEdit(match)}>Editar</button></td>
+                </tr>; })}
               </tbody>
             </table>
           </div>
         </section>
       </div>
+        {selectedScheduleGroup && <div className="modal schedule-detail-layer" role="dialog" aria-modal="true" aria-labelledby="schedule-detail-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedScheduleGroup(null); }}><section className="card modal-card schedule-detail-card"><div className="card-head"><div><h2 id="schedule-detail-title">{selectedScheduleGroup.match.title}</h2><p className="muted">{matchDateLabel(selectedScheduleGroup.match)} • {selectedScheduleGroup.match.scheduledStart?.slice(0, 5) ?? '20:00'} - {selectedScheduleGroup.match.scheduledEnd?.slice(0, 5) ?? '21:00'}</p></div><button type="button" className="ghost modal-close-button" aria-label="Fechar detalhes" title="Fechar" onClick={() => setSelectedScheduleGroup(null)}>X</button></div>{selectedScheduleGroup.matches.length > 1 && <p className="schedule-duplicate-warning">Foram encontrados {selectedScheduleGroup.matches.length} registros para esta temporada, data e horário. Revise cada um antes de remover.</p>}<div className="schedule-detail-records">{selectedScheduleGroup.matches.map((match, index) => <article className="schedule-detail-record" key={match.id}><div className="schedule-detail-record-head"><strong>{selectedScheduleGroup.matches.length > 1 ? `Registro ${index + 1}` : 'Agendamento'}</strong><span className={`status ${match.confirmationOpen ? 'open' : confirmationWindowHasEnded(match) ? 'danger' : 'draft'}`}>{confirmationStatus(match)}</span></div><div className="schedule-detail-grid"><span><small>Jogo</small><b>{match.teamAName} x {match.teamBName}</b></span><span><small>Origem</small><b>{match.scheduleSource === 'RECURRING' ? 'Recorrente' : 'Data específica'}</b></span><span><small>Janela</small><b>{confirmationWindowScheduleLabel(match)}</b></span><span><small>Regra</small><b>Abre {match.confirmationOpensHoursBefore ?? 48}h / fecha {match.confirmationClosesHoursBefore ?? 2}h antes</b></span><span><small>Jogar</small><b>{match.attendancePlaying ?? 0}</b></span><span><small>Só presença</small><b>{match.attendancePresentOnly ?? 0}</b></span><span><small>Ausentes</small><b>{match.attendanceAbsent ?? 0}</b></span><span><small>Janta</small><b>{match.attendanceDinnerPeople ?? 0}</b></span></div><div className="actions schedule-detail-actions"><button type="button" className="ghost" onClick={() => loadForEdit(match)}>Editar</button>{!match.confirmationOpen && !confirmationWindowHasEnded(match) && <button type="button" className="primary small" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button>}<button type="button" className="ghost danger-action" onClick={() => void removeScheduledMatch(match.id)}>Remover</button></div></article>)}</div></section></div>}
         {editorOpen && <div className="modal schedule-editor-layer" role="dialog" aria-modal="true" aria-labelledby="schedule-editor-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditorOpen(false); }}>
           <form className="card modal-card wide schedule-form schedule-editor-card" onSubmit={saveSchedule}>
             <div className="card-head">
