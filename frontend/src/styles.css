@@ -5487,6 +5487,7 @@ select optgroup { color: var(--text); background: #10231f; }
   background: #17312b;
 }
 
+.payments-panel > .payments-overview-strip > span:nth-child(2),
 .payments-panel > .payments-overview-strip > span:nth-child(5),
 .payments-panel .cash-ledger > .card-head .muted {
   display: none;
