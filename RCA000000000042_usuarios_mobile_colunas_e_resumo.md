@@ -12,9 +12,13 @@ A tabela compartilhada possuía sete colunas e mantinha largura mínima de 920px
 
 Posição, status e ações ficavam afastados do nome e podiam sair da área visível. A coluna de retorno ocupava espaço permanente para mensagens eventuais, e o resumo não priorizava cadastrados, ativos e atletas.
 
+Após a compactação inicial, a posição recebeu apenas 19% da tabela, enquanto o badge de status era forçado a ocupar 100% de sua célula. Rótulos posicionais longos ficavam visualmente encostados no status, e `ativo`/`inativo` consumiam mais largura do que o conteúdo exigia.
+
 ## Correção
 
 Exibir somente nome abreviado, posição, status e ações. Remover e-mail, perfil e retorno da tabela, mantendo mensagens de ações nos fluxos existentes. No mobile, usar tabela fixa em 100% sem rolagem lateral. Organizar o resumo em uma grade de seis partes: cadastrados, ativos e atletas ocupam duas partes cada; coordenadores e administradores ocupam três partes cada na segunda linha.
+
+No refinamento mobile, ampliar a coluna Posição, reduzir a coluna Status e deixar o badge com largura natural centralizada, padding compacto e sem preenchimento integral da célula.
 
 ## Prevenção
 
