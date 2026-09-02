@@ -524,7 +524,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .payments-subtable-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .payments-subtable-head strong { color: #16332f; }
 .payments-subtable-head span { color: #587165; font-size: .74rem; font-weight: 800; }
-.payments-subtable { min-width: 860px; }
+.payments-subtable { min-width: 680px; }
 .payments-subtable th { position: static; }
 .payments-subtable td,
 .payments-subtable th { white-space: nowrap; }
@@ -5609,6 +5609,7 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 
   .payments-panel .payments-group-table,
+  .payments-panel .payments-subtable,
   .payments-panel .cash-table {
     width: 100%;
     min-width: 0;
@@ -5636,6 +5637,38 @@ select optgroup { color: var(--text); background: #10231f; }
   .payments-panel .payments-group-table .status {
     padding: 2px 3px;
     font-size: .54rem;
+    white-space: normal;
+  }
+
+  .payments-panel .payments-subtable th,
+  .payments-panel .payments-subtable td {
+    padding: 5px 2px;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .payments-panel .payments-subtable th:nth-child(1),
+  .payments-panel .payments-subtable td:nth-child(1) { width: 19%; }
+  .payments-panel .payments-subtable th:nth-child(2),
+  .payments-panel .payments-subtable td:nth-child(2) { width: 20%; }
+  .payments-panel .payments-subtable th:nth-child(3),
+  .payments-panel .payments-subtable td:nth-child(3) { width: 16%; }
+  .payments-panel .payments-subtable th:nth-child(4),
+  .payments-panel .payments-subtable td:nth-child(4) { width: 14%; }
+  .payments-panel .payments-subtable th:nth-child(5),
+  .payments-panel .payments-subtable td:nth-child(5) { width: 14%; }
+  .payments-panel .payments-subtable th:nth-child(6),
+  .payments-panel .payments-subtable td:nth-child(6) { width: 17%; }
+
+  .payments-panel .payments-subtable .payments-action-cell,
+  .payments-panel .payments-subtable .payments-action-cell button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .payments-panel .payments-subtable .payments-action-cell button {
+    padding: 4px 1px;
+    font-size: .5rem;
     white-space: normal;
   }
 
