@@ -6335,3 +6335,108 @@ select optgroup { color: var(--text); background: #10231f; }
   font-size: .82rem;
   line-height: 1;
 }
+
+/* Todas as páginas secundárias rolam abaixo do cabeçalho global. */
+.shell.shell-page {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.shell-page > .app-header {
+  position: relative;
+  top: auto;
+  flex: 0 0 auto;
+}
+
+.shell-page > .dashboard-main,
+.shell-page > .standard-page,
+.shell-page > .statistics-page,
+.shell-page > .schedule-page,
+.shell-page > .payments-panel,
+.shell-page > .awards-page,
+.shell-page > .users-home,
+.shell-page > .admin-home {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shell-page > .schedule-page,
+.shell-page > .awards-page {
+  display: block;
+}
+
+.shell-page > .schedule-page > *,
+.shell-page > .awards-page > *,
+.shell-page > .statistics-page > * {
+  height: auto;
+  max-height: none;
+}
+
+.shell-page .schedule-page-content,
+.shell-page .rules-center,
+.shell-page .dashboard-standings-card {
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.shell-page .schedule-page-content .schedule-table-wrap,
+.shell-page .dashboard-standings-wrap {
+  height: auto;
+  max-height: 70dvh !important;
+}
+
+@media (max-width: 820px) {
+  .shell.shell-page,
+  .shell.shell-page.shell-agenda,
+  .shell.shell-page.shell-premios {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
+  .shell-page > .dashboard-main,
+  .shell-page > .standard-page,
+  .shell-page > .statistics-page,
+  .shell-page > .schedule-page,
+  .shell-page > .payments-panel,
+  .shell-page > .awards-page,
+  .shell-page > .users-home,
+  .shell-page > .admin-home {
+    max-height: 100%;
+    padding-right: 0;
+    overflow-y: auto !important;
+  }
+
+  .shell.shell-page.shell-home {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .shell-page .schedule-page-content,
+  .shell-page .rules-center,
+  .shell-page .dashboard-standings-card {
+    height: auto;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .shell-page .schedule-page-content .schedule-table-wrap,
+  .shell-page .dashboard-standings-wrap {
+    height: auto;
+    max-height: 70dvh !important;
+  }
+}
