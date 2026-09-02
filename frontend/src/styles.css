@@ -4588,6 +4588,19 @@ textarea {
     width: 96px;
     min-width: 96px !important;
     white-space: nowrap !important;
+    overflow: hidden;
+  }
+
+  .dashboard-standings-table .athlete-cell .name-link {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    color: inherit;
+    font-size: .66rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .dashboard-standings-table {
