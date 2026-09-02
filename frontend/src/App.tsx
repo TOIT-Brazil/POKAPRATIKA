@@ -4867,7 +4867,7 @@ function parseStandingClipboard(text: string) {
 }
 
 function UsersAdminTable({ api, users, onReload, isAdmin, emptyText }: { api: ApiClient; users: User[]; onReload: () => Promise<void>; isAdmin: boolean; emptyText: string }) {
-  const [filters, setFilters] = useState({ name: '', email: '', role: '', position: '', status: '' });
+  const [filters, setFilters] = useState({ name: '', position: '', status: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
 
@@ -4877,8 +4877,6 @@ function UsersAdminTable({ api, users, onReload, isAdmin, emptyText }: { api: Ap
 
   function filterValue(user: User, key: keyof typeof filters) {
     if (key === 'name') return user.name;
-    if (key === 'email') return user.email;
-    if (key === 'role') return user.role;
     if (key === 'position') return positionLabel(user.position);
     return user.active !== false ? 'Ativo' : 'Inativo';
   }
@@ -4895,16 +4893,13 @@ function UsersAdminTable({ api, users, onReload, isAdmin, emptyText }: { api: Ap
         <thead>
           <tr>
             <th><TableFilterHeader label="Nome" menuKey="users-name" currentValue={filters.name} options={filterOptions('name')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar nome" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, name: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, name: '' })); setActiveFilterMenu(null); }} /></th>
-            <th><TableFilterHeader label="E-mail" menuKey="users-email" currentValue={filters.email} options={filterOptions('email')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar e-mail" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, email: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, email: '' })); setActiveFilterMenu(null); }} /></th>
-            <th className="users-role-col"><TableFilterHeader label="Perfil" menuKey="users-role" currentValue={filters.role} options={filterOptions('role')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar perfil" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, role: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, role: '' })); setActiveFilterMenu(null); }} /></th>
             <th className="users-position-col"><TableFilterHeader label="Posição" menuKey="users-position" currentValue={filters.position} options={filterOptions('position')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar posição" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, position: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, position: '' })); setActiveFilterMenu(null); }} /></th>
             <th className="users-status-col"><TableFilterHeader label="Status" menuKey="users-status" currentValue={filters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th>
             <th className="users-actions-col">Ações</th>
-            <th>Retorno</th>
           </tr>
         </thead>
         <tbody>
-          {filteredUsers.length === 0 ? <tr><td colSpan={7} className="table-empty-cell">{emptyText}</td></tr> : filteredUsers.map((user) => <UserAdminTableRow key={user.id} api={api} user={user} isAdmin={isAdmin} onReload={onReload} />)}
+          {filteredUsers.length === 0 ? <tr><td colSpan={4} className="table-empty-cell">{emptyText}</td></tr> : filteredUsers.map((user) => <UserAdminTableRow key={user.id} api={api} user={user} isAdmin={isAdmin} onReload={onReload} />)}
         </tbody>
       </table>
     </div>
@@ -5120,13 +5115,10 @@ function UserAdminTableRow({ api, user, isAdmin, onReload }: { api: ApiClient; u
   return (
     <>
       <tr>
-        <td className="management-main-cell"><strong>{user.name}</strong></td>
-        <td className="user-email-cell">{user.email}</td>
-        <td className="users-role-cell">{user.role}</td>
+        <td className="management-main-cell" title={user.name}><strong>{abbreviatedAthleteName(user.name)}</strong></td>
         <td className="users-position-cell">{positionLabel(user.position)}</td>
         <td className="users-status-cell"><span className={`status ${active ? 'open' : 'danger'}`}>{active ? 'ativo' : 'inativo'}</span></td>
         <td className="users-actions-cell">{isAdmin ? <div className="actions compact-actions users-row-actions"><button className="ghost" onClick={() => setOpen(true)}>Editar</button><button className="ghost" onClick={() => void sendActivation()}>Reenviar convite</button></div> : <span className="payments-muted">Sem ações</span>}</td>
-        <td className="management-feedback-cell">{message || '-'}</td>
       </tr>
       {open && <div className="modal"><form className="card modal-card admin-modal-card" onSubmit={(event) => { event.preventDefault(); void save().then(() => setOpen(false)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao salvar usuário.')); }}><div className="card-head"><h2>Editar usuário</h2><button type="button" className="ghost" onClick={() => setOpen(false)}>Fechar</button></div><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome" /><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" type="email" /><select value={role} onChange={(event) => setRole(event.target.value as User['role'])}><option>ATLETA</option><option>COORDENADOR</option><option>ADMIN</option></select><select value={position} onChange={(event) => setPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><select value={active ? 'true' : 'false'} onChange={(event) => setActive(event.target.value === 'true')}><option value="true">Ativo</option><option value="false">Inativo</option></select><button className="primary">Salvar cadastro</button><div className="inline-form"><input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Nova senha" type="password" minLength={8} /><button type="button" className="ghost" onClick={() => void changePassword().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao redefinir senha.'))}>Redefinir senha</button></div></form></div>}
     </>

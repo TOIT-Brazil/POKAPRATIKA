@@ -6174,6 +6174,136 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 }
 
+/* Usuários: resumo 3+2 e tabela operacional sem rolagem lateral. */
+.users-summary {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.users-summary > span:nth-child(-n+3) {
+  grid-column: span 2;
+}
+
+.users-summary > span:nth-child(n+4) {
+  grid-column: span 3;
+}
+
+.users-card > .management-table-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden !important;
+}
+
+.users-management-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.users-management-table th,
+.users-management-table td {
+  min-width: 0 !important;
+  max-width: none;
+  padding: 7px 5px;
+  overflow: hidden;
+  text-align: center;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.users-management-table th:nth-child(1),
+.users-management-table td:nth-child(1) { width: 29%; text-align: left; }
+.users-management-table th:nth-child(2),
+.users-management-table td:nth-child(2) { width: 19%; }
+.users-management-table th:nth-child(3),
+.users-management-table td:nth-child(3) { width: 18%; }
+.users-management-table th:nth-child(4),
+.users-management-table td:nth-child(4) { width: 34%; }
+
+.users-management-table .users-row-actions {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.users-management-table .users-row-actions button {
+  min-width: 0;
+  padding: 5px 6px;
+  white-space: normal;
+}
+
+@media (max-width: 820px) {
+  .users-summary {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .users-summary > span {
+    min-width: 0;
+    padding: 7px 4px;
+    font-size: .62rem;
+    text-align: center;
+  }
+
+  .users-summary > span b {
+    font-size: .8rem;
+  }
+
+  .users-management-table th,
+  .users-management-table td {
+    padding: 6px 2px;
+    font-size: .58rem;
+    line-height: 1.15;
+  }
+
+  .users-management-table .table-filter-anchor {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    gap: 1px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .users-management-table .table-filter-button {
+    width: 14px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0;
+  }
+
+  .users-management-table .table-filter-button svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .users-management-table .table-filter-anchor > span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: .5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .users-management-table .status {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    padding: 3px 1px;
+    overflow: hidden;
+    font-size: .52rem;
+  }
+
+  .users-management-table .users-row-actions button {
+    flex: 1 1 100%;
+    width: 100%;
+    padding: 4px 1px;
+    font-size: .5rem;
+    line-height: 1.1;
+  }
+}
+
 /* Um único X visual por modal, mesmo quando o botão legado contém texto ou X no JSX. */
 .modal-close-button,
 .modal:not(.prompt-modal) .card-head > .ghost,
