@@ -4597,8 +4597,8 @@ textarea {
     min-width: 0;
     overflow: hidden;
     color: inherit;
-    font-size: .66rem;
-    line-height: 1.15;
+    font-size: .74rem;
+    line-height: 1.2;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
@@ -4611,8 +4611,13 @@ textarea {
 
   .dashboard-standings-table th,
   .dashboard-standings-table td {
-    padding: 5px 1px;
-    font-size: .66rem;
+    padding: 8px 1px;
+    font-size: .76rem;
+    line-height: 1.2;
+  }
+
+  .dashboard-standings-table th {
+    font-size: .7rem;
   }
 
   .dashboard-standings-table th:first-child,
