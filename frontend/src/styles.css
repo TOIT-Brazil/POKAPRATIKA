@@ -5661,8 +5661,8 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 
   .payments-panel .cash-table .cash-description-cell {
-    padding-left: 16px;
-    text-align: left;
+    padding-left: 1px;
+    text-align: center;
   }
 
   .payments-panel .cash-table .cash-amount-cell {
