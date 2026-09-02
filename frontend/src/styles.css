@@ -121,6 +121,9 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .award-cards span { color: #a9b9af; font-size: .8rem; }
 .rules-center { max-height: min(76dvh, 720px); }
 .rule-create { display: grid; grid-template-columns: minmax(180px, 1.2fr) .8fr .9fr 72px auto; gap: 7px; padding: 8px; border-radius: 15px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
+.award-rule-modal { width: min(520px, 100%); }
+.award-rule-modal label { display: grid; gap: 4px; }
+.award-rule-modal label > span { color: var(--muted); font-size: .72rem; font-weight: 850; }
 .rule-list { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
 .rule-card { grid-template-columns: 1fr auto; align-content: start; }
 .rule-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -5929,6 +5932,104 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 
   .shell-premios .awards-table-wrap {
-    overflow: auto !important;
+    overflow: hidden auto !important;
+  }
+
+  .shell-premios .rules-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .shell-premios .rules-table th,
+  .shell-premios .rules-table td {
+    min-width: 0 !important;
+    padding: 5px 2px;
+    overflow: hidden;
+    vertical-align: middle;
+  }
+
+  .shell-premios .rules-table th:nth-child(n+4):nth-child(-n+10),
+  .shell-premios .rules-table td:nth-child(n+4):nth-child(-n+10),
+  .shell-premios .rules-table th:nth-child(12),
+  .shell-premios .rules-table td:nth-child(12) {
+    display: none;
+  }
+
+  .shell-premios .rules-table th:nth-child(1),
+  .shell-premios .rules-table td:nth-child(1) { width: 31%; }
+  .shell-premios .rules-table th:nth-child(2),
+  .shell-premios .rules-table td:nth-child(2) { width: 23%; }
+  .shell-premios .rules-table th:nth-child(3),
+  .shell-premios .rules-table td:nth-child(3) { width: 28%; }
+  .shell-premios .rules-table th:nth-child(11),
+  .shell-premios .rules-table td:nth-child(11) { width: 18%; }
+
+  .shell-premios .rules-table .table-empty-cell {
+    width: auto;
+  }
+
+  .shell-premios .rules-table input,
+  .shell-premios .rules-table select,
+  .shell-premios .rules-table .compact-bench {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 2px;
+    font-size: .56rem;
+  }
+
+  .shell-premios .rules-table .rule-title {
+    gap: 3px;
+  }
+
+  .shell-premios .rules-table .rule-icon {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: 6px;
+    font-size: .72rem;
+  }
+
+  .shell-premios .rules-table .rule-title > div {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .shell-premios .rules-table .rule-title small {
+    overflow: hidden;
+    font-size: .48rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell-premios .rules-table .table-filter-anchor {
+    min-width: 0;
+    gap: 1px;
+    overflow: hidden;
+  }
+
+  .shell-premios .rules-table .table-filter-button {
+    width: 14px;
+    height: 14px;
+    min-width: 14px;
+    padding: 0;
+  }
+
+  .shell-premios .rules-table .table-filter-button svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .shell-premios .rules-table .table-filter-anchor > span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: .5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .award-rule-modal {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
   }
 }

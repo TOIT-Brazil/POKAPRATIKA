@@ -4567,6 +4567,7 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
   const [newMetric, setNewMetric] = useState<MetricCode>('TOTAL_POINTS');
   const [newType, setNewType] = useState<AwardType>('RANKING');
   const [newIcon, setNewIcon] = useState('🏅');
+  const [createRuleModalOpen, setCreateRuleModalOpen] = useState(false);
   const [tableFilters, setTableFilters] = useState({ label: '', type: '', metric: '', sortDirection: '', winners: '', minGames: '', voteSlots: '', allowSelfVote: '', badgeIcon: '', badgeColor: '', active: '', hint: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
@@ -4574,6 +4575,15 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
   useEffect(() => {
     setFilterSearch('');
   }, [activeFilterMenu]);
+
+  useEffect(() => {
+    if (!createRuleModalOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCreateRuleModalOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [createRuleModalOpen]);
 
   async function loadSettings() {
     setCategories(await api.request<AwardSetting[]>('/settings/awards'));
@@ -4622,6 +4632,7 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
     }, ...list]);
     setNewLabel('');
     setNewIcon('🏅');
+    setCreateRuleModalOpen(false);
     setMessage('Regra adicionada na tela. Clique em salvar para gravar no banco.');
   }
 
@@ -4657,27 +4668,12 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
           <h2>Central de regras, rankings e premiações</h2>
           <p className="muted">Configure pontuação, acompanhamentos individuais, votação e badges sem alterar código.</p>
         </div>
-        <button className="primary small" onClick={save}>Salvar central</button>
+        <div className="actions"><button type="button" className="ghost" onClick={() => setCreateRuleModalOpen(true)}>Adicionar regra</button><button type="button" className="primary small" onClick={save}>Salvar central</button></div>
       </div>
 
       {message && <p className="status-line">{message}</p>}
 
-      <div className="rule-create">
-        <input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Nova regra: Ex. Rei dos cartões" />
-        <select value={newType} onChange={(event) => setNewType(event.target.value as AwardType)}>
-          <option value="RANKING">Ranking automático</option>
-          <option value="VOTACAO">Votação</option>
-          <option value="SORTEIO">Sorteio/manual</option>
-          <option value="MANUAL">Premiação manual</option>
-        </select>
-        {newType === 'RANKING' && (
-          <select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>
-            {metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        )}
-        <input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" />
-        <button className="ghost" onClick={addCategory}>Adicionar regra</button>
-      </div>
+      {createRuleModalOpen && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="create-award-rule-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateRuleModalOpen(false); }}><form className="card modal-card award-rule-modal" onSubmit={(event) => { event.preventDefault(); addCategory(); }}><div className="card-head"><h2 id="create-award-rule-title">Adicionar regra</h2><button type="button" className="ghost" onClick={() => setCreateRuleModalOpen(false)}>Fechar</button></div><label><span>Nome da regra</span><input autoFocus value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Ex. Rei dos cartões" /></label><label><span>Tipo</span><select value={newType} onChange={(event) => setNewType(event.target.value as AwardType)}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select></label>{newType === 'RANKING' && <label><span>Métrica</span><select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>{metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>}<label><span>Ícone</span><input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" /></label><button className="primary">Adicionar regra</button></form></div>}
 
       <div className="championship-wrap management-table-wrap awards-table-wrap">
         <table className="championship-table management-table rules-table">
