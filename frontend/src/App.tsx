@@ -1104,7 +1104,7 @@ export function App() {
     <main
       className={`shell shell-page ${view === "temporada" ? "shell-home" : ""} ${view === "agenda" ? "shell-agenda" : ""} ${view === "premios" ? "shell-premios" : ""} ${accountMenuOpen ? "menu-open" : ""}`}
     >
-      {profileUserId !== auth.user.id && <header className="hero card glass app-header">
+      {!profileUserId && <header className="hero card glass app-header">
         <div className="header-admin-cluster">
           <div className="account-area">
             <button

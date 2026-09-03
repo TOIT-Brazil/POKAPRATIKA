@@ -16,7 +16,7 @@ O modal consumia espaço com informações secundárias e não permitia ao atlet
 
 O cabeçalho textual e os painéis de evolução, temporadas, títulos e badges foram removidos do perfil. Permaneceram identidade, radar e resumo da carreira. O endpoint passou a devolver jogos disputados, pagamentos pontuáveis e as regras reais de pontuação; a interface exibe cada fonte como quantidade multiplicada pelo valor configurado e reconcilia eventual diferença com o total oficial como ajuste/importação. Campos novos possuem fallback para permitir deploy independente de frontend e backend sem quebra transitória.
 
-Após a homologação, o header global com logo e menu também foi ocultado enquanto o usuário autenticado visualiza o próprio perfil. O comportamento foi limitado ao perfil próprio; ao abrir perfis de terceiros, a navegação global permanece disponível atrás do modal.
+Após a homologação, o header global com logo e menu também foi ocultado enquanto qualquer perfil estiver aberto, tanto o próprio quanto o de outro atleta. Ao fechar o modal, a navegação global volta a ser renderizada normalmente.
 
 ## Prevenção
 
