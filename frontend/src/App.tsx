@@ -23,7 +23,8 @@ type SheetActivityLogEntry = { id: string; message: string; createdAt: string };
 type MatchCorrection = { id: string; reason: string; previousTeamAScore: number; previousTeamBScore: number; newTeamAScore: number; newTeamBScore: number; correctedByName: string; createdAt: string; previousEvents: MatchEventDraft[]; newEvents: MatchEventDraft[] };
 type CareerProfile = {
   profile: User;
-  totals: { totalPoints: number; presences: number; wins: number; draws: number; losses: number; goals: number; assists: number; yellowCards: number; redCards: number; blueCards: number; seasonsPlayed: number };
+  totals: { totalPoints: number; gamesPlayed?: number; presences: number; paidMonths?: number; wins: number; draws: number; losses: number; goals: number; assists: number; yellowCards: number; redCards: number; blueCards: number; seasonsPlayed: number };
+  pointRules?: PointSetting[];
   seasons: Array<{ seasonId: string; seasonName: string; year: number; status: string; totalPoints: number; presences: number; wins: number; draws: number; losses: number; goals: number; assists: number; yellowCards: number; redCards: number; blueCards: number }>;
   awards: Array<{ id: string; seasonName: string; year: number; categoryCode: string; label: string; placement: number; source: string }>;
   badges: Array<{ id: string; code: string; label: string; icon?: string; color?: string; seasonId?: string | null }>;
@@ -1283,18 +1284,7 @@ export function App() {
       {profileUserId && (
         <div className="modal profile-modal">
           <div className="profile-modal-card athlete-profile-modal-card">
-            <div className="card-head athlete-profile-modal-head">
-              <h2>Perfil do atleta</h2>
-              <button
-                type="button"
-                className="ghost modal-close-button"
-                aria-label="Fechar modal"
-                title="Fechar"
-                onClick={() => setProfileUserId(null)}
-              >
-                X
-              </button>
-            </div>
+            <button type="button" className="ghost modal-close-button athlete-profile-close" aria-label="Fechar perfil" title="Fechar" onClick={() => setProfileUserId(null)}>X</button>
             <ProfilesPanel
               api={api}
               currentUserId={auth.user.id}
@@ -2742,17 +2732,6 @@ function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated
     setMessage('Foto atualizada. Agora o craque tem figurinha oficial.');
   }
 
-  const orderedSeasons = career ? [...career.seasons].sort((left, right) => left.year - right.year || left.seasonName.localeCompare(right.seasonName)) : [];
-  const lineValues = orderedSeasons.map((season) => season.totalPoints);
-  const maxLineValue = Math.max(...lineValues, 1);
-  const lineWidth = 188;
-  const lineHeight = 110;
-  const linePadding = 16;
-  const linePath = lineValues.map((value, index) => {
-    const x = lineValues.length === 1 ? lineWidth / 2 : linePadding + (index * (lineWidth - linePadding * 2)) / Math.max(1, lineValues.length - 1);
-    const y = lineHeight - linePadding - (value / maxLineValue) * (lineHeight - linePadding * 2);
-    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
   const radarValues = career ? [career.totals.totalPoints, career.totals.presences, career.totals.goals, career.totals.assists, career.totals.wins] : [0, 0, 0, 0, 0];
   const radarLabels = ['Pontos', 'Presença', 'Gols', 'Assist', 'Vitórias'];
   const maxRadarValue = Math.max(...radarValues, 1);
@@ -2761,7 +2740,18 @@ function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated
   const radarRadius = 54;
   const radarAngles = radarLabels.map((_, index) => (-Math.PI / 2) + (index * Math.PI * 2) / radarLabels.length);
   const radarPolygon = radarValues.map((value, index) => polarChartPoint(radarCx, radarCy, (value / maxRadarValue) * radarRadius, radarAngles[index])).join(' ');
-  const suspensionCount = career?.suspensions.length ?? 0;
+  const pointBreakdown = career ? (career.pointRules ?? []).flatMap((rule) => {
+    const key = normalizeHeader(`${rule.code} ${rule.label}`);
+    const quantity = key.includes('presen') || key.includes('present') ? (career.totals.gamesPlayed ?? 0) + career.totals.presences
+      : key.includes('pagament') || key.includes('mensal') || key.includes('payment') || key.includes('paid') ? career.totals.paidMonths ?? 0
+      : key.includes('vitor') || key.includes('win') ? career.totals.wins
+      : key.includes('derrot') || key.includes('loss') ? career.totals.losses
+      : key.includes('empat') || key.includes('draw') ? career.totals.draws
+      : null;
+    return quantity === null ? [] : [{ code: rule.code, label: rule.label, quantity, unitPoints: rule.points, total: quantity * rule.points }];
+  }) : [];
+  const calculatedPoints = pointBreakdown.reduce((total, item) => total + item.total, 0);
+  const adjustedPoints = career ? career.totals.totalPoints - calculatedPoints : 0;
 
   return (
     <div className="athlete-profile-sheet">
@@ -2784,62 +2774,30 @@ function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated
           </div>
         </section>
 
-        <section className="athlete-profile-card athlete-profile-history-card">
+        <section className="athlete-profile-card athlete-profile-radar-section">
           <div className="athlete-profile-card-head">
-            <strong>Histórico de temporadas</strong>
-            <span>{orderedSeasons.length}</span>
+            <strong>Radar da carreira</strong>
           </div>
-          {orderedSeasons.length === 0 ? <p className="muted">Sem temporadas suficientes para montar histórico visual.</p> : <>
-            <div className="athlete-profile-season-strip">{orderedSeasons.map((season, index) => <span key={season.seasonId}>Temporada {index + 1}: {season.year}</span>)}</div>
-            <div className="athlete-profile-chart-grid">
-              <div className="athlete-profile-chart-card athlete-profile-radar-card">
-                <svg viewBox="0 0 156 156" aria-hidden="true">
-                  {[0.25, 0.5, 0.75, 1].map((step) => <polygon key={step} points={radarAngles.map((angle) => polarChartPoint(radarCx, radarCy, radarRadius * step, angle)).join(' ')} className="athlete-profile-radar-grid" />)}
-                  {radarAngles.map((angle, index) => {
-                    const [x, y] = polarChartPoint(radarCx, radarCy, radarRadius, angle).split(',').map(Number);
-                    return <line key={radarLabels[index]} x1={radarCx} y1={radarCy} x2={x} y2={y} className="athlete-profile-radar-axis" />;
-                  })}
-                  <polygon points={radarPolygon} className="athlete-profile-radar-shape" />
-                  <circle cx={radarCx} cy={radarCy} r="3" className="athlete-profile-radar-center" />
-                  {radarLabels.map((label, index) => {
-                    const [x, y] = polarChartPoint(radarCx, radarCy, radarRadius + 18, radarAngles[index]).split(',').map(Number);
-                    return <text key={label} x={x} y={y} className="athlete-profile-radar-label">{label}</text>;
-                  })}
-                </svg>
-              </div>
-              <div className="athlete-profile-chart-card athlete-profile-line-card">
-                <svg viewBox={`0 0 ${lineWidth} ${lineHeight}`} aria-hidden="true">
-                  {[0, 0.25, 0.5, 0.75, 1].map((step) => {
-                    const y = lineHeight - linePadding - step * (lineHeight - linePadding * 2);
-                    return <line key={step} x1={linePadding} y1={y} x2={lineWidth - linePadding} y2={y} className="athlete-profile-line-grid" />;
-                  })}
-                  {linePath && <path d={linePath} className="athlete-profile-line-path" />}
-                  {lineValues.map((value, index) => {
-                    const x = lineValues.length === 1 ? lineWidth / 2 : linePadding + (index * (lineWidth - linePadding * 2)) / Math.max(1, lineValues.length - 1);
-                    const y = lineHeight - linePadding - (value / maxLineValue) * (lineHeight - linePadding * 2);
-                    return <g key={`${orderedSeasons[index]?.seasonId ?? index}-dot`}><circle cx={x} cy={y} r="4" className="athlete-profile-line-dot" /><text x={x} y={lineHeight - 4} className="athlete-profile-line-label">{index + 1}</text></g>;
-                  })}
-                </svg>
-              </div>
-            </div>
-          </>}
-        </section>
-
-        <section className="athlete-profile-card athlete-profile-trophies-card">
-          <div className="athlete-profile-card-head">
-            <strong>Títulos e badges</strong>
-            <span>{career.awards.length + career.badges.length}</span>
+          <div className="athlete-profile-chart-card athlete-profile-radar-card">
+            <svg viewBox="0 0 156 156" aria-hidden="true">
+              {[0.25, 0.5, 0.75, 1].map((step) => <polygon key={step} points={radarAngles.map((angle) => polarChartPoint(radarCx, radarCy, radarRadius * step, angle)).join(' ')} className="athlete-profile-radar-grid" />)}
+              {radarAngles.map((angle, index) => {
+                const [x, y] = polarChartPoint(radarCx, radarCy, radarRadius, angle).split(',').map(Number);
+                return <line key={radarLabels[index]} x1={radarCx} y1={radarCy} x2={x} y2={y} className="athlete-profile-radar-axis" />;
+              })}
+              <polygon points={radarPolygon} className="athlete-profile-radar-shape" />
+              <circle cx={radarCx} cy={radarCy} r="3" className="athlete-profile-radar-center" />
+              {radarLabels.map((label, index) => {
+                const [x, y] = polarChartPoint(radarCx, radarCy, radarRadius + 18, radarAngles[index]).split(',').map(Number);
+                return <text key={label} x={x} y={y} className="athlete-profile-radar-label">{label}</text>;
+              })}
+            </svg>
           </div>
-          {career.awards.length === 0 && career.badges.length === 0 ? <p className="muted">Nenhum prêmio registrado ainda.</p> : <>
-            <div className="athlete-profile-awards-list">{career.awards.map((award) => <span className="chip trophy" key={award.id}>{award.label} • {award.year}</span>)}</div>
-            <div className="athlete-profile-badge-list">{career.badges.length === 0 ? <span className="muted">Sem badges adicionais.</span> : career.badges.map((badge) => <span className="chip" key={badge.id}>{badge.icon ? `${badge.icon} ` : ''}{badge.label}</span>)}</div>
-          </>}
         </section>
 
         <section className="athlete-profile-card athlete-profile-stats-card">
           <div className="athlete-profile-card-head">
             <strong>Resumo da carreira</strong>
-            <span>{suspensionCount}</span>
           </div>
           <div className="athlete-profile-stat-grid">
             <span><b>{career.totals.totalPoints}</b><small>Pontos</small></span>
@@ -2848,6 +2806,12 @@ function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated
             <span><b>{career.totals.assists}</b><small>Assistências</small></span>
             <span><b>{career.totals.wins}</b><small>Vitórias</small></span>
             <span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b><small>Cartões</small></span>
+          </div>
+          <div className="athlete-profile-points-breakdown">
+            <div className="athlete-profile-points-head"><strong>Como os pontos foram formados</strong><b>{career.totals.totalPoints} pts</b></div>
+            {pointBreakdown.map((item) => <div className="athlete-profile-points-row" key={item.code}><span>{item.label}</span><small>{item.quantity} × {item.unitPoints} pt</small><b>{item.total}</b></div>)}
+            {adjustedPoints !== 0 && <div className="athlete-profile-points-row is-adjustment"><span>Ajustes/importações</span><small>Diferença reconciliada com o total oficial</small><b>{adjustedPoints > 0 ? `+${adjustedPoints}` : adjustedPoints}</b></div>}
+            {pointBreakdown.length === 0 && adjustedPoints === 0 && <p className="muted">Nenhuma regra de pontuação configurada.</p>}
           </div>
         </section>
       </>}

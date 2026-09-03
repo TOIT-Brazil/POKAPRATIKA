@@ -105,7 +105,9 @@ usersRouter.get('/:id/career', asyncHandler(async (req, res) => {
   const totals = await query(
     `SELECT
       COALESCE(sum(total_points), 0)::INTEGER AS "totalPoints",
+      COALESCE(sum(games_played), 0)::INTEGER AS "gamesPlayed",
       COALESCE(sum(presences), 0)::INTEGER AS presences,
+      COALESCE(sum(paid_months), 0)::INTEGER AS "paidMonths",
       COALESCE(sum(wins), 0)::INTEGER AS wins,
       COALESCE(sum(draws), 0)::INTEGER AS draws,
       COALESCE(sum(losses), 0)::INTEGER AS losses,
@@ -118,6 +120,12 @@ usersRouter.get('/:id/career', asyncHandler(async (req, res) => {
      FROM season_standings
      WHERE user_id = $1`,
     [req.params.id]
+  );
+
+  const pointRules = await query(
+    `SELECT code, label, points
+     FROM point_settings
+     ORDER BY code`
   );
 
   const seasons = await query(
@@ -159,7 +167,7 @@ usersRouter.get('/:id/career', asyncHandler(async (req, res) => {
     [req.params.id]
   );
 
-  res.json({ profile: profile.rows[0], totals: totals.rows[0], seasons: seasons.rows, awards: awards.rows, badges: badges.rows, suspensions: suspensions.rows });
+  res.json({ profile: profile.rows[0], totals: totals.rows[0], pointRules: pointRules.rows, seasons: seasons.rows, awards: awards.rows, badges: badges.rows, suspensions: suspensions.rows });
 }));
 
 usersRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
