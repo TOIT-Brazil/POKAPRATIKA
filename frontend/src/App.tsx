@@ -50,11 +50,14 @@ type PositionBalanceGroup = 'GO' | 'DEFESA' | 'MEIO' | 'ATAQUE';
 type AttendanceStatus = 'JOGAR' | 'PRESENTE_SEM_JOGAR' | 'AUSENTE';
 type MatchAttendanceResponse = { userId: string; name: string; position: AthletePosition; avatarDataUrl?: string | null; responseStatus: AttendanceStatus; dinnerConfirmed: boolean; guestCount: number; notes?: string | null; updatedAt: string };
 type AttendanceSaveResult = Pick<MatchAttendanceResponse, 'userId' | 'responseStatus' | 'dinnerConfirmed' | 'guestCount' | 'notes' | 'updatedAt'>;
+type PregameParticipant = { participantKey: string; userId?: string | null; guestKey?: string | null; name: string; position: AthletePosition; source: 'CLUB' | 'GUEST'; status: 'ELIGIBLE' | 'SELECTED' | 'RESERVE' | 'REPLACED'; selectionOrder?: number | null; reserveOrder?: number | null; team?: 'A' | 'B' | null; replacedByKey?: string | null };
+type PregamePayload = { state: 'CONFIRMING' | 'COMPLETING' | 'READY_TO_DRAW' | 'DRAWN' | 'NO_QUORUM'; capacity: number; confirmationCloseAt?: string | null; drawnAt?: string | null; clubConfirmed: Array<{ participantKey: string; userId: string; name: string; position: AthletePosition; updatedAt: string }>; participants: PregameParticipant[]; confirmedCount: number; guestCount: number; eligibleCount: number; missingCount: number };
 type ScheduleMode = 'manual' | 'recurring';
 type ScheduleGroup = { key: string; match: MatchListItem; matches: MatchListItem[] };
 type SeasonStatsTab = 'GERAL' | 'ARTILHARIA' | 'ASSISTENCIAS' | 'CARTOES';
 
 type MatchDetail = MatchListItem & {
+  lineupVisible?: boolean;
   scheduledStart?: string | null;
   scheduledEnd?: string | null;
   startedAt?: string | null;
@@ -1713,10 +1716,110 @@ function DashboardSeasonOperationsPanel({ api, suspensions, matches, activeSeaso
 */
 }
 
+function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchListItem; onChanged: () => Promise<void> }) {
+  const [data, setData] = useState<PregamePayload | null>(null);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
+  const [outgoingKey, setOutgoingKey] = useState('');
+  const [reserveKey, setReserveKey] = useState('');
+  const [replacementName, setReplacementName] = useState('');
+
+  async function load() {
+    try {
+      setData(await api.request<PregamePayload>(`/matches/${match.id}/pregame`));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Não foi possível carregar o pré-jogo.');
+    }
+  }
+
+  useEffect(() => { void load(); }, [match.id]);
+
+  async function run(action: () => Promise<void>, successMessage: string) {
+    setBusy(true);
+    setMessage('');
+    try {
+      await action();
+      setMessage(successMessage);
+      await load();
+      await onChanged();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Não foi possível concluir a operação.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addGuest() {
+    await run(async () => {
+      await api.request(`/matches/${match.id}/pregame/guests`, { method: 'POST', body: JSON.stringify({ name: guestName, position: guestPosition }) });
+      setGuestName('');
+    }, 'Convidado confirmado e adicionado às vagas disponíveis.');
+  }
+
+  async function drawTeams() {
+    await run(async () => {
+      await api.request(`/matches/${match.id}/pregame/draw`, { method: 'POST' });
+    }, 'Vinte participantes selecionados, reservas ordenados e times sorteados.');
+  }
+
+  const selected = data?.participants.filter((participant) => participant.status === 'SELECTED') ?? [];
+  const reserves = data?.participants.filter((participant) => participant.status === 'RESERVE') ?? [];
+  const outgoing = selected.find((participant) => participant.participantKey === outgoingKey) ?? null;
+  const compatibleReserves = outgoing ? reserves.filter((participant) => participant.position === outgoing.position) : [];
+
+  async function replaceWithReserve() {
+    if (!outgoingKey || !reserveKey) return;
+    await run(async () => {
+      await api.request(`/matches/${match.id}/pregame/replacements`, { method: 'POST', body: JSON.stringify({ outgoingKey, reserveKey }) });
+      setOutgoingKey('');
+      setReserveKey('');
+    }, 'Substituição concluída no mesmo time, sem novo sorteio.');
+  }
+
+  async function replaceWithGuest() {
+    if (!outgoing || replacementName.trim().length < 2) return;
+    await run(async () => {
+      await api.request(`/matches/${match.id}/pregame/replacements`, { method: 'POST', body: JSON.stringify({ outgoingKey: outgoing.participantKey, guest: { name: replacementName, position: outgoing.position } }) });
+      setOutgoingKey('');
+      setReplacementName('');
+    }, 'Convidado entrou no mesmo time e posição, sem novo sorteio.');
+  }
+
+  if (!data) return <div className="pregame-loading"><span className="app-loading-spinner" />{message && <p className="alert">{message}</p>}</div>;
+  const stateLabels: Record<PregamePayload['state'], string> = { CONFIRMING: 'Confirmação aberta', COMPLETING: 'Completando grupo', READY_TO_DRAW: 'Pronto para sorteio', DRAWN: 'Times sorteados', NO_QUORUM: 'Sem quórum' };
+
+  return <div className="pregame-panel">
+    <div className="pregame-summary">
+      <span><small>Status</small><b>{stateLabels[data.state]}</b></span>
+      <span><small>Vagas</small><b>{Math.min(data.eligibleCount, data.capacity)}/{data.capacity}</b></span>
+      <span><small>Clube</small><b>{data.confirmedCount}</b></span>
+      <span><small>Convidados</small><b>{data.guestCount}</b></span>
+      <span><small>Reservas</small><b>{reserves.length}</b></span>
+    </div>
+    {message && <button type="button" className="alert" onClick={() => setMessage('')}>{message}</button>}
+    {data.state === 'CONFIRMING' && <p className="muted">A confirmação fecha em {formatBrasiliaTime(data.confirmationCloseAt ?? '')}. Depois, convidados poderão completar as vagas.</p>}
+    {data.state === 'COMPLETING' && <section className="pregame-section"><div className="card-head"><div><h3>Completar grupo</h3><p className="muted">Faltam {data.missingCount} para atingir 20. A coordenação confirma convidados externos.</p></div></div><div className="pregame-guest-form"><input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do convidado" maxLength={120} /><select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button type="button" className="primary small" disabled={busy || guestName.trim().length < 2} onClick={() => void addGuest()}>Adicionar confirmado</button></div></section>}
+    {data.state === 'READY_TO_DRAW' && <section className="pregame-section pregame-draw-action"><div><h3>Lista pronta</h3><p className="muted">O sistema escolherá 20 participantes, ordenará os excedentes como reservas e dividirá duas equipes de 10 por posição.</p></div><button type="button" className="primary" disabled={busy} onClick={() => void drawTeams()}>Sortear times</button></section>}
+    {data.state === 'DRAWN' && <>
+      <div className="pregame-teams">{(['A', 'B'] as const).map((team) => <section className="pregame-team" key={team}><h3>{team === 'A' ? match.teamAName : match.teamBName}</h3>{selected.filter((participant) => participant.team === team).map((participant) => <span key={participant.participantKey}><b>{participant.name}</b><small>{positionLabel(participant.position)}</small></span>)}</section>)}</div>
+      <section className="pregame-section"><div className="card-head"><div><h3>Fila de reservas</h3><p className="muted">Ordem sorteada para substituições compatíveis.</p></div></div>{reserves.length ? <div className="pregame-reserves">{reserves.map((participant) => <span key={participant.participantKey}><b>#{participant.reserveOrder} {participant.name}</b><small>{positionLabel(participant.position)}</small></span>)}</div> : <p className="muted">Nenhum reserva disponível.</p>}</section>
+      <section className="pregame-section"><div className="card-head"><div><h3>Substituir ausência</h3><p className="muted">A vaga permanece no mesmo time e exige a mesma posição.</p></div></div><div className="pregame-replacement-form"><select value={outgoingKey} onChange={(event) => { setOutgoingKey(event.target.value); setReserveKey(''); }}><option value="">Quem saiu?</option>{selected.map((participant) => <option key={participant.participantKey} value={participant.participantKey}>{participant.name} · {positionLabel(participant.position)}</option>)}</select><select value={reserveKey} onChange={(event) => setReserveKey(event.target.value)} disabled={!outgoing}><option value="">Reserva compatível</option>{compatibleReserves.map((participant) => <option key={participant.participantKey} value={participant.participantKey}>#{participant.reserveOrder} {participant.name}</option>)}</select><button type="button" className="primary small" disabled={busy || !reserveKey} onClick={() => void replaceWithReserve()}>Usar reserva</button></div>{outgoing && <div className="pregame-guest-form"><input value={replacementName} onChange={(event) => setReplacementName(event.target.value)} placeholder={`Novo convidado · ${positionLabel(outgoing.position)}`} maxLength={120} /><button type="button" className="ghost small" disabled={busy || replacementName.trim().length < 2} onClick={() => void replaceWithGuest()}>Adicionar substituto externo</button></div>}</section>
+    </>}
+  </div>;
+}
+
+function ReadOnlyLineup({ match }: { match: MatchDetail }) {
+  if (match.lineupVisible === false) return <p className="alert">A escalação será liberada uma hora antes do jogo somente para participantes e reservas confirmados.</p>;
+  return <div className="pregame-teams readonly-lineup">{(['A', 'B'] as const).map((team) => <section className="pregame-team" key={team}><h3>{team === 'A' ? match.teamAName : match.teamBName}</h3>{match.players.filter((player) => player.team === team).sort(comparePlayersForPitchLayout).map((player) => <span key={player.userId}><b>{player.name}</b><small>{positionLabel(player.position ?? 'MC')}{player.startsOnBench ? ' · Banco' : ' · Titular'}</small></span>)}</section>)}</div>;
+}
+
 function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, standings, activeSeasonId, currentUserId, onReload, onAttendanceSaved, selectedMatch, setSelectedMatch, onOpenProfile }: { api: ApiClient; canCoordinate: boolean; users: User[]; matches: MatchListItem[]; rankings: RankingPayload; standings: Standing[]; activeSeasonId: string; currentUserId: string; onReload: () => Promise<void>; onAttendanceSaved: (matchId: string, previousDinnerPeople: number, saved: AttendanceSaveResult) => void; selectedMatch: MatchDetail | null; setSelectedMatch: (match: MatchDetail | null) => void; onOpenProfile: (userId: string) => void }) {
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
   const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
+  const [pregameMatch, setPregameMatch] = useState<MatchListItem | null>(null);
   const [countdownNow, setCountdownNow] = useState(Date.now());
   const [dismissedSheetMatchId, setDismissedSheetMatchId] = useState('');
   const sheetPromptCheckRef = useRef('');
@@ -1725,6 +1828,15 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
     const timer = window.setInterval(() => setCountdownNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!pregameMatch) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPregameMatch(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [pregameMatch]);
 
   async function openMatch(id: string) {
     try {
@@ -1829,6 +1941,13 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}
       {leaderBubbles.length > 0 && <div className="next-match-leader-strip">{leaderBubbles.map((item) => <button type="button" className={`next-match-leader-card ${item.accent}`} key={item.key} onClick={() => onOpenProfile(item.userId)} aria-label={`Abrir perfil de ${item.name}`}><div className="next-match-leader-value"><strong>{item.value}</strong><small>{item.detail}</small></div><div className="next-match-leader-copy"><span>{item.label}</span><strong>{item.name}</strong></div></button>)}</div>}
       {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
+      {nextMatch?.pregameState && nextMatch.status === 'DRAFT' && (
+        <div className="next-match-actions pregame-entry-actions">
+          {canCoordinate && <button type="button" className="primary small" onClick={() => setPregameMatch(nextMatch)}>Gerenciar pré-jogo</button>}
+          {!canCoordinate && nextMatch.pregameState === 'DRAWN' && nextMatch.myAttendanceStatus === 'JOGAR' && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && <button type="button" className="primary small" onClick={() => void openSheet(nextMatch.id)}>Ver escalação</button>}
+          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameState === 'DRAWN' ? 'Times definidos' : `${nextMatch.attendancePlaying ?? 0}/20 confirmados`}</span>
+        </div>
+      )}
       {canCoordinate && nextMatch?.status === 'DRAFT' && dismissedSheetMatchId === nextMatch.id && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && (
         <div className="next-match-actions">
           <button type="button" className="ghost" onClick={() => void openSheet(nextMatch.id)}>Reabrir súmula</button>
@@ -1859,6 +1978,14 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
           </section>
         </div>
       )}
+      {pregameMatch && (
+        <div className="modal match-modal" onMouseDown={(event) => { if (event.target === event.currentTarget) setPregameMatch(null); }}>
+          <section className="match-modal-card pregame-modal-card">
+            <div className="card-head"><div><h2>Pré-jogo · {pregameMatch.title}</h2><p className="muted">20 vagas, reservas e sorteio auditável</p></div><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setPregameMatch(null)}>X</button></div>
+            <PregamePanel api={api} match={pregameMatch} onChanged={onReload} />
+          </section>
+        </div>
+      )}
       {selectedSheetMatch && (
         <div className="modal match-modal">
           <section className="match-modal-card sheet-modal-card">
@@ -1869,7 +1996,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
               </div>
               <button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => { setDismissedSheetMatchId(selectedSheetMatch.id); setSelectedSheetMatch(null); }}>X</button>
             </div>
-            <OpenMatchSheetBoard
+            {canCoordinate ? <OpenMatchSheetBoard
               api={api}
               match={selectedSheetMatch}
               users={users}
@@ -1877,7 +2004,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
                 await openSheet(selectedSheetMatch.id);
                 await onReload();
               }}
-            />
+            /> : <ReadOnlyLineup match={selectedSheetMatch} />}
           </section>
         </div>
       )}
@@ -3583,7 +3710,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
   const [scheduledStart, setScheduledStart] = useState('20:00');
   const [scheduledEnd, setScheduledEnd] = useState('21:00');
   const [confirmationHours, setConfirmationHours] = useState(48);
-  const [confirmationCloseHours, setConfirmationCloseHours] = useState(2);
+  const [confirmationCloseHours, setConfirmationCloseHours] = useState(3);
   const [teamAName, setTeamAName] = useState('Time A');
   const [teamBName, setTeamBName] = useState('Time B');
   const [tableFilters, setTableFilters] = useState({ date: '', title: '', status: '' });
@@ -3634,7 +3761,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
     setTeamAName(match.teamAName);
     setTeamBName(match.teamBName);
     setConfirmationHours(match.confirmationOpensHoursBefore ?? 48);
-    setConfirmationCloseHours(match.confirmationClosesHoursBefore ?? 2);
+    setConfirmationCloseHours(match.confirmationClosesHoursBefore ?? 3);
     setMessage(`Editando ${match.title}. Ajuste abertura e fechamento conforme a regra do grupo e salve para recalcular a janela de confirmação.`);
   }
 
@@ -3897,8 +4024,8 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (creationStep === 'details') {
-      await advanceToPlayers();
+    if (title.trim().length < 2 || !date) {
+      setSaveStatus('Informe o tipo e a data do jogo antes de salvar.');
       return;
     }
     if (isRecurring && weekdayFromInputDate(date) !== recurringWeekday) {
@@ -3911,7 +4038,11 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
     }
     try {
       setSaveStatus(isRecurring ? 'Salvando jogo e gerando recorrência...' : 'Salvando jogo...');
-      await saveLineup();
+      const created = await api.request<{ id: string }>('/matches', {
+        method: 'POST',
+        body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: [], confirmationClosesHoursBefore: 3 })
+      });
+      setDraftMatchId(created.id);
       if (isRecurring) {
         const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', {
           method: 'POST',
@@ -3925,16 +4056,16 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
             scheduledStart: '20:00',
             scheduledEnd: '21:00',
             confirmationOpensHoursBefore: 48,
-            confirmationClosesHoursBefore: 2,
+            confirmationClosesHoursBefore: 3,
             teamAName,
             teamBName,
-            players: selectedPlayersPayload()
+            players: []
           })
         });
         const extraDuplicates = Math.max(0, result.skipped - 1);
         setSaveStatus(`Recorrência semanal configurada: ${result.generated} jogo(s) futuro(s) criado(s)${extraDuplicates ? ` e ${extraDuplicates} data(s) já existiam.` : '.'}`);
       }
-      await api.request(`/matches/${draftMatchId}/open-confirmation`, { method: 'POST' });
+      await api.request(`/matches/${created.id}/open-confirmation`, { method: 'POST' });
       setOpen(false);
       setDraftMatchId('');
       setPlayers([]);
@@ -3979,9 +4110,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
     return <svg className={className} viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5 12 3l5 2.5 1 7.5-6 7-6-7 1-7.5Z" fill={fill} stroke={stroke} strokeWidth="1.7" strokeLinejoin="round" /><path d="M9 7.5h6M9.5 10.5h5M10 13.5h4" fill="none" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" /></svg>;
   }
 
-  const rosterRows = [...players].sort((left, right) => Number(left.drawOrder || 0) - Number(right.drawOrder || 0) || left.name.localeCompare(right.name, 'pt-BR'));
-  const selectedLabel = `${rosterRows.length} suplente${rosterRows.length === 1 ? '' : 's'}`;
-
   return (
     <>
       {!hideTrigger && <button className="primary small" onClick={openCreation}>Criar jogo</button>}
@@ -3999,7 +4127,6 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
             {saveStatus && <p className="status-line draw-status-line">{saveStatus}</p>}
 
             <div className="draw-sheet-grid is-single-step">
-              {creationStep === 'details' && (
               <section className="draw-sheet-card draw-details-card">
                 <div className="draw-card-head">
                   <div className="draw-title-row">
@@ -4071,73 +4198,14 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   </div>
                 )}
 
-                <p className="draw-card-note">Todos os atletas ativos serão convidados automaticamente. Na próxima etapa, você poderá incluir um suplente externo se necessário.</p>
+                <p className="draw-card-note">Todos os atletas ativos poderão confirmar. Depois do fechamento em T-3h, a coordenação completa as 20 vagas com convidados pelo painel Pré-jogo.</p>
               </section>
-              )}
-
-              {creationStep === 'players' && (
-              <section className="draw-sheet-side">
-                <div className="draw-sheet-card draw-search-card">
-                  <div className="draw-card-head">
-                    <div className="draw-title-row">
-                      <DrawIcon kind="playerPlus" className="draw-icon" />
-                      <h3>Suplente externo (opcional)</h3>
-                    </div>
-                  </div>
-
-                  <div className="draw-guest-builder">
-                    <div className="draw-guest-head">
-                      <strong>Adicionar pessoa de fora do Ferino</strong>
-                    </div>
-                    <div className="draw-guest-grid">
-                      <label className="field-shell">
-                        <span>Nome</span>
-                        <input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do convidado" maxLength={120} />
-                      </label>
-                      <label className="field-shell">
-                        <span>Posição obrigatória</span>
-                        <select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>
-                          {athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                        </select>
-                      </label>
-                      <button type="button" className="ghost draw-guest-add-button" onClick={addGuestParticipant} disabled={guestName.trim().length < 2}>Adicionar suplente</button>
-                    </div>
-                  </div>
-
-                  <div className="draw-selected-head">
-                    <strong><DrawIcon kind="roster" className="draw-icon draw-icon-inline" /> Suplentes externos: {selectedLabel}</strong>
-                  </div>
-
-                  {rosterRows.length > 0 && (
-                    <div className={`draw-selected-list ${rosterRows.length > 6 ? 'is-split' : ''}`}>
-                      {(rosterRows.length > 6
-                        ? [rosterRows.slice(0, Math.ceil(rosterRows.length / 2)), rosterRows.slice(Math.ceil(rosterRows.length / 2))]
-                        : [rosterRows]
-                      ).map((column, columnIndex) => (
-                        <div className="draw-selected-column" key={`convocados-coluna-${columnIndex + 1}`}>
-                          {column.map((player) => (
-                            <div className={`draw-selected-player draw-selected-line ${player.team === 'PRESENTE_SEM_JOGAR' ? 'is-pending' : ''}`} key={player.userId}>
-                              <div className="draw-selected-meta">
-                                <span className="draw-selected-name">{player.name.trim().split(/\s+/)[0] ?? player.name}</span>
-                                <span className="draw-selected-position">{positionLabel(player.position)}</span>
-                              </div>
-                              <span className="draw-selected-badge is-guest">Suplente</span>
-                              <button type="button" className="ghost draw-inline-remove" aria-label={`Remover ${player.name}`} title="Remover" onClick={() => removePlayer(player.userId)}>X</button>
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
-              )}
             </div>
 
             <div className="draw-sheet-footer">
-              <button type="button" className="ghost" onClick={() => creationStep === 'players' ? setCreationStep('details') : void cancelCreation()}>{creationStep === 'players' ? 'Voltar' : 'Cancelar'}</button>
+              <button type="button" className="ghost" onClick={() => void cancelCreation()}>Cancelar</button>
               <div className="draw-footer-save">
-                <button className="primary">{creationStep === 'details' ? 'PRÓXIMO' : isRecurring ? 'SALVAR JOGO + RECORRÊNCIA' : 'SALVAR JOGO'}</button>
+                <button className="primary">{isRecurring ? 'SALVAR JOGO + RECORRÊNCIA' : 'SALVAR JOGO'}</button>
               </div>
             </div>
           </form>

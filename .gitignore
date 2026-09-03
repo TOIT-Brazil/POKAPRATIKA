@@ -11,5 +11,6 @@ coverage/
 .vscode/
 PROJECT_CONTEXT.md
 docs/
-migrations/
+migrations/*
+!migrations/19_fluxo_pre_jogo_20_vagas.sql
 POKAPRATIKA.code-workspace

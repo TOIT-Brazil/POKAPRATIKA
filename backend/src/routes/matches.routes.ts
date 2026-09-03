@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createHash, randomBytes } from 'node:crypto';
 import type { QueryResult, QueryResultRow } from 'pg';
 import { z } from 'zod';
 import { pool, query } from '../db/pool';
@@ -14,6 +15,8 @@ const guestIdentityPattern = /^guest:[a-z0-9-]{6,}$/i;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const guestPlayersMigrationFile = 'migrations/17_convidados_temporarios_sumula.sql';
 const matchFieldLayoutMigrationFile = 'migrations/18_posicionamento_manual_sumula.sql';
+const pregameMigrationFile = 'migrations/19_fluxo_pre_jogo_20_vagas.sql';
+const pregameCapacity = 20;
 
 const playerSchema = z.object({
   userId: z.string().min(1),
@@ -66,7 +69,7 @@ const createMatchBaseSchema = z.object({
   scheduledStart: timeSchema.default('20:00'),
   scheduledEnd: timeSchema.default('21:00'),
   confirmationOpensHoursBefore: z.number().int().min(1).max(336).default(48),
-  confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(2),
+  confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(3),
   confirmationOpenAt: z.string().datetime().nullable().optional(),
   players: z.array(playerSchema).default([])
 });
@@ -78,6 +81,8 @@ const scoreSchema = z.object({ teamAScore: z.number().int().min(0), teamBScore: 
 const correctionSchema = scoreSchema.extend({ reason: z.string().min(5).max(500) });
 const draftSchema = scoreSchema.extend({ clockSeconds: z.number().int().min(0).max(10800).default(0), clockRunning: z.boolean().default(false) });
 const attendanceSchema = z.object({ responseStatus: z.enum(['JOGAR', 'PRESENTE_SEM_JOGAR', 'AUSENTE']), dinnerConfirmed: z.boolean().default(false), guestCount: z.number().int().min(0).max(20).default(0), notes: z.string().max(300).nullable().optional() });
+const pregameGuestSchema = z.object({ name: z.string().trim().min(2).max(120), position: athletePositionSchema });
+const pregameReplacementSchema = z.object({ outgoingKey: z.string().min(1), reserveKey: z.string().min(1).optional(), guest: pregameGuestSchema.optional() }).refine((body) => Boolean(body.reserveKey) !== Boolean(body.guest), { message: 'Informe um reserva existente ou um novo convidado.' });
 const idParamSchema = z.object({ id: z.string().uuid() });
 const manualScheduleBaseSchema = z.object({
   seasonId: z.string().uuid().nullable().optional(),
@@ -89,7 +94,7 @@ const manualScheduleBaseSchema = z.object({
   scheduledStart: timeSchema.default('20:00'),
   scheduledEnd: timeSchema.default('21:00'),
   confirmationOpensHoursBefore: z.number().int().min(1).max(336).default(48),
-  confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(2)
+  confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(3)
 });
 const manualScheduleSchema = manualScheduleBaseSchema.refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
 const recurringScheduleSchema = manualScheduleBaseSchema.omit({ matchDate: true }).extend({
@@ -103,6 +108,14 @@ const schedulePatchSchema = manualScheduleBaseSchema.omit({ seasonId: true }).pa
 type MatchPlayerInput = z.infer<typeof playerSchema>;
 type MatchEventInput = z.infer<typeof eventSchema>;
 type QueryExecutor = <T extends QueryResultRow = QueryResultRow>(text: string, params?: unknown[]) => Promise<QueryResult<T>>;
+type PregameParticipant = {
+  participantKey: string;
+  userId: string | null;
+  guestKey: string | null;
+  name: string;
+  position: z.infer<typeof athletePositionSchema>;
+  source: 'CLUB' | 'GUEST';
+};
 
 function positionSequenceOrder(position: string | null | undefined): number {
   if (position === 'GO') return 0;
@@ -113,6 +126,61 @@ function positionSequenceOrder(position: string | null | undefined): number {
   if (position === 'MC') return 5;
   if (position === 'MA') return 6;
   return 7;
+}
+
+function deterministicOrder(seed: string, scope: string, participantKey: string): string {
+  return createHash('sha256').update(`${seed}:${scope}:${participantKey}`).digest('hex');
+}
+
+function drawPregameParticipants(participants: PregameParticipant[], seed: string): { selected: Array<PregameParticipant & { team: 'A' | 'B'; selectionOrder: number; startsOnBench: boolean; roleInMatch: 'GOLEIRO' | 'LINHA' }>; reserves: PregameParticipant[] } {
+  if (participants.length < pregameCapacity) throw httpError(409, `O sorteio exige exatamente ${pregameCapacity} participantes confirmados.`);
+  const ordered = [...participants].sort((left, right) => deterministicOrder(seed, 'selection', left.participantKey).localeCompare(deterministicOrder(seed, 'selection', right.participantKey)));
+  const goalkeepers = ordered.filter((participant) => participant.position === 'GO');
+
+  const selected = ordered.slice(0, pregameCapacity);
+  const selectedKeys = new Set(selected.map((participant) => participant.participantKey));
+  for (const goalkeeper of goalkeepers) {
+    if (selected.filter((participant) => participant.position === 'GO').length >= 2) break;
+    let replaceIndex = -1;
+    for (let index = selected.length - 1; index >= 0; index -= 1) {
+      if (selected[index].position !== 'GO') {
+        replaceIndex = index;
+        break;
+      }
+    }
+    if (replaceIndex < 0) break;
+    selectedKeys.delete(selected[replaceIndex].participantKey);
+    selected[replaceIndex] = goalkeeper;
+    selectedKeys.add(goalkeeper.participantKey);
+  }
+
+  const byPosition = [...selected].sort((left, right) => {
+    const positionDifference = positionSequenceOrder(left.position) - positionSequenceOrder(right.position);
+    return positionDifference || deterministicOrder(seed, 'teams', left.participantKey).localeCompare(deterministicOrder(seed, 'teams', right.participantKey));
+  });
+  const teamCounts = { A: 0, B: 0 };
+  const goalkeeperCounts = { A: 0, B: 0 };
+  const assigned = byPosition.map((participant) => {
+    let team: 'A' | 'B';
+    if (participant.position === 'GO' && goalkeeperCounts.A === 0) team = 'A';
+    else if (participant.position === 'GO' && goalkeeperCounts.B === 0) team = 'B';
+    else team = teamCounts.A <= teamCounts.B ? 'A' : 'B';
+    teamCounts[team] += 1;
+    const roleInMatch = participant.position === 'GO' && goalkeeperCounts[team] === 0 ? 'GOLEIRO' as const : 'LINHA' as const;
+    if (roleInMatch === 'GOLEIRO') goalkeeperCounts[team] += 1;
+    return { ...participant, team, roleInMatch };
+  });
+  for (const team of ['A', 'B'] as const) {
+    if (assigned.some((participant) => participant.team === team && participant.roleInMatch === 'GOLEIRO')) continue;
+    const fallbackGoalkeeper = assigned.find((participant) => participant.team === team);
+    if (fallbackGoalkeeper) fallbackGoalkeeper.roleInMatch = 'GOLEIRO';
+  }
+  const teamOrder = { A: 0, B: 0 };
+  const finalized = assigned.map((participant, index) => {
+    teamOrder[participant.team] += 1;
+    return { ...participant, selectionOrder: index + 1, startsOnBench: teamOrder[participant.team] > 7 };
+  });
+  return { selected: finalized, reserves: ordered.filter((participant) => !selectedKeys.has(participant.participantKey)) };
 }
 
 function buildConfirmationOpenAt(matchDate: string, scheduledStart: string, hoursBefore: number): string {
@@ -209,6 +277,17 @@ async function tableExists(tableName: string): Promise<boolean> {
     [tableName]
   );
   return result.rows[0]?.exists === true;
+}
+
+async function ensurePregameAvailable(): Promise<void> {
+  if (!await tableExists('match_pregame_participants')) {
+    throw httpError(409, `Fluxo pré-jogo indisponível: execute ${pregameMigrationFile} manualmente no PostgreSQL da Railway.`);
+  }
+}
+
+async function activatePregame(execute: QueryExecutor, matchId: string, matchColumns: Set<string>): Promise<void> {
+  if (!matchColumns.has('pregame_state') || !matchColumns.has('player_capacity')) return;
+  await execute("UPDATE matches SET pregame_state = 'CONFIRMING', player_capacity = $2 WHERE id = $1", [matchId, pregameCapacity]);
 }
 
 async function lockScheduleSlot(execute: QueryExecutor, seasonId: string | null | undefined, matchDate: string, scheduledStart: string): Promise<void> {
@@ -712,10 +791,13 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
     matchColumns.has('confirmation_open_at') ? 'm.confirmation_open_at AS "confirmationOpenAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenAt"',
     matchColumns.has('confirmation_opens_hours_before') ? 'm.confirmation_opens_hours_before AS "confirmationOpensHoursBefore"' : '48::INTEGER AS "confirmationOpensHoursBefore"',
     matchColumns.has('confirmation_close_at') ? 'm.confirmation_close_at AS "confirmationCloseAt"' : 'NULL::TIMESTAMPTZ AS "confirmationCloseAt"',
-    matchColumns.has('confirmation_closes_hours_before') ? 'm.confirmation_closes_hours_before AS "confirmationClosesHoursBefore"' : '2::INTEGER AS "confirmationClosesHoursBefore"',
+    matchColumns.has('confirmation_closes_hours_before') ? 'm.confirmation_closes_hours_before AS "confirmationClosesHoursBefore"' : '3::INTEGER AS "confirmationClosesHoursBefore"',
     matchColumns.has('confirmation_opened_at') ? 'm.confirmation_opened_at AS "confirmationOpenedAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenedAt"',
     matchColumns.has('schedule_source') ? 'm.schedule_source AS "scheduleSource"' : '\'MANUAL\' AS "scheduleSource"',
-    `${confirmationOpenExpression} AS "confirmationOpen"`
+    `${confirmationOpenExpression} AS "confirmationOpen"`,
+    matchColumns.has('pregame_state') ? 'm.pregame_state AS "pregameState"' : 'NULL::TEXT AS "pregameState"',
+    matchColumns.has('player_capacity') ? 'm.player_capacity AS "playerCapacity"' : 'NULL::INTEGER AS "playerCapacity"',
+    matchColumns.has('drawn_at') ? 'm.drawn_at AS "drawnAt"' : 'NULL::TIMESTAMPTZ AS "drawnAt"'
   ];
   const attendanceJoin = hasAttendance
     ? `LEFT JOIN LATERAL (
@@ -767,7 +849,7 @@ matchesRouter.get('/confirmation-prompt', asyncHandler(async (req: AuthRequest, 
     matchColumns.has('confirmation_open_at') ? 'm.confirmation_open_at AS "confirmationOpenAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenAt"',
     matchColumns.has('confirmation_opens_hours_before') ? 'm.confirmation_opens_hours_before AS "confirmationOpensHoursBefore"' : '48::INTEGER AS "confirmationOpensHoursBefore"',
     matchColumns.has('confirmation_close_at') ? 'm.confirmation_close_at AS "confirmationCloseAt"' : 'NULL::TIMESTAMPTZ AS "confirmationCloseAt"',
-    matchColumns.has('confirmation_closes_hours_before') ? 'm.confirmation_closes_hours_before AS "confirmationClosesHoursBefore"' : '2::INTEGER AS "confirmationClosesHoursBefore"',
+    matchColumns.has('confirmation_closes_hours_before') ? 'm.confirmation_closes_hours_before AS "confirmationClosesHoursBefore"' : '3::INTEGER AS "confirmationClosesHoursBefore"',
     matchColumns.has('confirmation_opened_at') ? 'm.confirmation_opened_at AS "confirmationOpenedAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenedAt"',
     matchColumns.has('schedule_source') ? 'm.schedule_source AS "scheduleSource"' : '\'MANUAL\' AS "scheduleSource"',
     `(m.status = 'DRAFT' AND ${openCondition}) AS "confirmationOpen"`
@@ -828,7 +910,7 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
   const scheduledStart = body.scheduledStart ?? '20:00';
   const scheduledEnd = body.scheduledEnd ?? '21:00';
   const confirmationOpensHoursBefore = body.confirmationOpensHoursBefore ?? 48;
-  const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? 2;
+  const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? 3;
   const confirmationOpenAt = body.confirmationOpenAt ?? buildConfirmationOpenAt(body.matchDate, scheduledStart, confirmationOpensHoursBefore);
   const confirmationCloseAt = buildConfirmationCloseAt(body.matchDate, scheduledStart, confirmationClosesHoursBefore);
   ensureConfirmationWindowOrder(confirmationOpenAt, confirmationCloseAt);
@@ -859,6 +941,7 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
     for (const player of players) {
       await insertMatchPlayerRecord(client.query.bind(client), match.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
     }
+    await activatePregame(client.query.bind(client), match.rows[0].id, matchColumns);
     await client.query('COMMIT');
     res.status(201).json({ id: match.rows[0].id });
   } catch (err) {
@@ -881,14 +964,30 @@ matchesRouter.patch('/:id/lineup', requireRoles('ADMIN', 'COORDENADOR'), asyncHa
   ensureFieldLayoutSupport(players, fieldLayoutEnabled);
   await validateConfirmedPlayersForTeams(req.params.id, players);
   await validateLineupAgainstEvents(req.params.id, players);
+  const matchColumns = await getMatchColumns();
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const match = await client.query<{ status: string }>('SELECT status FROM matches WHERE id = $1 FOR UPDATE', [req.params.id]);
+    const match = await client.query<{ status: string; pregameState: string | null }>(
+      `SELECT status, ${matchColumns.has('pregame_state') ? 'pregame_state' : 'NULL::TEXT'} AS "pregameState" FROM matches WHERE id = $1 FOR UPDATE`,
+      [req.params.id]
+    );
     if (!match.rowCount) throw httpError(404, 'Súmula não encontrada.');
     if (match.rows[0].status === 'CONFIRMED') throw httpError(409, 'Súmula confirmada não permite edição direta da escalação. Use correção auditada.');
     if (match.rows[0].status === 'CANCELLED') throw httpError(409, 'Súmula cancelada não permite edição da escalação.');
+    if (match.rows[0].pregameState === 'DRAWN') {
+      const fixedTeams = await client.query<{ participantKey: string; team: 'A' | 'B' }>(
+        `SELECT participant_key AS "participantKey", team
+         FROM match_pregame_participants
+         WHERE match_id = $1 AND participant_status = 'SELECTED'`,
+        [req.params.id]
+      );
+      const submittedTeams = new Map(players.filter((player) => player.team === 'A' || player.team === 'B').map((player) => [player.userId, player.team]));
+      if (submittedTeams.size !== fixedTeams.rows.length || fixedTeams.rows.some((participant) => submittedTeams.get(participant.participantKey) !== participant.team)) {
+        throw httpError(409, 'Os times foram congelados pelo sorteio. Use a substituição do pré-jogo para trocar ausências sem ressorteio.');
+      }
+    }
 
     await client.query(
       `UPDATE matches
@@ -924,7 +1023,7 @@ matchesRouter.post('/schedule/manual', requireRoles('ADMIN', 'COORDENADOR'), asy
   const scheduledStart = body.scheduledStart ?? '20:00';
   const scheduledEnd = body.scheduledEnd ?? '21:00';
   const confirmationOpensHoursBefore = body.confirmationOpensHoursBefore ?? 48;
-  const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? 2;
+  const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? 3;
   const confirmationOpenAt = buildConfirmationOpenAt(body.matchDate, scheduledStart, confirmationOpensHoursBefore);
   const confirmationCloseAt = buildConfirmationCloseAt(body.matchDate, scheduledStart, confirmationClosesHoursBefore);
   ensureConfirmationWindowOrder(confirmationOpenAt, confirmationCloseAt);
@@ -948,6 +1047,7 @@ matchesRouter.post('/schedule/manual', requireRoles('ADMIN', 'COORDENADOR'), asy
     for (const player of players) {
       await insertMatchPlayerRecord(client.query.bind(client), result.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
     }
+    await activatePregame(client.query.bind(client), result.rows[0].id, await getMatchColumns());
     await client.query('COMMIT');
     res.status(201).json({ id: result.rows[0].id, confirmationOpenAt, confirmationCloseAt });
   } catch (err) {
@@ -972,7 +1072,7 @@ matchesRouter.post('/schedule/recurring', requireRoles('ADMIN', 'COORDENADOR'), 
   const scheduledStart = body.scheduledStart ?? '20:00';
   const scheduledEnd = body.scheduledEnd ?? '21:00';
   const confirmationOpensHoursBefore = body.confirmationOpensHoursBefore ?? 48;
-  const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? 2;
+  const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? 3;
   const start = new Date(`${body.startDate}T12:00:00-03:00`);
   const end = new Date(`${body.endDate}T12:00:00-03:00`);
   if ((end.getTime() - start.getTime()) / 86400000 > 370) throw httpError(400, 'Gere no máximo 12 meses de jogos por vez.');
@@ -1010,6 +1110,7 @@ matchesRouter.post('/schedule/recurring', requireRoles('ADMIN', 'COORDENADOR'), 
       for (const player of players) {
         await insertMatchPlayerRecord(client.query.bind(client), generatedMatch.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
       }
+      await activatePregame(client.query.bind(client), generatedMatch.rows[0].id, await getMatchColumns());
       generated += 1;
     }
     await client.query('COMMIT');
@@ -1037,7 +1138,7 @@ matchesRouter.patch('/:id/schedule', requireRoles('ADMIN', 'COORDENADOR'), async
     const scheduledEnd = body.scheduledEnd ?? current.rows[0].scheduledEnd.slice(0, 5);
     if (scheduledEnd <= scheduledStart) throw httpError(400, 'O horário final precisa ser maior que o início.');
     const confirmationOpensHoursBefore = body.confirmationOpensHoursBefore ?? current.rows[0].confirmationOpensHoursBefore ?? 48;
-    const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? current.rows[0].confirmationClosesHoursBefore ?? 2;
+    const confirmationClosesHoursBefore = body.confirmationClosesHoursBefore ?? current.rows[0].confirmationClosesHoursBefore ?? 3;
     if (confirmationOpensHoursBefore <= confirmationClosesHoursBefore) throw httpError(400, 'A confirmação precisa abrir antes de fechar.');
     await lockScheduleSlot(client.query.bind(client), current.rows[0].seasonId, matchDate, scheduledStart);
     if (await findScheduleConflict(client.query.bind(client), current.rows[0].seasonId, matchDate, scheduledStart, params.id)) {
@@ -1103,7 +1204,282 @@ matchesRouter.post('/:id/open-confirmation', requireRoles('ADMIN', 'COORDENADOR'
   res.json(result.rows[0]);
 }));
 
-matchesRouter.get('/:id', asyncHandler(async (req, res) => {
+matchesRouter.get('/:id/pregame', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
+  const params = validate(idParamSchema, req.params);
+  await ensurePregameAvailable();
+  const match = await query<{
+    id: string;
+    status: string;
+    pregameState: string | null;
+    playerCapacity: number | null;
+    confirmationCloseAt: string | null;
+    drawnAt: string | null;
+  }>(
+    `SELECT id, status, pregame_state AS "pregameState", player_capacity AS "playerCapacity",
+      confirmation_close_at AS "confirmationCloseAt", drawn_at AS "drawnAt"
+     FROM matches
+     WHERE id = $1`,
+    [params.id]
+  );
+  if (!match.rowCount) throw httpError(404, 'Partida não encontrada.');
+  if (!match.rows[0].pregameState) throw httpError(409, 'Esta partida pertence ao fluxo legado de escalação.');
+
+  const club = await query<{
+    participantKey: string;
+    userId: string;
+    name: string;
+    position: z.infer<typeof athletePositionSchema>;
+    updatedAt: string;
+  }>(
+    `SELECT u.id::TEXT AS "participantKey", u.id AS "userId", u.name,
+      CASE WHEN u.position IN ('GO', 'ZG', 'LD', 'LE', 'MD', 'MC', 'MA', 'AT') THEN u.position ELSE 'MC' END AS position,
+      mar.updated_at AS "updatedAt"
+     FROM match_attendance_responses mar
+     JOIN users u ON u.id = mar.user_id AND u.active = TRUE
+     WHERE mar.match_id = $1 AND mar.response_status = 'JOGAR'
+     ORDER BY mar.updated_at ASC, u.name ASC`,
+    [params.id]
+  );
+  const participants = await query(
+    `SELECT participant_key AS "participantKey", user_id AS "userId", guest_key AS "guestKey", name_snapshot AS name,
+      position, source, participant_status AS status, selection_order AS "selectionOrder", reserve_order AS "reserveOrder", team,
+      replaced_by_key AS "replacedByKey"
+     FROM match_pregame_participants
+     WHERE match_id = $1
+     ORDER BY selection_order NULLS LAST, reserve_order NULLS LAST, created_at ASC`,
+    [params.id]
+  );
+  const guestCount = participants.rows.filter((participant: any) => participant.source === 'GUEST' && participant.status !== 'REPLACED').length;
+  const confirmedCount = club.rowCount ?? 0;
+  const totalEligible = confirmedCount + (match.rows[0].drawnAt ? 0 : guestCount);
+  const confirmationClosed = Boolean(match.rows[0].confirmationCloseAt && Date.now() >= new Date(match.rows[0].confirmationCloseAt).getTime());
+  const computedState = match.rows[0].drawnAt
+    ? 'DRAWN'
+    : !confirmationClosed
+      ? 'CONFIRMING'
+      : totalEligible >= pregameCapacity
+        ? 'READY_TO_DRAW'
+        : 'COMPLETING';
+  res.json({
+    state: computedState,
+    capacity: match.rows[0].playerCapacity ?? pregameCapacity,
+    confirmationCloseAt: match.rows[0].confirmationCloseAt,
+    drawnAt: match.rows[0].drawnAt,
+    clubConfirmed: club.rows,
+    participants: participants.rows,
+    confirmedCount,
+    guestCount,
+    eligibleCount: match.rows[0].drawnAt ? participants.rows.filter((participant: any) => participant.status === 'SELECTED' || participant.status === 'RESERVE').length : totalEligible,
+    missingCount: Math.max(0, pregameCapacity - totalEligible)
+  });
+}));
+
+matchesRouter.post('/:id/pregame/guests', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
+  const params = validate(idParamSchema, req.params);
+  const body = validate(pregameGuestSchema, req.body);
+  await ensurePregameAvailable();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const match = await client.query<{ status: string; pregameState: string | null }>(
+      `SELECT status, pregame_state AS "pregameState"
+       FROM matches
+       WHERE id = $1 AND clock_timestamp() >= confirmation_close_at
+       FOR UPDATE`,
+      [params.id]
+    );
+    if (!match.rowCount) throw httpError(409, 'Convidados só podem ser adicionados depois do fechamento da confirmação em T-3h.');
+    if (match.rows[0].status !== 'DRAFT' || match.rows[0].pregameState === 'DRAWN') throw httpError(409, 'A lista desta partida não aceita novos convidados.');
+    const count = await client.query<{ total: number }>(
+      `SELECT (
+        SELECT count(*) FROM match_attendance_responses WHERE match_id = $1 AND response_status = 'JOGAR'
+       ) + (
+        SELECT count(*) FROM match_pregame_participants WHERE match_id = $1 AND source = 'GUEST' AND participant_status <> 'REPLACED'
+       ) AS total`,
+      [params.id]
+    );
+    if (Number(count.rows[0].total) >= pregameCapacity) throw httpError(409, 'As 20 vagas já estão preenchidas; convidados não podem retirar vagas de atletas do clube.');
+    const guestKey = `guest:${randomBytes(12).toString('hex')}`;
+    await client.query(
+      `INSERT INTO match_pregame_participants (match_id, participant_key, guest_key, name_snapshot, position, source, participant_status, created_by)
+       VALUES ($1, $2, $2, $3, $4, 'GUEST', 'ELIGIBLE', $5)`,
+      [params.id, guestKey, body.name, body.position, req.user?.id]
+    );
+    await client.query(
+      `UPDATE matches
+       SET pregame_state = CASE WHEN $2 >= player_capacity THEN 'READY_TO_DRAW' ELSE 'COMPLETING' END,
+           roster_closed_at = COALESCE(roster_closed_at, now()), roster_closed_by = COALESCE(roster_closed_by, $3), updated_at = now()
+       WHERE id = $1`,
+      [params.id, Number(count.rows[0].total) + 1, req.user?.id]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ guestKey });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}));
+
+matchesRouter.post('/:id/pregame/draw', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
+  const params = validate(idParamSchema, req.params);
+  await ensurePregameAvailable();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const match = await client.query<{ status: string; pregameState: string | null }>(
+      `SELECT status, pregame_state AS "pregameState"
+       FROM matches
+       WHERE id = $1 AND clock_timestamp() >= confirmation_close_at
+       FOR UPDATE`,
+      [params.id]
+    );
+    if (!match.rowCount) throw httpError(409, 'O sorteio só fica disponível depois do fechamento da confirmação em T-3h.');
+    if (match.rows[0].status !== 'DRAFT') throw httpError(409, 'Somente partidas em rascunho podem ser sorteadas.');
+    if (match.rows[0].pregameState === 'DRAWN') throw httpError(409, 'Os times desta partida já foram sorteados.');
+
+    const club = await client.query<PregameParticipant>(
+      `SELECT u.id::TEXT AS "participantKey", u.id AS "userId", NULL::TEXT AS "guestKey", u.name,
+        CASE WHEN u.position IN ('GO', 'ZG', 'LD', 'LE', 'MD', 'MC', 'MA', 'AT') THEN u.position ELSE 'MC' END AS position,
+        'CLUB'::TEXT AS source
+       FROM match_attendance_responses mar
+       JOIN users u ON u.id = mar.user_id AND u.active = TRUE
+       WHERE mar.match_id = $1 AND mar.response_status = 'JOGAR'`,
+      [params.id]
+    );
+    const guests = await client.query<PregameParticipant>(
+      `SELECT participant_key AS "participantKey", NULL::UUID AS "userId", guest_key AS "guestKey", name_snapshot AS name, position, source
+       FROM match_pregame_participants
+       WHERE match_id = $1 AND source = 'GUEST' AND participant_status = 'ELIGIBLE'`,
+      [params.id]
+    );
+    const seed = randomBytes(24).toString('hex');
+    const draw = drawPregameParticipants([...club.rows, ...guests.rows], seed);
+    const matchPlayerColumns = await getTableColumns('match_players');
+    const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+    const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
+    ensureGuestPlayerSupport(draw.selected.map((participant) => ({ ...participant, userId: participant.participantKey, isGuest: participant.source === 'GUEST', roleInMatch: participant.roleInMatch, drawOrder: participant.selectionOrder, rotationOrder: participant.selectionOrder, present: true })), guestPlayerEnabled);
+
+    await client.query('DELETE FROM match_pregame_participants WHERE match_id = $1 AND source = \'CLUB\'', [params.id]);
+    await client.query("UPDATE match_pregame_participants SET participant_status = 'REPLACED', selection_order = NULL, reserve_order = NULL, team = NULL, updated_at = now() WHERE match_id = $1 AND source = 'GUEST'", [params.id]);
+    await client.query('DELETE FROM match_players WHERE match_id = $1', [params.id]);
+    for (const participant of draw.selected) {
+      await client.query(
+        `INSERT INTO match_pregame_participants (match_id, participant_key, user_id, guest_key, name_snapshot, position, source, participant_status, selection_order, team, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'SELECTED', $8, $9, $10)
+         ON CONFLICT (match_id, participant_key) DO UPDATE SET participant_status = 'SELECTED', selection_order = EXCLUDED.selection_order,
+           reserve_order = NULL, team = EXCLUDED.team, replaced_by_key = NULL, updated_at = now()`,
+        [params.id, participant.participantKey, participant.userId, participant.guestKey, participant.name, participant.position, participant.source, participant.selectionOrder, participant.team, req.user?.id]
+      );
+      await insertMatchPlayerRecord(client.query.bind(client), params.id, {
+        userId: participant.participantKey,
+        name: participant.name,
+        position: participant.position,
+        isGuest: participant.source === 'GUEST',
+        team: participant.team,
+        roleInMatch: participant.roleInMatch,
+        drawOrder: participant.selectionOrder,
+        rotationOrder: participant.selectionOrder,
+        startsOnBench: participant.startsOnBench,
+        present: true
+      }, guestPlayerEnabled, fieldLayoutEnabled);
+    }
+    for (const [index, participant] of draw.reserves.entries()) {
+      await client.query(
+        `INSERT INTO match_pregame_participants (match_id, participant_key, user_id, guest_key, name_snapshot, position, source, participant_status, reserve_order, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'RESERVE', $8, $9)
+         ON CONFLICT (match_id, participant_key) DO UPDATE SET participant_status = 'RESERVE', selection_order = NULL,
+           reserve_order = EXCLUDED.reserve_order, team = NULL, replaced_by_key = NULL, updated_at = now()`,
+        [params.id, participant.participantKey, participant.userId, participant.guestKey, participant.name, participant.position, participant.source, index + 1, req.user?.id]
+      );
+    }
+    await client.query(
+      `UPDATE matches SET pregame_state = 'DRAWN', player_capacity = $2, roster_closed_at = COALESCE(roster_closed_at, now()),
+       roster_closed_by = COALESCE(roster_closed_by, $3), drawn_at = now(), drawn_by = $3, draw_seed = $4, updated_at = now()
+       WHERE id = $1`,
+      [params.id, pregameCapacity, req.user?.id, seed]
+    );
+    await client.query('COMMIT');
+    res.json({ selectedCount: draw.selected.length, reserveCount: draw.reserves.length });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}));
+
+matchesRouter.post('/:id/pregame/replacements', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
+  const params = validate(idParamSchema, req.params);
+  const body = validate(pregameReplacementSchema, req.body);
+  await ensurePregameAvailable();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const match = await client.query<{ status: string; pregameState: string | null }>('SELECT status, pregame_state AS "pregameState" FROM matches WHERE id = $1 FOR UPDATE', [params.id]);
+    if (!match.rowCount || match.rows[0].status !== 'DRAFT' || match.rows[0].pregameState !== 'DRAWN') throw httpError(409, 'Substituições exigem uma partida em rascunho com times sorteados.');
+    const outgoing = await client.query<{ participantKey: string; selectionOrder: number; team: 'A' | 'B'; position: string }>(
+      `SELECT participant_key AS "participantKey", selection_order AS "selectionOrder", team, position
+       FROM match_pregame_participants WHERE match_id = $1 AND participant_key = $2 AND participant_status = 'SELECTED' FOR UPDATE`,
+      [params.id, body.outgoingKey]
+    );
+    if (!outgoing.rowCount) throw httpError(404, 'Participante titular não encontrado no sorteio.');
+    let replacement: PregameParticipant;
+    if (body.reserveKey) {
+      const reserve = await client.query<PregameParticipant>(
+        `SELECT participant_key AS "participantKey", user_id AS "userId", guest_key AS "guestKey", name_snapshot AS name, position, source
+         FROM match_pregame_participants WHERE match_id = $1 AND participant_key = $2 AND participant_status = 'RESERVE' FOR UPDATE`,
+        [params.id, body.reserveKey]
+      );
+      if (!reserve.rowCount) throw httpError(404, 'Reserva disponível não encontrado.');
+      replacement = reserve.rows[0];
+    } else {
+      const guestKey = `guest:${randomBytes(12).toString('hex')}`;
+      replacement = { participantKey: guestKey, userId: null, guestKey, name: body.guest!.name, position: body.guest!.position, source: 'GUEST' };
+    }
+    if (replacement.position !== outgoing.rows[0].position) throw httpError(409, 'A substituição sem ressorteio exige a mesma posição do participante ausente.');
+    const matchPlayerColumns = await getTableColumns('match_players');
+    const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
+    const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
+    ensureGuestPlayerSupport([{ userId: replacement.participantKey, isGuest: replacement.source === 'GUEST', name: replacement.name, position: replacement.position, team: outgoing.rows[0].team, roleInMatch: replacement.position === 'GO' ? 'GOLEIRO' : 'LINHA', startsOnBench: false, present: true }], guestPlayerEnabled);
+
+    await client.query(
+      `UPDATE match_pregame_participants SET participant_status = 'REPLACED', selection_order = NULL, team = NULL,
+       replaced_by_key = $3, updated_at = now() WHERE match_id = $1 AND participant_key = $2`,
+      [params.id, body.outgoingKey, replacement.participantKey]
+    );
+    await client.query(
+      `INSERT INTO match_pregame_participants (match_id, participant_key, user_id, guest_key, name_snapshot, position, source, participant_status, selection_order, team, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'SELECTED', $8, $9, $10)
+       ON CONFLICT (match_id, participant_key) DO UPDATE SET participant_status = 'SELECTED', selection_order = EXCLUDED.selection_order,
+         reserve_order = NULL, team = EXCLUDED.team, replaced_by_key = NULL, updated_at = now()`,
+      [params.id, replacement.participantKey, replacement.userId, replacement.guestKey, replacement.name, replacement.position, replacement.source, outgoing.rows[0].selectionOrder, outgoing.rows[0].team, req.user?.id]
+    );
+    await client.query(`DELETE FROM match_players WHERE match_id = $1 AND ${playerIdentitySql()} = $2`, [params.id, body.outgoingKey]);
+    await insertMatchPlayerRecord(client.query.bind(client), params.id, {
+      userId: replacement.participantKey,
+      name: replacement.name,
+      position: replacement.position,
+      isGuest: replacement.source === 'GUEST',
+      team: outgoing.rows[0].team,
+      roleInMatch: replacement.position === 'GO' ? 'GOLEIRO' : 'LINHA',
+      drawOrder: outgoing.rows[0].selectionOrder,
+      rotationOrder: outgoing.rows[0].selectionOrder,
+      startsOnBench: false,
+      present: true
+    }, guestPlayerEnabled, fieldLayoutEnabled);
+    await client.query('COMMIT');
+    res.json({ ok: true, replacementKey: replacement.participantKey });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}));
+
+matchesRouter.get('/:id', asyncHandler(async (req: AuthRequest, res) => {
   const params = validate(idParamSchema, req.params);
   const matchColumns = await getMatchColumns();
   const matchPlayerColumns = await getTableColumns('match_players');
@@ -1124,10 +1500,13 @@ matchesRouter.get('/:id', asyncHandler(async (req, res) => {
     matchColumns.has('confirmation_open_at') ? 'confirmation_open_at AS "confirmationOpenAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenAt"',
     matchColumns.has('confirmation_opens_hours_before') ? 'confirmation_opens_hours_before AS "confirmationOpensHoursBefore"' : '48::INTEGER AS "confirmationOpensHoursBefore"',
     matchColumns.has('confirmation_close_at') ? 'confirmation_close_at AS "confirmationCloseAt"' : 'NULL::TIMESTAMPTZ AS "confirmationCloseAt"',
-    matchColumns.has('confirmation_closes_hours_before') ? 'confirmation_closes_hours_before AS "confirmationClosesHoursBefore"' : '2::INTEGER AS "confirmationClosesHoursBefore"',
+    matchColumns.has('confirmation_closes_hours_before') ? 'confirmation_closes_hours_before AS "confirmationClosesHoursBefore"' : '3::INTEGER AS "confirmationClosesHoursBefore"',
     matchColumns.has('confirmation_opened_at') ? 'confirmation_opened_at AS "confirmationOpenedAt"' : 'NULL::TIMESTAMPTZ AS "confirmationOpenedAt"',
     matchColumns.has('schedule_source') ? 'schedule_source AS "scheduleSource"' : '\'MANUAL\' AS "scheduleSource"',
-    `${confirmationOpenExpression} AS "confirmationOpen"`
+    `${confirmationOpenExpression} AS "confirmationOpen"`,
+    matchColumns.has('pregame_state') ? 'pregame_state AS "pregameState"' : 'NULL::TEXT AS "pregameState"',
+    matchColumns.has('player_capacity') ? 'player_capacity AS "playerCapacity"' : 'NULL::INTEGER AS "playerCapacity"',
+    matchColumns.has('drawn_at') ? 'drawn_at AS "drawnAt"' : 'NULL::TIMESTAMPTZ AS "drawnAt"'
   ];
   const match = await query(
     `SELECT id, season_id AS "seasonId", match_date AS "matchDate", title, referee_name AS "refereeName", status,
@@ -1196,10 +1575,25 @@ matchesRouter.get('/:id', asyncHandler(async (req, res) => {
     : { rows: [] };
   const lineA = players.rows.filter((player: any) => player.team === 'A' && player.roleInMatch === 'LINHA' && player.rotationOrder && player.present !== false);
   const lineB = players.rows.filter((player: any) => player.team === 'B' && player.roleInMatch === 'LINHA' && player.rotationOrder && player.present !== false);
+  let lineupVisible = true;
+  if (match.rows[0].pregameState === 'DRAWN' && match.rows[0].status === 'DRAFT' && req.user?.role === 'ATLETA') {
+    const access = await query<{ allowed: boolean }>(
+      `SELECT
+        clock_timestamp() >= (((match_date + scheduled_start) AT TIME ZONE 'America/Sao_Paulo') - INTERVAL '1 hour')
+        AND EXISTS (
+          SELECT 1 FROM match_pregame_participants
+          WHERE match_id = matches.id AND user_id = $2 AND participant_status IN ('SELECTED', 'RESERVE')
+        ) AS allowed
+       FROM matches WHERE id = $1`,
+      [params.id, req.user.id]
+    );
+    lineupVisible = access.rows[0]?.allowed === true;
+  }
 
   res.json({
     ...match.rows[0],
-    players: players.rows,
+    lineupVisible,
+    players: lineupVisible ? players.rows : [],
     events: events.rows,
     corrections: corrections.rows,
     attendance: attendance.rows,
@@ -1255,8 +1649,8 @@ matchesRouter.put('/:id/attendance/me', asyncHandler(async (req: AuthRequest, re
 matchesRouter.post('/:id/start', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req, res) => {
   await normalizePersistedOperationalRoles(req.params.id);
   await validateLineupReady(req.params.id);
-  const result = await query("UPDATE matches SET status = 'RUNNING', started_at = clock_timestamp(), updated_at = clock_timestamp() WHERE id = $1 AND status = 'DRAFT' AND clock_timestamp() < ((match_date + scheduled_end) AT TIME ZONE 'America/Sao_Paulo') RETURNING id, status, started_at AS \"startedAt\"", [req.params.id]);
-  if (!result.rowCount) throw httpError(409, 'Somente súmulas em rascunho e dentro do horário da quadra podem ser iniciadas.');
+  const result = await query("UPDATE matches SET status = 'RUNNING', started_at = clock_timestamp(), updated_at = clock_timestamp() WHERE id = $1 AND status = 'DRAFT' AND clock_timestamp() >= ((match_date + scheduled_start) AT TIME ZONE 'America/Sao_Paulo') AND clock_timestamp() < ((match_date + scheduled_end) AT TIME ZONE 'America/Sao_Paulo') RETURNING id, status, started_at AS \"startedAt\"", [req.params.id]);
+  if (!result.rowCount) throw httpError(409, 'Somente súmulas em rascunho e dentro do horário agendado da quadra podem ser iniciadas.');
   res.json(result.rows[0]);
 }));
 
