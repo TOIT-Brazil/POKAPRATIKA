@@ -14,7 +14,7 @@ A leitura horizontal da linha ficava desequilibrada e dificultava associar rapid
 
 ## Correção
 
-Ampliar moderadamente Data, reduzir Jogo e repassar o espaço para Confirmação, preservando os 17% de Ações. A distribuição passa a 25%/31%/27%/17% nas telas maiores e 28%/27%/28%/17% no mobile.
+Ampliar Data, reduzir Jogo e repassar parte do espaço para Confirmação, preservando os 17% de Ações. Após refinamento visual, a distribuição vigente passa a 30%/26%/27%/17% nas telas maiores e 32%/22%/29%/17% no mobile.
 
 ## Prevenção
 
@@ -22,7 +22,7 @@ Mudanças na tabela compacta da Agenda devem manter 100% da grade e avaliar em c
 
 ## Resultado
 
-- Jogo começa mais distante de Data.
-- Confirmação começa mais próxima de Jogo.
+- Jogo começa 5 pontos percentuais mais à direita nas telas maiores e 4 pontos no mobile em relação ao primeiro ajuste.
+- Confirmação fica proporcionalmente mais próxima do conteúdo de Jogo do que Data.
 - Ações preserva sua largura e a grade continua totalizando 100%.
 - Typecheck, build de produção e diagnósticos do frontend foram concluídos sem erros.

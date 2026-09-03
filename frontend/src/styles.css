@@ -2030,9 +2030,9 @@ textarea {
 }
 
 .shell-page .schedule-table th:nth-child(1),
-.shell-page .schedule-table td:nth-child(1) { width: 25%; }
+.shell-page .schedule-table td:nth-child(1) { width: 30%; }
 .shell-page .schedule-table th:nth-child(2),
-.shell-page .schedule-table td:nth-child(2) { width: 31%; }
+.shell-page .schedule-table td:nth-child(2) { width: 26%; }
 .shell-page .schedule-table th:nth-child(3),
 .shell-page .schedule-table td:nth-child(3) { width: 27%; }
 .shell-page .schedule-table th:nth-child(4),
@@ -2173,11 +2173,11 @@ textarea {
   }
 
   .shell-page .schedule-table th:nth-child(1),
-  .shell-page .schedule-table td:nth-child(1) { width: 28%; }
+  .shell-page .schedule-table td:nth-child(1) { width: 32%; }
   .shell-page .schedule-table th:nth-child(2),
-  .shell-page .schedule-table td:nth-child(2) { width: 27%; }
+  .shell-page .schedule-table td:nth-child(2) { width: 22%; }
   .shell-page .schedule-table th:nth-child(3),
-  .shell-page .schedule-table td:nth-child(3) { width: 28%; }
+  .shell-page .schedule-table td:nth-child(3) { width: 29%; }
   .shell-page .schedule-table th:nth-child(4),
   .shell-page .schedule-table td:nth-child(4) { width: 17%; }
 
