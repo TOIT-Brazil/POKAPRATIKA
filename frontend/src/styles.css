@@ -6089,11 +6089,11 @@ select optgroup { color: var(--text); background: #10231f; }
   .payments-panel .payments-subtable th:nth-child(2),
   .payments-panel .payments-subtable td:nth-child(2) { width: 20%; }
   .payments-panel .payments-subtable th:nth-child(3),
-  .payments-panel .payments-subtable td:nth-child(3) { width: 16%; }
+  .payments-panel .payments-subtable td:nth-child(3) { width: 14%; }
   .payments-panel .payments-subtable th:nth-child(4),
-  .payments-panel .payments-subtable td:nth-child(4) { width: 14%; }
+  .payments-panel .payments-subtable td:nth-child(4) { width: 12%; }
   .payments-panel .payments-subtable th:nth-child(5),
-  .payments-panel .payments-subtable td:nth-child(5) { width: 14%; }
+  .payments-panel .payments-subtable td:nth-child(5) { width: 18%; overflow: visible; }
   .payments-panel .payments-subtable th:nth-child(6),
   .payments-panel .payments-subtable td:nth-child(6) { width: 17%; }
 
@@ -6107,6 +6107,15 @@ select optgroup { color: var(--text); background: #10231f; }
     padding: 4px 1px;
     font-size: .5rem;
     white-space: normal;
+  }
+
+  .payments-panel .payments-subtable td:nth-child(5) .status {
+    display: inline-flex;
+    max-width: 100%;
+    padding: 2px 3px;
+    font-size: .5rem;
+    line-height: 1;
+    white-space: nowrap !important;
   }
 
   .payments-panel .cash-table th:nth-child(1),

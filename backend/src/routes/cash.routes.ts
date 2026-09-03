@@ -18,7 +18,7 @@ const cashEntrySelect = `ce.id, ce.entry_type AS "entryType", ce.entry_date AS "
   ce.amount_cents AS "amountCents", ce.payment_id AS "paymentId", ce.recorded_by AS "recordedBy",
   recorder.name AS "recordedByName", ce.created_at AS "createdAt", ce.updated_at AS "updatedAt"`;
 
-cashRouter.use(requireAuth, requireRoles('ADMIN', 'COORDENADOR'));
+cashRouter.use(requireAuth, requireRoles('ADMIN'));
 
 cashRouter.get('/', asyncHandler(async (req, res) => {
   const result = await query(

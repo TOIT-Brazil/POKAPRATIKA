@@ -57,7 +57,7 @@ const paymentSelect = `p.id, p.user_id AS "userId", u.name AS "userName", p.seas
 
 paymentsRouter.use(requireAuth);
 
-paymentsRouter.get('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req, res) => {
+paymentsRouter.get('/', requireRoles('ADMIN'), asyncHandler(async (req, res) => {
   const result = await query(
     `WITH ranked_payments AS (
        SELECT ${paymentSelect},
@@ -67,18 +67,18 @@ paymentsRouter.get('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
          ) AS duplicate_rank
        FROM payments p
        JOIN users u ON u.id = p.user_id
-       WHERE ($1::UUID IS NULL OR p.season_id = $1) AND ($2::TEXT IS NULL OR p.status = $2)
+      WHERE ($1::TEXT IS NULL OR p.status = $1)
      )
      SELECT id, "userId", "userName", "seasonId", "referenceMonth", "dueDate", "amountCents", "paidAmountCents", "balanceCents", status, "paidAt", "earnsPoint", notes
      FROM ranked_payments
      WHERE duplicate_rank = 1
      ORDER BY "referenceMonth" DESC, "dueDate" ASC, "userName" ASC`,
-    [req.query.seasonId || null, req.query.status || null]
+    [req.query.status || null]
   );
   res.json(result.rows);
 }));
 
-paymentsRouter.get('/summary', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req, res) => {
+paymentsRouter.get('/summary', requireRoles('ADMIN'), asyncHandler(async (_req, res) => {
   const result = await query(
     `WITH deduplicated_payments AS (
        SELECT p.amount_cents, p.paid_amount_cents, p.due_date, p.paid_at,
@@ -95,7 +95,6 @@ paymentsRouter.get('/summary', requireRoles('ADMIN', 'COORDENADOR'), asyncHandle
          ) AS duplicate_rank
        FROM payments p
        JOIN users u ON u.id = p.user_id
-       WHERE ($1::UUID IS NULL OR p.season_id = $1)
      )
      SELECT
       COALESCE(sum(amount_cents), 0)::INTEGER AS "totalCents",
@@ -109,7 +108,7 @@ paymentsRouter.get('/summary', requireRoles('ADMIN', 'COORDENADOR'), asyncHandle
       count(*) FILTER (WHERE resolved_status = 'PAID' AND paid_amount_cents >= amount_cents AND paid_at IS NOT NULL AND paid_at::DATE < due_date)::INTEGER AS "earlyPoints"
      FROM deduplicated_payments
      WHERE duplicate_rank = 1`,
-    [req.query.seasonId || null]
+    []
   );
   res.json(result.rows[0]);
 }));
@@ -127,7 +126,7 @@ paymentsRouter.get('/me', asyncHandler(async (req: AuthRequest, res) => {
   res.json(result.rows);
 }));
 
-paymentsRouter.put('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
+paymentsRouter.put('/', requireRoles('ADMIN'), asyncHandler(async (req: AuthRequest, res) => {
   const body = validate(upsertPaymentSchema, req.body);
   const dueDate = body.dueDate ?? body.referenceMonth;
   const existingPayment = await query<{ id: string; paid_amount_cents: number }>('SELECT id, paid_amount_cents FROM payments WHERE user_id = $1 AND reference_month = $2', [body.userId, body.referenceMonth]);
@@ -165,7 +164,7 @@ paymentsRouter.put('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
   res.json(payment);
 }));
 
-paymentsRouter.post('/generate-month', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
+paymentsRouter.post('/generate-month', requireRoles('ADMIN'), asyncHandler(async (req: AuthRequest, res) => {
   const body = validate(generateMonthlyPaymentsSchema, req.body);
   const startMonth = body.startMonth ?? body.referenceMonth;
   if (!startMonth) throw httpError(400, 'Informe o mês inicial da geração.');

@@ -1212,7 +1212,7 @@ export function App() {
                       setAccountMenuOpen(false);
                     }}
                   >
-                    Gestão financeira
+                    {isAdmin ? 'Gestão financeira' : 'Minha mensalidade'}
                   </button>
                   <button
                     onClick={() => {
@@ -1382,7 +1382,7 @@ export function App() {
       {!loading && view === "pagamentos" && (
         <PaymentsPanel
           api={api}
-          canCoordinate={canCoordinate}
+          canCoordinate={isAdmin}
           users={users}
           activeSeasonId={activeSeasonId}
         />
@@ -4272,14 +4272,11 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
   }, [activeFilterMenu]);
 
   async function loadPayments() {
-    const path = canCoordinate ? `/payments${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}` : '/payments/me';
+    const path = canCoordinate ? '/payments' : '/payments/me';
     if (canCoordinate) {
-      const [filteredRows, historyRows] = await Promise.all([
-        api.request<PaymentRecord[]>(path),
-        activeSeasonId ? api.request<PaymentRecord[]>('/payments') : api.request<PaymentRecord[]>(path)
-      ]);
-      setPayments(filteredRows);
-      setPaymentHistory(historyRows);
+      const rows = await api.request<PaymentRecord[]>(path);
+      setPayments(rows);
+      setPaymentHistory(rows);
     } else {
       const ownPayments = await api.request<PaymentRecord[]>(path);
       setPayments(ownPayments);
@@ -4287,7 +4284,7 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
     }
     if (canCoordinate) {
       const [paymentSummary, cashRows, cashTotals] = await Promise.all([
-        api.request<PaymentSummary>(`/payments/summary${activeSeasonId ? `?seasonId=${activeSeasonId}` : ''}`),
+        api.request<PaymentSummary>('/payments/summary'),
         api.request<CashEntry[]>('/cash'),
         api.request<CashSummary>('/cash/summary')
       ]);
@@ -4509,6 +4506,10 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
         });
       const historyPayments = [...paymentsByMonth.values()].sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
       const openPayments = historyPayments.filter((payment) => paymentHasOpenBalance(payment)).sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
+      const comparisonDate = new Date().toISOString().slice(0, 10);
+      const oldestLatePayment = openPayments.find((payment) => paymentIsLateRecord(payment, comparisonDate)) ?? null;
+      const nextOpenPayment = openPayments.find((payment) => !paymentIsLateRecord(payment, comparisonDate)) ?? null;
+      const displayPayments = [oldestLatePayment, nextOpenPayment].filter((payment): payment is PaymentRecord => payment !== null && payment !== undefined);
       const paidPayments = historyPayments.filter((payment) => (payment.paidAmountCents ?? 0) > 0).sort((left, right) => {
         const leftKey = `${left.paidAt ?? left.referenceMonth}-${left.referenceMonth}`;
         const rightKey = `${right.paidAt ?? right.referenceMonth}-${right.referenceMonth}`;
@@ -4521,12 +4522,12 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
         userId: group.userId,
         userName: abbreviatedAthleteName(group.userName),
         payments: historyPayments,
-        openPayments,
+        openPayments: displayPayments,
         totalOpenCents: openPayments.reduce((sum, payment) => sum + (payment.balanceCents ?? 0), 0),
         totalPaidCents: historyPayments.reduce((sum, payment) => sum + (payment.paidAmountCents ?? 0), 0),
         lastPaidPayment: paidPayments[0] ?? null,
-        nextOpenPayment: openPayments[0] ?? null,
-        latePaymentsCount: openPayments.filter((payment) => paymentIsLateRecord(payment, todayKey)).length
+        nextOpenPayment,
+        latePaymentsCount: openPayments.filter((payment) => paymentIsLateRecord(payment, comparisonDate)).length
       };
     }).filter((group): group is PaymentAthleteGroup => group !== null).sort((left, right) => left.userName.localeCompare(right.userName, 'pt-BR', { sensitivity: 'base' }));
   }, [organizedPayments, organizedPaymentHistory, paymentFilters.name]);

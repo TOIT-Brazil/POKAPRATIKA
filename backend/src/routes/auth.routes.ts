@@ -41,6 +41,22 @@ authRouter.post('/login', asyncHandler(async (req, res) => {
     throw httpError(401, 'E-mail ou senha inválidos.');
   }
 
+  if (user.role !== 'ADMIN') {
+    const overdue = await query(
+      `SELECT 1
+       FROM payments
+       WHERE user_id = $1
+         AND due_date < CURRENT_DATE
+         AND status NOT IN ('PAID', 'WAIVED')
+         AND GREATEST(amount_cents - paid_amount_cents, 0) > 0
+       LIMIT 1`,
+      [user.id]
+    );
+    if (overdue.rowCount) {
+      throw httpError(403, 'Acesso bloqueado por mensalidade em atraso. Procure a administração para regularizar.');
+    }
+  }
+
   const payload = { id: user.id, name: user.name, email: user.email, role: user.role as Role };
   res.json({ token: signToken(payload), user: payload });
 }));
