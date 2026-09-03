@@ -2795,18 +2795,7 @@ function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated
           </div>
         </section>
 
-        <section className="athlete-profile-card athlete-profile-stats-card">
-          <div className="athlete-profile-card-head">
-            <strong>Resumo da carreira</strong>
-          </div>
-          <div className="athlete-profile-stat-grid">
-            <span><b>{career.totals.totalPoints}</b><small>Pontos</small></span>
-            <span><b>{career.totals.presences}</b><small>Presenças</small></span>
-            <span><b>{career.totals.goals}</b><small>Gols</small></span>
-            <span><b>{career.totals.assists}</b><small>Assistências</small></span>
-            <span><b>{career.totals.wins}</b><small>Vitórias</small></span>
-            <span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b><small>Cartões</small></span>
-          </div>
+        <section className="athlete-profile-points-section">
           <details className="athlete-profile-points-details">
             <summary><span>Ver composição dos pontos</span><b>{career.totals.totalPoints} pts</b></summary>
             <div className="athlete-profile-points-breakdown">

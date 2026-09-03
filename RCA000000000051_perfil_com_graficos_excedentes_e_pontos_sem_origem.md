@@ -20,6 +20,8 @@ Após a homologação, o header global com logo e menu também foi ocultado enqu
 
 A memória de cálculo deixou de ocupar permanentemente uma box própria. Ela agora fica em um dropdown nativo dentro do Resumo da carreira: fechado exibe somente o comando compacto e o total; ao tocar ou clicar, apresenta as parcelas alinhadas sem outro card ou contorno externo.
 
+Na revisão seguinte, a grade com pontos, presenças, gols, assistências, vitórias e cartões e o título `Resumo da carreira` foram removidos. O terceiro bloco do perfil agora contém exclusivamente `Ver composição dos pontos`, mantendo o detalhamento sob demanda e reduzindo a altura ocupada.
+
 ## Prevenção
 
 Totais derivados exibidos ao usuário devem vir acompanhados de memória de cálculo baseada nos mesmos dados autoritativos. Interfaces de perfil mobile devem manter apenas informações acionáveis e evitar repetir navegação ou painéis históricos sem demanda operacional.
