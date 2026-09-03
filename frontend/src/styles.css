@@ -870,6 +870,27 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .sheet-pitch-surface .ops-pitch-player.is-dragging { cursor: grabbing; z-index: 3; transform: translate(-50%, -50%) scale(1.05); }
 .ops-pitch-player.is-goalkeeper span { background: linear-gradient(180deg, #7ad6b5 0%, #399b77 100%); color: #083327; }
 .ops-pitch-player { pointer-events: auto; }
+.sheet-auto-rotation-panel { display: grid; gap: 8px; padding: 10px; border-radius: 16px; border: 1px solid #c9ddd0; background: #f8fcf9; }
+.sheet-auto-rotation-head { display: grid; gap: 2px; }
+.sheet-auto-rotation-head strong { color: #173d31; font-size: .9rem; }
+.sheet-auto-rotation-head small { color: #5f7168; font-size: .68rem; }
+.sheet-auto-rotation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sheet-auto-rotation-team { display: grid; align-content: start; gap: 7px; min-width: 0; padding: 8px; border-radius: 10px; border: 1px solid #d7e5da; background: #ffffff; }
+.sheet-auto-rotation-team.is-due { border-color: #35a767; box-shadow: inset 0 0 0 1px rgba(53,167,103,.16); }
+.sheet-auto-rotation-title { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.sheet-auto-rotation-title b { color: #173d31; font-size: .8rem; }
+.sheet-auto-rotation-title span { color: #587066; font-size: .62rem; font-weight: 800; text-align: right; }
+.sheet-auto-rotation-pairs { display: grid; gap: 5px; }
+.sheet-auto-rotation-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 5px; }
+.sheet-auto-rotation-pair > span:not(.sheet-auto-rotation-arrow) { display: grid; min-width: 0; gap: 1px; padding: 5px 6px; border-radius: 7px; }
+.sheet-auto-rotation-pair small { font-size: .56rem; font-weight: 900; text-transform: uppercase; }
+.sheet-auto-rotation-pair b { overflow: hidden; color: #16261e; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-auto-rotation-pair .is-leaving { background: #fff0ee; }
+.sheet-auto-rotation-pair .is-leaving small { color: #a72820; }
+.sheet-auto-rotation-pair .is-entering { background: #eaf8ef; }
+.sheet-auto-rotation-pair .is-entering small { color: #14733c; }
+.sheet-auto-rotation-arrow { color: #527066; font-size: .8rem; font-weight: 950; }
+.sheet-auto-rotation-button { min-height: 32px; padding: 5px 8px; font-size: .66rem; }
 .sheet-preview-bottom { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
 .sheet-swap-panel { display: grid; gap: 7px; padding: 10px; align-content: start; }
 .sheet-swap-actions { display: grid; gap: 8px; }
@@ -943,6 +964,7 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
   .sheet-lineups-grid { position: relative; z-index: 5; grid-column: 1; grid-row: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; align-items: start; padding: 8px; overflow: visible; border-radius: 16px; background: #f8fbf9; border: 1px solid #d7e5da; box-shadow: var(--shadow-sm); }
   .sheet-lineups-grid::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 50%; width: 1px; display: block; background: #b8ccc0; transform: translateX(-50%); }
   .sheet-center-column { grid-column: 1; grid-row: auto; width: 100%; margin-top: 0; }
+  .sheet-auto-rotation-grid { grid-template-columns: 1fr; }
   .sheet-roster-panel { margin-top: 0; padding: 0 9px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
   .sheet-roster-panel.team-a-roster { grid-column: 1; grid-row: auto; }
   .sheet-roster-panel.team-b-roster { grid-column: 2; grid-row: auto; padding: 0 0 0 9px; }

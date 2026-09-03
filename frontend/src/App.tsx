@@ -2069,7 +2069,8 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
       return;
     }
 
-    setPlayers(normalizeOperationalLineup(seededPlayers()));
+    const hydratedPlayers = normalizeOperationalLineup(seededPlayers());
+    setPlayers(hydratedPlayers);
     setTeamAScore(match.status === 'CONFIRMED' ? match.teamAScore : match.draftTeamAScore ?? match.teamAScore);
     setTeamBScore(match.status === 'CONFIRMED' ? match.teamBScore : match.draftTeamBScore ?? match.teamBScore);
     setEvents(recoveredEvents.map((event) => ({ id: event.id, userId: event.userId, relatedUserId: event.relatedUserId, eventType: event.eventType as MatchEventDraft['eventType'], minute: event.minute, clockSecond: event.clockSecond, team: event.team, occurredAt: event.occurredAt ?? event.createdAt ?? null, createdAt: event.createdAt ?? null })));
@@ -2087,7 +2088,10 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setPitchDrag(null);
     setPitchPreview({});
     skipAutosaveRef.current = true;
-    appliedAutoSwapMinutesRef.current = { A: [], B: [] };
+    appliedAutoSwapMinutesRef.current = {
+      A: inferAppliedRotationSeconds(hydratedPlayers, 'A'),
+      B: inferAppliedRotationSeconds(hydratedPlayers, 'B')
+    };
     manualSwapOverrideRef.current = { A: false, B: false };
     boardDirtyRef.current = false;
     pitchDragRef.current = null;
@@ -2166,7 +2170,6 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   }, [pitchDrag]);
 
   const playablePlayers = players.filter((player) => player.team !== 'PRESENTE_SEM_JOGAR');
-  const currentMinute = Math.floor(clockSeconds / 60);
   const matchIsOperationallyRunning = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const canRegisterEvents = gameStarted && match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
   const canRepositionPlayers = match.status !== 'CONFIRMED' && match.status !== 'CANCELLED';
@@ -2331,29 +2334,49 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     B: buildSheetRotationPlan(playersForTeam('B').filter((player) => player.roleInMatch === 'LINHA' && player.present !== false).map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60)
   }), [players, match.availableMinutes]);
 
-  useEffect(() => {
-    if (!matchIsOperationallyRunning) return;
-    const dueSteps: Array<{ team: 'A' | 'B'; step: SheetRotationStep }> = [];
-    for (const team of ['A', 'B'] as const) {
-      if (manualSwapOverrideRef.current[team]) continue;
-      for (const step of sheetRotationPlans[team].schedule) {
-        if (step.second <= clockSeconds && !appliedAutoSwapMinutesRef.current[team].includes(step.second)) dueSteps.push({ team, step });
-      }
+  function inferAppliedRotationSeconds(list: MatchDetail['players'], team: 'A' | 'B') {
+    const linePlayers = list
+      .filter((player) => player.team === team && player.roleInMatch === 'LINHA' && player.present !== false)
+      .sort((left, right) => (left.rotationOrder ?? left.drawOrder ?? 999) - (right.rotationOrder ?? right.drawOrder ?? 999));
+    const plan = buildSheetRotationPlan(linePlayers.map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60);
+    const currentStarters = new Set(linePlayers.filter((player) => !player.startsOnBench).map((player) => player.userId));
+    const simulatedStarters = new Set(linePlayers.slice(0, Math.min(6, linePlayers.length)).map((player) => player.userId));
+    const setsMatch = () => currentStarters.size === simulatedStarters.size && [...currentStarters].every((userId) => simulatedStarters.has(userId));
+    if (setsMatch()) return [];
+    const appliedSeconds: number[] = [];
+    for (const step of plan.schedule) {
+      step.leavingIds.forEach((userId) => simulatedStarters.delete(userId));
+      step.enteringIds.forEach((userId) => simulatedStarters.add(userId));
+      appliedSeconds.push(step.second);
+      if (setsMatch()) return appliedSeconds;
     }
-    if (!dueSteps.length) return;
+    return [];
+  }
+
+  function applyAutomaticRotation(team: 'A' | 'B', step: SheetRotationStep) {
+    if (!matchIsOperationallyRunning || step.second > clockSeconds || manualSwapOverrideRef.current[team]) return;
+    const leavingLabels = step.leavingIds.map((userId) => {
+      const player = players.find((candidate) => candidate.userId === userId);
+      return player ? `#${playerBoardNumber(player, 0)} ${player.name}` : userId;
+    });
+    const enteringLabels = step.enteringIds.map((userId) => {
+      const player = players.find((candidate) => candidate.userId === userId);
+      return player ? `#${playerBoardNumber(player, 0)} ${player.name}` : userId;
+    });
     setPlayers((current) => {
-      let next = [...current];
-      for (const { team, step } of dueSteps) {
-        next = next.map((player) => step.enteringIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: false } : step.leavingIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: true } : player);
-      }
+      const next = current.map((player) => step.enteringIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: false } : step.leavingIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: true } : player);
       return normalizePlayersForBoard(next);
     });
-    for (const { team, step } of dueSteps) appliedAutoSwapMinutesRef.current[team].push(step.second);
-    const labels = dueSteps.map(({ team, step }) => `Time ${team} ${step.label.toLowerCase()}`).join(' • ');
-    const autoSwapMessage = `Troca automática aplicada: ${labels}.`;
+    appliedAutoSwapMinutesRef.current[team].push(step.second);
+    const autoSwapMessage = `Troca automática do Time ${team}: sai ${leavingLabels.join(' e ')}; entra ${enteringLabels.join(' e ')}.`;
     setSheetMessage(autoSwapMessage);
     addActivityLog(autoSwapMessage);
-  }, [clockSeconds, currentMinute, matchIsOperationallyRunning, sheetRotationPlans]);
+  }
+
+  const nextRotationSteps = {
+    A: sheetRotationPlans.A.schedule.find((step) => !appliedAutoSwapMinutesRef.current.A.includes(step.second)) ?? null,
+    B: sheetRotationPlans.B.schedule.find((step) => !appliedAutoSwapMinutesRef.current.B.includes(step.second)) ?? null
+  };
 
   function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
     if (eventType === 'GOL') {
@@ -2728,6 +2751,26 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
             <div className="ops-pitch-box ops-pitch-box-b" />
             {fieldPlayers('A').filter(({ player }) => bluePenaltyRemaining(player.userId) === 0).map(({ player, slot }, index) => <div className={`ops-pitch-player team-a-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-a-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
             {fieldPlayers('B').filter(({ player }) => bluePenaltyRemaining(player.userId) === 0).map(({ player, slot }, index) => <div className={`ops-pitch-player team-b-player ${player.roleInMatch === 'GOLEIRO' ? 'is-goalkeeper' : ''} ${pitchDrag?.userId === player.userId ? 'is-dragging' : ''}`} key={`sheet-b-${player.userId}`} style={{ left: `${slot.left}%`, top: `${slot.top}%` }} title="Clique e arraste para reposicionar" onPointerDown={(event) => beginPitchDrag(event, player)} onPointerMove={(event) => movePitchDrag(event, player)} onPointerUp={(event) => endPitchDrag(event, player)} onPointerCancel={(event) => endPitchDrag(event, player)}><span>{player.roleInMatch === 'GOLEIRO' ? `G${playerBoardNumber(player, index)}` : playerBoardNumber(player, index)}</span><small>{player.name.split(' ')[0]}</small></div>)}
+          </div>
+        </section>
+
+        <section className="sheet-auto-rotation-panel" aria-label="Trocas automáticas">
+          <div className="sheet-auto-rotation-head"><strong>Trocas automáticas</strong><small>Rodízio calculado para distribuir igualmente o tempo dos jogadores de linha.</small></div>
+          <div className="sheet-auto-rotation-grid">
+            {(['A', 'B'] as const).map((team) => {
+              const step = nextRotationSteps[team];
+              const paused = manualSwapOverrideRef.current[team];
+              const due = Boolean(step && step.second <= clockSeconds);
+              return <article className={`sheet-auto-rotation-team ${due ? 'is-due' : ''}`} key={team}>
+                <div className="sheet-auto-rotation-title"><b>Time {team}</b><span>{paused ? 'Automático pausado' : step ? `${step.label} aos ${String(Math.floor(step.second / 60)).padStart(2, '0')}:${String(step.second % 60).padStart(2, '0')}` : 'Rodízio concluído'}</span></div>
+                {step ? <div className="sheet-auto-rotation-pairs">{step.leavingIds.map((leavingId, index) => {
+                  const leaving = players.find((player) => player.userId === leavingId);
+                  const entering = players.find((player) => player.userId === step.enteringIds[index]);
+                  return <div className="sheet-auto-rotation-pair" key={`${team}-${step.second}-${leavingId}`}><span className="is-leaving"><small>Sai</small><b>#{leaving ? playerBoardNumber(leaving, index) : '?'} {leaving?.name ?? 'Atleta'}</b></span><span className="sheet-auto-rotation-arrow" aria-hidden="true">→</span><span className="is-entering"><small>Entra</small><b>#{entering ? playerBoardNumber(entering, index) : '?'} {entering?.name ?? 'Atleta'}</b></span></div>;
+                })}</div> : <p className="muted">Não há outra troca prevista para este time.</p>}
+                {step && <button type="button" className="primary sheet-auto-rotation-button" disabled={!due || !matchIsOperationallyRunning || paused} onClick={() => applyAutomaticRotation(team, step)}>{paused ? 'RODÍZIO PAUSADO' : due ? 'FAZER TROCA' : 'AGUARDANDO HORÁRIO'}</button>}
+              </article>;
+            })}
           </div>
         </section>
 
