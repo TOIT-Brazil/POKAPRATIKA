@@ -18,6 +18,8 @@ A ação Importar Excel foi removida da área de Configurações. Pontuação pa
 
 Após a primeira homologação, o modal de Pontuação ainda mantinha a geometria compartilhada `wide`, chegando a 980px e afastando visualmente as duas colunas. O modal passou a ter até 460px, a coluna Pontos foi fixada em 92px e seu campo em 72px, ambos centralizados no mesmo eixo do cabeçalho. O wrapper também oculta overflow horizontal exclusivamente nesse fluxo.
 
+Na tabela de Temporadas, um override mobile posterior ainda redefinia toda tabela administrativa para `min-width: 860px`, `width: max-content` e layout automático. A regra final proprietária agora restaura largura de 100%, mínimo zero e layout fixo no mobile, distribui Temporada/Ano/Status em 50%/17%/33% e centraliza Ano e Status sob os respectivos cabeçalhos.
+
 ## Prevenção
 
 Tabelas administrativas mobile devem apresentar somente os campos necessários para comparação imediata. Informações secundárias e ações contextuais devem ficar em detalhes acionados pela linha, com estilos proprietários que neutralizem mínimos globais incompatíveis.

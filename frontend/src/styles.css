@@ -6875,3 +6875,57 @@ select optgroup { color: var(--text); background: #10231f; }
     padding: 8px;
   }
 }
+
+/* Temporadas mobile: neutraliza o mínimo legado de 860px da tabela administrativa. */
+@media (max-width: 820px) {
+  .shell-page .seasons-management-wrap {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden !important;
+  }
+
+  .shell-page .seasons-management-table {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    table-layout: fixed;
+  }
+
+  .shell-page .seasons-management-table th,
+  .shell-page .seasons-management-table td {
+    min-width: 0;
+    padding-inline: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .shell-page .seasons-management-table .seasons-name-col,
+  .shell-page .seasons-management-table .seasons-name-cell {
+    width: 50%;
+    text-align: left;
+  }
+
+  .shell-page .seasons-management-table .seasons-year-col,
+  .shell-page .seasons-management-table .seasons-year-cell {
+    width: 17%;
+    text-align: center;
+  }
+
+  .shell-page .seasons-management-table .seasons-status-col,
+  .shell-page .seasons-management-table .seasons-status-cell {
+    width: 33%;
+    text-align: center;
+  }
+
+  .shell-page .seasons-management-table .seasons-year-col .table-filter-anchor,
+  .shell-page .seasons-management-table .seasons-status-col .table-filter-anchor {
+    justify-content: center;
+  }
+
+  .shell-page .seasons-management-table .status {
+    max-width: 100%;
+    padding-inline: 6px;
+    font-size: .66rem;
+  }
+}
