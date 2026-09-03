@@ -4930,13 +4930,23 @@ function UsersAdminTable({ api, users, onReload, isAdmin, emptyText }: { api: Ap
 }
 
 function SeasonsAdminTable({ seasons, onStartSeason, onCloseSeason }: { seasons: Season[]; onStartSeason: (id: string) => Promise<void>; onCloseSeason: (id: string) => Promise<void> }) {
-  const [filters, setFilters] = useState({ name: '', year: '', status: '', startsOn: '', endsOn: '' });
+  const [filters, setFilters] = useState({ name: '', year: '', status: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
+  const [selectedSeason, setSelectedSeason] = useState<Season | null>(null);
 
   useEffect(() => {
     setFilterSearch('');
   }, [activeFilterMenu]);
+
+  useEffect(() => {
+    if (!selectedSeason) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSelectedSeason(null);
+    }
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [selectedSeason]);
 
   function statusLabel(status: Season['status']) {
     return status === 'OPEN' ? 'Aberta' : status === 'CLOSED' ? 'Encerrada' : 'Rascunho';
@@ -4945,9 +4955,7 @@ function SeasonsAdminTable({ seasons, onStartSeason, onCloseSeason }: { seasons:
   function filterValue(season: Season, key: keyof typeof filters) {
     if (key === 'name') return season.name;
     if (key === 'year') return String(season.year);
-    if (key === 'status') return statusLabel(season.status);
-    if (key === 'startsOn') return formatDateOnly(season.startsOn, 'Sem início');
-    return formatDateOnly(season.endsOn, 'Sem fim');
+    return statusLabel(season.status);
   }
 
   function filterOptions(key: keyof typeof filters) {
@@ -4957,28 +4965,20 @@ function SeasonsAdminTable({ seasons, onStartSeason, onCloseSeason }: { seasons:
   const filteredSeasons = useMemo(() => seasons.filter((season) => Object.entries(filters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(season, key as keyof typeof filters)).includes(normalizeTableFilterValue(value)))), [seasons, filters]);
 
   return (
-    <div className="championship-wrap management-table-wrap">
-      <table className="championship-table management-table seasons-management-table">
-        <thead>
-          <tr>
-            <th className="seasons-name-col"><TableFilterHeader label="Temporada" menuKey="seasons-name" currentValue={filters.name} options={filterOptions('name')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar temporada" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, name: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, name: '' })); setActiveFilterMenu(null); }} /></th>
-            <th className="seasons-year-col"><TableFilterHeader label="Ano" menuKey="seasons-year" currentValue={filters.year} options={filterOptions('year')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar ano" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, year: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, year: '' })); setActiveFilterMenu(null); }} /></th>
-            <th className="seasons-status-col"><TableFilterHeader label="Status" menuKey="seasons-status" currentValue={filters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th>
-            <th className="seasons-start-col"><TableFilterHeader label="Início" menuKey="seasons-start" currentValue={filters.startsOn} options={filterOptions('startsOn')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar início" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, startsOn: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, startsOn: '' })); setActiveFilterMenu(null); }} /></th>
-            <th className="seasons-end-col"><TableFilterHeader label="Fim" menuKey="seasons-end" currentValue={filters.endsOn} options={filterOptions('endsOn')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar fim" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, endsOn: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, endsOn: '' })); setActiveFilterMenu(null); }} /></th>
-            <th className="seasons-actions-col">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredSeasons.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhuma temporada encontrada com os filtros atuais.</td></tr> : filteredSeasons.map((season) => <tr key={season.id}><td className="management-main-cell seasons-name-cell"><strong>{season.name}</strong></td><td className="seasons-year-cell">{season.year}</td><td className="seasons-status-cell"><span className={`status ${season.status.toLowerCase()}`}>{statusLabel(season.status)}</span></td><td className="seasons-start-cell">{formatDateOnly(season.startsOn, 'Sem início')}</td><td className="seasons-end-cell">{formatDateOnly(season.endsOn, 'Sem fim')}</td><td className="seasons-actions-cell"><div className="actions compact-actions seasons-row-actions">{season.status !== 'OPEN' && season.status !== 'CLOSED' && <button className="primary small" onClick={() => void onStartSeason(season.id)}>Iniciar</button>}{season.status === 'OPEN' && <button className="ghost" onClick={() => void onCloseSeason(season.id)}>Encerrar e liberar votação</button>}{season.status === 'CLOSED' && <span className="payments-muted">Encerrada</span>}</div></td></tr>)}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="championship-wrap management-table-wrap seasons-management-wrap">
+        <table className="championship-table management-table seasons-management-table">
+          <thead><tr><th className="seasons-name-col"><TableFilterHeader label="Temporada" menuKey="seasons-name" currentValue={filters.name} options={filterOptions('name')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar temporada" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, name: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, name: '' })); setActiveFilterMenu(null); }} /></th><th className="seasons-year-col"><TableFilterHeader label="Ano" menuKey="seasons-year" currentValue={filters.year} options={filterOptions('year')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar ano" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, year: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, year: '' })); setActiveFilterMenu(null); }} /></th><th className="seasons-status-col"><TableFilterHeader label="Status" menuKey="seasons-status" currentValue={filters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th></tr></thead>
+          <tbody>{filteredSeasons.length === 0 ? <tr><td colSpan={3} className="table-empty-cell">Nenhuma temporada encontrada com os filtros atuais.</td></tr> : filteredSeasons.map((season) => <tr className="season-summary-row" key={season.id} tabIndex={0} onClick={() => setSelectedSeason(season)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedSeason(season); } }}><td className="management-main-cell seasons-name-cell"><strong>{season.name}</strong></td><td className="seasons-year-cell">{season.year}</td><td className="seasons-status-cell"><span className={`status ${season.status.toLowerCase()}`}>{statusLabel(season.status)}</span></td></tr>)}</tbody>
+        </table>
+      </div>
+      {selectedSeason && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="season-detail-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedSeason(null); }}><section className="card modal-card season-detail-modal"><div className="card-head"><h2 id="season-detail-title">{selectedSeason.name}</h2><button type="button" className="ghost modal-close-button" aria-label="Fechar detalhes da temporada" onClick={() => setSelectedSeason(null)} /></div><div className="season-detail-grid"><span><small>Ano</small><strong>{selectedSeason.year}</strong></span><span><small>Status</small><strong>{statusLabel(selectedSeason.status)}</strong></span><span><small>Início</small><strong>{formatDateOnly(selectedSeason.startsOn, 'Não informado')}</strong></span><span><small>Fim</small><strong>{formatDateOnly(selectedSeason.endsOn, 'Não informado')}</strong></span><span><small>Votação</small><strong>{selectedSeason.votingOpen ? 'Liberada' : 'Fechada'}</strong></span></div><div className="actions season-detail-actions">{selectedSeason.status === 'DRAFT' && <button className="primary small" onClick={() => void onStartSeason(selectedSeason.id).then(() => setSelectedSeason(null))}>Iniciar temporada</button>}{selectedSeason.status === 'OPEN' && <button className="primary small" onClick={() => void onCloseSeason(selectedSeason.id).then(() => setSelectedSeason(null))}>Encerrar e liberar votação</button>}{selectedSeason.status === 'CLOSED' && <span className="status closed">Temporada encerrada</span>}</div></section></div>}
+    </>
   );
 }
 
 function PointsSettingsTable({ points, onPointChange }: { points: PointSetting[]; onPointChange: (code: string, points: number) => void }) {
-  const [filters, setFilters] = useState({ label: '', code: '', points: '' });
+  const [filters, setFilters] = useState({ label: '', points: '' });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
 
@@ -4988,7 +4988,6 @@ function PointsSettingsTable({ points, onPointChange }: { points: PointSetting[]
 
   function filterValue(item: PointSetting, key: keyof typeof filters) {
     if (key === 'label') return item.label;
-    if (key === 'code') return item.code;
     return String(item.points);
   }
 
@@ -4999,17 +4998,16 @@ function PointsSettingsTable({ points, onPointChange }: { points: PointSetting[]
   const filteredPoints = useMemo(() => points.filter((item) => Object.entries(filters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(item, key as keyof typeof filters)).includes(normalizeTableFilterValue(value)))), [points, filters]);
 
   return (
-    <div className="championship-wrap management-table-wrap">
-      <table className="championship-table management-table">
+    <div className="championship-wrap management-table-wrap points-settings-wrap">
+      <table className="championship-table management-table points-settings-table">
         <thead>
           <tr>
             <th><TableFilterHeader label="Regra" menuKey="points-label" currentValue={filters.label} options={filterOptions('label')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar regra" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, label: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, label: '' })); setActiveFilterMenu(null); }} /></th>
-            <th><TableFilterHeader label="Código" menuKey="points-code" currentValue={filters.code} options={filterOptions('code')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar código" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, code: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, code: '' })); setActiveFilterMenu(null); }} /></th>
             <th><TableFilterHeader label="Pontos" menuKey="points-value" currentValue={filters.points} options={filterOptions('points')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar pontos" onToggle={(key) => setActiveFilterMenu((current) => current === key ? null : key)} onSearchChange={setFilterSearch} onSelect={(value) => { setFilters((current) => ({ ...current, points: value })); setActiveFilterMenu(null); }} onClear={() => { setFilters((current) => ({ ...current, points: '' })); setActiveFilterMenu(null); }} /></th>
           </tr>
         </thead>
         <tbody>
-          {filteredPoints.length === 0 ? <tr><td colSpan={3} className="table-empty-cell">Nenhuma regra de pontuação encontrada com os filtros atuais.</td></tr> : filteredPoints.map((item) => <tr key={item.code}><td className="management-main-cell"><strong>{item.label}</strong></td><td>{item.code}</td><td><input type="number" value={item.points} onChange={(event) => onPointChange(item.code, Number(event.target.value))} /></td></tr>)}
+          {filteredPoints.length === 0 ? <tr><td colSpan={2} className="table-empty-cell">Nenhuma regra de pontuação encontrada com os filtros atuais.</td></tr> : filteredPoints.map((item) => <tr key={item.code}><td className="management-main-cell"><strong>{item.label}</strong></td><td><input type="number" value={item.points} onChange={(event) => onPointChange(item.code, Number(event.target.value))} /></td></tr>)}
         </tbody>
       </table>
     </div>
@@ -5223,10 +5221,9 @@ function AdminPanel({ api, users, seasons, points, activeSeasonId, onReload, isA
           {message && <span className="status open">{message}</span>}
         </div>
         <div className="admin-action-grid">
-          <button className="row-card as-button" onClick={() => setAdminModal('season')}><strong>Criar temporada</strong><span>{seasons.length}</span><small>Abra novas temporadas, depois inicie ou encerre pela lista abaixo.</small></button>
-          <button className="row-card as-button" onClick={() => setAdminModal('points')}><strong>Pontuação</strong><span>{draftPoints.length}</span><small>Ajuste regras dinâmicas sem alterar código.</small></button>
-          <button className="row-card as-button" onClick={() => setAdminModal('user')}><strong>Novo usuário</strong><span>{users.length}</span><small>Crie atletas e convites de ativação reais por e-mail.</small></button>
-          {isAdmin && <button className="row-card as-button" onClick={() => setAdminModal('import')} disabled={!activeSeasonId}><strong>Importar Excel</strong><span>{importResult?.imported.length ?? 0}</span><small>Atualize saldo inicial da temporada ativa via colagem do Excel.</small></button>}
+          <button className="primary admin-compact-action" title="Criar e gerenciar uma nova temporada" onClick={() => setAdminModal('season')}>Criar temporada</button>
+          <button className="primary admin-compact-action" title="Ajustar as regras de pontuação" onClick={() => setAdminModal('points')}>Pontuação</button>
+          <button className="primary admin-compact-action" title="Criar atleta e enviar convite de ativação" onClick={() => setAdminModal('user')}>Novo usuário</button>
         </div>
       </section>
       <section className="card compact"><div className="card-head"><h2>Temporadas</h2><span className="status open">{seasons.length} registro(s)</span></div><SeasonsAdminTable seasons={seasons} onStartSeason={startSeason} onCloseSeason={closeSeason} /></section>
