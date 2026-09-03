@@ -18,6 +18,8 @@ O cabeçalho textual e os painéis de evolução, temporadas, títulos e badges 
 
 Após a homologação, o header global com logo e menu também foi ocultado enquanto qualquer perfil estiver aberto, tanto o próprio quanto o de outro atleta. Ao fechar o modal, a navegação global volta a ser renderizada normalmente.
 
+A memória de cálculo deixou de ocupar permanentemente uma box própria. Ela agora fica em um dropdown nativo dentro do Resumo da carreira: fechado exibe somente o comando compacto e o total; ao tocar ou clicar, apresenta as parcelas alinhadas sem outro card ou contorno externo.
+
 ## Prevenção
 
 Totais derivados exibidos ao usuário devem vir acompanhados de memória de cálculo baseada nos mesmos dados autoritativos. Interfaces de perfil mobile devem manter apenas informações acionáveis e evitar repetir navegação ou painéis históricos sem demanda operacional.

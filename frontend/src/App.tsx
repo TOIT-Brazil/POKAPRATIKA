@@ -2807,12 +2807,14 @@ function ProfilesPanel({ api, currentUserId, initialUserId, onCurrentUserUpdated
             <span><b>{career.totals.wins}</b><small>Vitórias</small></span>
             <span><b>{career.totals.yellowCards + career.totals.redCards + career.totals.blueCards}</b><small>Cartões</small></span>
           </div>
-          <div className="athlete-profile-points-breakdown">
-            <div className="athlete-profile-points-head"><strong>Como os pontos foram formados</strong><b>{career.totals.totalPoints} pts</b></div>
-            {pointBreakdown.map((item) => <div className="athlete-profile-points-row" key={item.code}><span>{item.label}</span><small>{item.quantity} × {item.unitPoints} pt</small><b>{item.total}</b></div>)}
-            {adjustedPoints !== 0 && <div className="athlete-profile-points-row is-adjustment"><span>Ajustes/importações</span><small>Diferença reconciliada com o total oficial</small><b>{adjustedPoints > 0 ? `+${adjustedPoints}` : adjustedPoints}</b></div>}
-            {pointBreakdown.length === 0 && adjustedPoints === 0 && <p className="muted">Nenhuma regra de pontuação configurada.</p>}
-          </div>
+          <details className="athlete-profile-points-details">
+            <summary><span>Ver composição dos pontos</span><b>{career.totals.totalPoints} pts</b></summary>
+            <div className="athlete-profile-points-breakdown">
+              {pointBreakdown.map((item) => <div className="athlete-profile-points-row" key={item.code}><span>{item.label}</span><small>{item.quantity} × {item.unitPoints} pt</small><b>{item.total}</b></div>)}
+              {adjustedPoints !== 0 && <div className="athlete-profile-points-row is-adjustment"><span>Ajustes/importações</span><small>Diferença reconciliada com o total oficial</small><b>{adjustedPoints > 0 ? `+${adjustedPoints}` : adjustedPoints}</b></div>}
+              {pointBreakdown.length === 0 && adjustedPoints === 0 && <p className="muted">Nenhuma regra de pontuação configurada.</p>}
+            </div>
+          </details>
         </section>
       </>}
     </div>
