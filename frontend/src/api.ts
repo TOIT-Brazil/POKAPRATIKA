@@ -26,9 +26,11 @@ export const API_URL = parsedApiUrl.origin;
 
 export class ApiClient {
   private token: string | null;
+  private onUnauthorized?: () => void;
 
-  constructor(token: string | null) {
+  constructor(token: string | null, onUnauthorized?: () => void) {
     this.token = token;
+    this.onUnauthorized = onUnauthorized;
   }
 
   setToken(token: string | null) {
@@ -44,6 +46,10 @@ export class ApiClient {
     const payload = response.status === 204 ? null : await response.json().catch(() => null);
 
     if (!response.ok) {
+      if (response.status === 401 && this.token) {
+        this.token = null;
+        this.onUnauthorized?.();
+      }
       throw new Error(payload?.message ?? 'Falha na comunicação com o backend.');
     }
 

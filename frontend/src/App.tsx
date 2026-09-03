@@ -959,10 +959,13 @@ export function App() {
     const saved = localStorage.getItem(storageKey);
     return saved ? JSON.parse(saved) as AuthPayload : null;
   });
-  const api = useMemo(() => new ApiClient(auth?.token ?? null), [auth?.token]);
+  const api = useMemo(() => new ApiClient(auth?.token ?? null, () => {
+    localStorage.removeItem(storageKey);
+    setAuth(null);
+  }), [auth?.token]);
   const [view, setView] = useState<View>('temporada');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(auth));
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [activeSeasonId, setActiveSeasonId] = useState('');
   const [standings, setStandings] = useState<Standing[]>([]);
@@ -1080,6 +1083,7 @@ export function App() {
 
   function saveAuth(payload: AuthPayload) {
     localStorage.setItem(storageKey, JSON.stringify(payload));
+    setLoading(true);
     setAuth(payload);
   }
 
@@ -1305,7 +1309,9 @@ export function App() {
         </button>
       )}
       {loading && (
-        <div className="mini-loading">Carregando dados reais da Railway...</div>
+        <div className="app-loading" role="status" aria-label="Carregando dados">
+          <span className="app-loading-spinner" />
+        </div>
       )}
       {!loading && activeSeason && (
         <>
@@ -1317,7 +1323,7 @@ export function App() {
           />
         </>
       )}
-      {view === "temporada" && (
+      {!loading && view === "temporada" && (
         <div className="home-stack dashboard-main">
           <div className="dashboard-top-grid">
             <DashboardMatchesPanel
@@ -1344,7 +1350,7 @@ export function App() {
           </div>
         </div>
       )}
-      {view === "partidas" && (
+      {!loading && view === "partidas" && (
         <div className="home-stack standard-page">
           <section className="card compact standard-page-header">
             <div className="card-head">
@@ -1357,12 +1363,12 @@ export function App() {
           <DashboardFinishedMatchesPanel matches={matches} />
         </div>
       )}
-      {view === "estatisticas" && (
+      {!loading && view === "estatisticas" && (
         <div className="home-stack statistics-page">
           <DashboardStandingsPanel standings={standings} onOpenProfile={setProfileUserId} />
         </div>
       )}
-      {view === "agenda" && canCoordinate && (
+      {!loading && view === "agenda" && canCoordinate && (
         <ScheduleManagerPanel
           api={api}
           matches={matches}
@@ -1370,7 +1376,7 @@ export function App() {
           onDone={loadData}
         />
       )}
-      {view === "pagamentos" && (
+      {!loading && view === "pagamentos" && (
         <PaymentsPanel
           api={api}
           canCoordinate={canCoordinate}
@@ -1378,12 +1384,12 @@ export function App() {
           activeSeasonId={activeSeasonId}
         />
       )}
-      {view === "premios" && canCoordinate && (
+      {!loading && view === "premios" && canCoordinate && (
         <div className="home-stack awards-page">
           <AwardSettingsCard api={api} />
         </div>
       )}
-      {view === "usuarios" && canCoordinate && (
+      {!loading && view === "usuarios" && canCoordinate && (
         <UsersManagementTablePanel
           api={api}
           users={users}
@@ -1391,7 +1397,7 @@ export function App() {
           isAdmin={isAdmin}
         />
       )}
-      {view === "admin" && canCoordinate && (
+      {!loading && view === "admin" && canCoordinate && (
         <AdminPanel
           api={api}
           users={users}

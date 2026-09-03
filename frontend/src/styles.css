@@ -49,7 +49,10 @@ h2 { font-size: 1rem; letter-spacing: -.02em; }
 .primary.small { padding: 7px 10px; font-size: .78rem; }
 .ghost { border: 1px solid rgba(255,255,255,.1); }
 .alert { width: 100%; background: rgba(255, 87, 87, .16); border: 1px solid rgba(255, 87, 87, .3); text-align: left; }
-.mini-loading { font-size: .78rem; color: #3b82f6; }
+.app-loading { min-height: min(420px, calc(100dvh - 110px)); display: grid; place-items: center; }
+.app-loading-spinner { width: 38px; height: 38px; border: 3px solid rgba(159,227,203,.2); border-top-color: #35b86b; border-radius: 50%; animation: app-loading-spin .72s linear infinite; }
+@keyframes app-loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .app-loading-spinner { animation-duration: 1.5s; } }
 .context-row { display: flex; gap: 8px; align-items: center; min-height: 36px; }
 select, input { width: 100%; min-height: 38px; color: #f5fbf7; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.13); border-radius: 12px; padding: 8px 10px; outline: none; }
 select option, select optgroup { color: #000; background: #fff; }
@@ -1176,7 +1179,6 @@ textarea {
 .status.open { background: rgba(16,185,129,.12); color: #047857; }
 .status.danger, .status.closed, .chip.danger { background: rgba(239,68,68,.1); color: #b91c1c; }
 
-.mini-loading { color: var(--primary-deep); }
 .dashboard-main { gap: 16px; }
 .dashboard-top-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr); gap: 16px; }
 
