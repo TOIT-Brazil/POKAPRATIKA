@@ -1828,7 +1828,6 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
   const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
-  const [pregameMatch, setPregameMatch] = useState<MatchListItem | null>(null);
   const [countdownNow, setCountdownNow] = useState(Date.now());
   const [dismissedSheetMatchId, setDismissedSheetMatchId] = useState('');
   const sheetPromptCheckRef = useRef('');
@@ -1837,15 +1836,6 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
     const timer = window.setInterval(() => setCountdownNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (!pregameMatch) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPregameMatch(null);
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [pregameMatch]);
 
   async function openMatch(id: string) {
     try {
@@ -1952,7 +1942,6 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
       {nextMatch?.pregameState && nextMatch.status === 'DRAFT' && (
         <div className="next-match-actions pregame-entry-actions">
-          {canCoordinate && <button type="button" className="primary small" onClick={() => setPregameMatch(nextMatch)}>Gerenciar pré-jogo</button>}
           {!canCoordinate && nextMatch.pregameState === 'DRAWN' && nextMatch.myAttendanceStatus === 'JOGAR' && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && <button type="button" className="primary small" onClick={() => void openSheet(nextMatch.id)}>Ver escalação</button>}
           <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameState === 'DRAWN' ? 'Times definidos' : `${nextMatch.attendancePlaying ?? 0}/20 confirmados`}</span>
         </div>
@@ -1984,14 +1973,6 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
                 setSelectedMatch(null);
               }}
             />
-          </section>
-        </div>
-      )}
-      {pregameMatch && (
-        <div className="modal match-modal" onMouseDown={(event) => { if (event.target === event.currentTarget) setPregameMatch(null); }}>
-          <section className="match-modal-card pregame-modal-card">
-            <div className="card-head"><div><h2>Pré-jogo · {pregameMatch.title}</h2><p className="muted">20 vagas, reservas e sorteio auditável</p></div><button type="button" className="ghost modal-close-button" aria-label="Fechar modal" title="Fechar" onClick={() => setPregameMatch(null)}>X</button></div>
-            <PregamePanel api={api} match={pregameMatch} onChanged={onReload} />
           </section>
         </div>
       )}
