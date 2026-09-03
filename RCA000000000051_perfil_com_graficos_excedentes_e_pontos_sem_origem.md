@@ -16,6 +16,8 @@ O modal consumia espaço com informações secundárias e não permitia ao atlet
 
 O cabeçalho textual e os painéis de evolução, temporadas, títulos e badges foram removidos do perfil. Permaneceram identidade, radar e resumo da carreira. O endpoint passou a devolver jogos disputados, pagamentos pontuáveis e as regras reais de pontuação; a interface exibe cada fonte como quantidade multiplicada pelo valor configurado e reconcilia eventual diferença com o total oficial como ajuste/importação. Campos novos possuem fallback para permitir deploy independente de frontend e backend sem quebra transitória.
 
+Após a homologação, o header global com logo e menu também foi ocultado enquanto o usuário autenticado visualiza o próprio perfil. O comportamento foi limitado ao perfil próprio; ao abrir perfis de terceiros, a navegação global permanece disponível atrás do modal.
+
 ## Prevenção
 
 Totais derivados exibidos ao usuário devem vir acompanhados de memória de cálculo baseada nos mesmos dados autoritativos. Interfaces de perfil mobile devem manter apenas informações acionáveis e evitar repetir navegação ou painéis históricos sem demanda operacional.

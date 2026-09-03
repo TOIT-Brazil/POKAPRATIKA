@@ -1104,7 +1104,7 @@ export function App() {
     <main
       className={`shell shell-page ${view === "temporada" ? "shell-home" : ""} ${view === "agenda" ? "shell-agenda" : ""} ${view === "premios" ? "shell-premios" : ""} ${accountMenuOpen ? "menu-open" : ""}`}
     >
-      <header className="hero card glass app-header">
+      {profileUserId !== auth.user.id && <header className="hero card glass app-header">
         <div className="header-admin-cluster">
           <div className="account-area">
             <button
@@ -1127,7 +1127,7 @@ export function App() {
             <span className="brand-tagline">sports &amp; gaming hub</span>
           </span>
         </div>
-      </header>
+      </header>}
 
       {accountMenuOpen && (
         <div className="account-menu-layer">
