@@ -6773,6 +6773,11 @@ select optgroup { color: var(--text); background: #10231f; }
   flex: 0 0 auto;
 }
 
+.shell-page:has(.modal) > .app-header {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .shell-page > .dashboard-main,
 .shell-page > .standard-page,
 .shell-page > .statistics-page,
