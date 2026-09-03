@@ -2191,6 +2191,48 @@ textarea {
   }
 }
 
+/* Pontuação configurável: duas colunas próximas e alinhadas, sem rolagem lateral. */
+.modal > .points-settings-modal {
+  width: min(460px, calc(100vw - 24px));
+  overflow-x: hidden;
+}
+
+.points-settings-modal .points-settings-wrap {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+.points-settings-modal .points-settings-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.points-settings-modal .points-settings-table th:first-child,
+.points-settings-modal .points-settings-table td:first-child {
+  width: calc(100% - 92px);
+  text-align: left;
+}
+
+.points-settings-modal .points-settings-table th:last-child,
+.points-settings-modal .points-settings-table td:last-child {
+  width: 92px;
+  text-align: center;
+}
+
+.points-settings-modal .points-settings-table th:last-child .table-filter-anchor {
+  justify-content: center;
+}
+
+.points-settings-modal .points-settings-table td input {
+  display: block;
+  width: 72px;
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+  text-align: center;
+}
+
 .shell-page .schedule-page-content .schedule-table {
   display: table;
   height: auto;
