@@ -3832,9 +3832,9 @@ textarea {
 
 .next-match-date-badge {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(54px, .28fr) minmax(66px, .34fr);
   align-items: center;
-  justify-items: start;
+  width: 100%;
   gap: 12px;
   min-width: 0;
   padding: 14px 16px;
@@ -3848,6 +3848,7 @@ textarea {
 .next-match-date-badge b {
   grid-column: 2;
   grid-row: 1;
+  justify-self: center;
   font-size: 2.45rem;
   line-height: .92;
   color: #0d2a22;
@@ -3856,6 +3857,7 @@ textarea {
 .next-match-date-stack {
   grid-column: 3;
   grid-row: 1;
+  justify-self: end;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -3887,6 +3889,7 @@ textarea {
 .next-match-title-block {
   grid-column: 1;
   grid-row: 1;
+  justify-self: stretch;
   min-width: 0;
   display: flex;
   align-items: baseline;
@@ -4705,7 +4708,7 @@ textarea {
   }
 
   .next-match-date-badge {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) minmax(46px, .25fr) minmax(60px, .32fr);
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
@@ -5235,7 +5238,7 @@ textarea {
   }
 
   .next-match-date-badge {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) minmax(42px, .24fr) minmax(54px, .3fr);
     gap: 7px;
     padding: 9px 10px;
   }
