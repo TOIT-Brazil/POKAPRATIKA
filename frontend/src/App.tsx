@@ -7,7 +7,7 @@ import { AthletePosition, MatchListItem, PointSetting, Season, Standing, User } 
 const logoUrl = '/logo_playfield.png';
 const paymentMonthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-type View = 'temporada' | 'partidas' | 'estatisticas' | 'agenda' | 'pagamentos' | 'premios' | 'usuarios' | 'admin';
+type View = 'temporada' | 'partidas' | 'estatisticas' | 'agenda' | 'pagamentos' | 'caixa' | 'premios' | 'usuarios' | 'admin';
 type AuthPayload = { token: string; user: User };
 type RankingPayload = {
   goals: Array<{ userId: string; name: string; goals: number; ownGoals: number; netGoals: number; gamesPlayed: number; average: string | number }>;
@@ -1214,6 +1214,14 @@ export function App() {
                   >
                     {isAdmin ? 'Gestão financeira' : 'Minha mensalidade'}
                   </button>
+                  {isAdmin && <button
+                    onClick={() => {
+                      setView("caixa");
+                      setAccountMenuOpen(false);
+                    }}
+                  >
+                    Caixa do grupo
+                  </button>}
                   <button
                     onClick={() => {
                       setView("premios");
@@ -1385,6 +1393,16 @@ export function App() {
           canCoordinate={isAdmin}
           users={users}
           activeSeasonId={activeSeasonId}
+          mode="payments"
+        />
+      )}
+      {!loading && view === "caixa" && isAdmin && (
+        <PaymentsPanel
+          api={api}
+          canCoordinate
+          users={users}
+          activeSeasonId={activeSeasonId}
+          mode="cash"
         />
       )}
       {!loading && view === "premios" && canCoordinate && (
@@ -4253,69 +4271,121 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   */
 }
 
-function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: ApiClient; canCoordinate: boolean; users: User[]; activeSeasonId: string }) {
+function PaymentsPanel({
+  api,
+  canCoordinate,
+  users,
+  activeSeasonId,
+  mode,
+}: {
+  api: ApiClient;
+  canCoordinate: boolean;
+  users: User[];
+  activeSeasonId: string;
+  mode: "payments" | "cash";
+}) {
+  const cashMode = mode === "cash";
   const activeAthletes = useMemo(() => {
     const seenEmails = new Set<string>();
-    return users.filter((user) => user.active !== false && user.role === 'ATLETA').filter((user) => {
-      const emailKey = user.email.trim().toLowerCase();
-      if (!emailKey) return true;
-      if (seenEmails.has(emailKey)) return false;
-      seenEmails.add(emailKey);
-      return true;
-    });
+    return users
+      .filter((user) => user.active !== false && user.role === "ATLETA")
+      .filter((user) => {
+        const emailKey = user.email.trim().toLowerCase();
+        if (!emailKey) return true;
+        if (seenEmails.has(emailKey)) return false;
+        seenEmails.add(emailKey);
+        return true;
+      });
   }, [users]);
-  const [userId, setUserId] = useState(users[0]?.id ?? '');
-  const [amount, setAmount] = useState('0');
-  const [bulkAmount, setBulkAmount] = useState('0');
-  const [paidAmount, setPaidAmount] = useState('0');
+  const [userId, setUserId] = useState(users[0]?.id ?? "");
+  const [amount, setAmount] = useState("0");
+  const [bulkAmount, setBulkAmount] = useState("0");
+  const [paidAmount, setPaidAmount] = useState("0");
   const [currentPaidCents, setCurrentPaidCents] = useState(0);
   const [fullPayment, setFullPayment] = useState(true);
   const [monthCount, setMonthCount] = useState(1);
   const [generateForAll, setGenerateForAll] = useState(true);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7) + '-01');
+  const [month, setMonth] = useState(
+    new Date().toISOString().slice(0, 7) + "-01",
+  );
   const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
-  const [status, setStatus] = useState<PaymentRecord['status']>('PAID');
-  const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState<PaymentRecord["status"]>("PAID");
+  const [notes, setNotes] = useState("");
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
   const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
-  const [cashEntryType, setCashEntryType] = useState<CashEntryType>('EXPENSE');
-  const [cashDate, setCashDate] = useState(new Date().toISOString().slice(0, 10));
-  const [cashDescription, setCashDescription] = useState('');
-  const [cashAmount, setCashAmount] = useState('0');
-  const [message, setMessage] = useState('');
-  const [paymentModal, setPaymentModal] = useState<'generate' | 'register' | 'cash' | null>(null);
-  const [overviewDetail, setOverviewDetail] = useState<FinancialOverviewDetail | null>(null);
-  const [paymentFilters, setPaymentFilters] = useState({ name: '', month: '', dueDate: '', amount: '', paid: '', balance: '', status: '', paidAt: '', point: '', notes: '' });
-  const [cashFilters, setCashFilters] = useState({ date: '', type: '', description: '', origin: '', recordedBy: '', amount: '' });
+  const [cashEntryType, setCashEntryType] = useState<CashEntryType>("EXPENSE");
+  const [cashDate, setCashDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [cashDescription, setCashDescription] = useState("");
+  const [cashAmount, setCashAmount] = useState("0");
+  const [message, setMessage] = useState("");
+  const [paymentModal, setPaymentModal] = useState<
+    "generate" | "register" | "cash" | null
+  >(null);
+  const [overviewDetail, setOverviewDetail] =
+    useState<FinancialOverviewDetail | null>(null);
+  const [paymentFilters, setPaymentFilters] = useState({
+    name: "",
+    month: "",
+    dueDate: "",
+    amount: "",
+    paid: "",
+    balance: "",
+    status: "",
+    paidAt: "",
+    point: "",
+    notes: "",
+  });
+  const [cashFilters, setCashFilters] = useState({
+    date: "",
+    type: "",
+    description: "",
+    origin: "",
+    recordedBy: "",
+    amount: "",
+  });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
-  const [filterSearch, setFilterSearch] = useState('');
-  const [expandedPaymentGroupKey, setExpandedPaymentGroupKey] = useState<string | null>(null);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [expandedPaymentGroupKey, setExpandedPaymentGroupKey] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!overviewDetail) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOverviewDetail(null);
+      if (event.key === "Escape") setOverviewDetail(null);
     };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
   }, [overviewDetail]);
 
   useEffect(() => {
     if (!userId && activeAthletes[0]?.id) setUserId(activeAthletes[0].id);
-    if (!selectedUserIds.length && activeAthletes[0]?.id) setSelectedUserIds([activeAthletes[0].id]);
+    if (!selectedUserIds.length && activeAthletes[0]?.id)
+      setSelectedUserIds([activeAthletes[0].id]);
   }, [activeAthletes, selectedUserIds.length, userId]);
 
   useEffect(() => {
-    setFilterSearch('');
+    setFilterSearch("");
   }, [activeFilterMenu]);
 
   async function loadPayments() {
-    const path = canCoordinate ? '/payments' : '/payments/me';
+    if (cashMode) {
+      const [cashRows, cashTotals] = await Promise.all([
+        api.request<CashEntry[]>("/cash"),
+        api.request<CashSummary>("/cash/summary"),
+      ]);
+      setCashEntries(cashRows);
+      setCashSummary(cashTotals);
+      return;
+    }
+    const path = canCoordinate ? "/payments" : "/payments/me";
     if (canCoordinate) {
       const rows = await api.request<PaymentRecord[]>(path);
       setPayments(rows);
@@ -4326,202 +4396,398 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
       setPaymentHistory(ownPayments);
     }
     if (canCoordinate) {
-      const [paymentSummary, cashRows, cashTotals] = await Promise.all([
-        api.request<PaymentSummary>('/payments/summary'),
-        api.request<CashEntry[]>('/cash'),
-        api.request<CashSummary>('/cash/summary')
-      ]);
+      const paymentSummary =
+        await api.request<PaymentSummary>("/payments/summary");
       setSummary(paymentSummary);
-      setCashEntries(cashRows);
-      setCashSummary(cashTotals);
     }
   }
 
   useEffect(() => {
-    void loadPayments().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao carregar mensalidades.'));
-  }, [activeSeasonId, canCoordinate]);
+    void loadPayments().catch((err) =>
+      setMessage(
+        err instanceof Error ? err.message : "Falha ao carregar mensalidades.",
+      ),
+    );
+  }, [activeSeasonId, canCoordinate, cashMode]);
 
   async function save() {
     const amountCents = centsFromInput(amount);
-    const paidAmountCents = status === 'PAID' ? amountCents : status === 'PARTIAL' ? Math.min(amountCents, centsFromInput(paidAmount)) : 0;
-    const resolvedStatus: PaymentStatus = status === 'WAIVED' ? 'WAIVED' : paidAmountCents >= amountCents && amountCents > 0 ? 'PAID' : paidAmountCents > 0 ? 'PARTIAL' : status === 'LATE' ? 'LATE' : 'PENDING';
-    const saved = await api.request<PaymentRecord>('/payments', { method: 'PUT', body: JSON.stringify({ userId, seasonId: activeSeasonId || null, referenceMonth: month, dueDate, amountCents, paidAmountCents, status: resolvedStatus, paidAt: paidAmountCents > 0 ? new Date(`${paidAt}T12:00:00`).toISOString() : null, notes: notes || null }) });
-    setMessage(saved.earnsPoint ? 'Pagamento total antecipado registrado: +1 ponto na temporada.' : saved.status === 'PARTIAL' ? `Pagamento parcial registrado. Saldo: R$ ${((saved.balanceCents ?? 0) / 100).toFixed(2)}.` : 'Mensalidade registrada sem ponto antecipado.');
+    const paidAmountCents =
+      status === "PAID"
+        ? amountCents
+        : status === "PARTIAL"
+          ? Math.min(amountCents, centsFromInput(paidAmount))
+          : 0;
+    const resolvedStatus: PaymentStatus =
+      status === "WAIVED"
+        ? "WAIVED"
+        : paidAmountCents >= amountCents && amountCents > 0
+          ? "PAID"
+          : paidAmountCents > 0
+            ? "PARTIAL"
+            : status === "LATE"
+              ? "LATE"
+              : "PENDING";
+    const saved = await api.request<PaymentRecord>("/payments", {
+      method: "PUT",
+      body: JSON.stringify({
+        userId,
+        seasonId: activeSeasonId || null,
+        referenceMonth: month,
+        dueDate,
+        amountCents,
+        paidAmountCents,
+        status: resolvedStatus,
+        paidAt:
+          paidAmountCents > 0
+            ? new Date(`${paidAt}T12:00:00`).toISOString()
+            : null,
+        notes: notes || null,
+      }),
+    });
+    setMessage(
+      saved.earnsPoint
+        ? "Pagamento total antecipado registrado: +1 ponto na temporada."
+        : saved.status === "PARTIAL"
+          ? `Pagamento parcial registrado. Saldo: R$ ${((saved.balanceCents ?? 0) / 100).toFixed(2)}.`
+          : "Mensalidade registrada sem ponto antecipado.",
+    );
     await loadPayments();
   }
 
   async function generateMonth() {
-    const result = await api.request<{ generated: number }>('/payments/generate-month', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, startMonth: month, months: monthCount, userIds: generateForAll ? undefined : selectedUserIds, dueDate, amountCents: centsFromInput(bulkAmount || amount), notes: notes || null }) });
-    setMessage(`${result.generated} cobrança(s) criada(s)/atualizada(s) em ${monthCount} mês(es). Pagamentos quitados/isentos foram preservados.`);
+    const result = await api.request<{ generated: number }>(
+      "/payments/generate-month",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          seasonId: activeSeasonId || null,
+          startMonth: month,
+          months: monthCount,
+          userIds: generateForAll ? undefined : selectedUserIds,
+          dueDate,
+          amountCents: centsFromInput(bulkAmount || amount),
+          notes: notes || null,
+        }),
+      },
+    );
+    setMessage(
+      `${result.generated} cobrança(s) criada(s)/atualizada(s) em ${monthCount} mês(es). Pagamentos quitados/isentos foram preservados.`,
+    );
     await loadPayments();
   }
 
   async function saveCashEntry() {
-    await api.request<CashEntry>('/cash', { method: 'POST', body: JSON.stringify({ entryType: cashEntryType, entryDate: cashDate, description: cashDescription, amountCents: centsFromInput(cashAmount) }) });
-    setMessage('Lançamento de caixa registrado para prestação de contas.');
-    setCashDescription('');
-    setCashAmount('0');
+    await api.request<CashEntry>("/cash", {
+      method: "POST",
+      body: JSON.stringify({
+        entryType: cashEntryType,
+        entryDate: cashDate,
+        description: cashDescription,
+        amountCents: centsFromInput(cashAmount),
+      }),
+    });
+    setMessage("Lançamento de caixa registrado para prestação de contas.");
+    setCashDescription("");
+    setCashAmount("0");
     await loadPayments();
   }
 
   function money(cents = 0) {
-    return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `R$ ${(cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   function paymentMonthLabel(referenceMonth: string) {
-    const [yearValue, monthValue] = referenceMonth.slice(0, 7).split('-');
+    const [yearValue, monthValue] = referenceMonth.slice(0, 7).split("-");
     const monthIndex = Number(monthValue) - 1;
-    const monthName = paymentMonthNames[monthIndex] ?? referenceMonth.slice(5, 7);
+    const monthName =
+      paymentMonthNames[monthIndex] ?? referenceMonth.slice(5, 7);
     return `${monthName} ${yearValue}`;
   }
 
   function shiftReferenceMonth(referenceMonth: string, offset: number) {
-    const [yearValue, monthValue] = referenceMonth.slice(0, 7).split('-');
-    const baseDate = new Date(Date.UTC(Number(yearValue), Number(monthValue) - 1, 1));
+    const [yearValue, monthValue] = referenceMonth.slice(0, 7).split("-");
+    const baseDate = new Date(
+      Date.UTC(Number(yearValue), Number(monthValue) - 1, 1),
+    );
     baseDate.setUTCMonth(baseDate.getUTCMonth() + offset);
     const shiftedYear = baseDate.getUTCFullYear();
-    const shiftedMonth = String(baseDate.getUTCMonth() + 1).padStart(2, '0');
+    const shiftedMonth = String(baseDate.getUTCMonth() + 1).padStart(2, "0");
     return `${shiftedYear}-${shiftedMonth}-01`;
   }
 
   function paymentTimelineKey(payment: PaymentRecord) {
-    return payment.dueDate?.slice(0, 10) || `${payment.referenceMonth.slice(0, 7)}-01`;
+    return (
+      payment.dueDate?.slice(0, 10) ||
+      `${payment.referenceMonth.slice(0, 7)}-01`
+    );
   }
 
   function paymentStatusTone(paymentStatus: PaymentStatus) {
-    return paymentStatus === 'PAID' || paymentStatus === 'WAIVED' ? 'open' : paymentStatus === 'LATE' ? 'danger' : '';
+    return paymentStatus === "PAID" || paymentStatus === "WAIVED"
+      ? "open"
+      : paymentStatus === "LATE"
+        ? "danger"
+        : "";
   }
 
   function centsFromInput(value: string) {
-    const normalized = value.replace(/\./g, '').replace(',', '.').trim();
+    const normalized = value.replace(/\./g, "").replace(",", ".").trim();
     const parsed = Number(normalized || 0);
     return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
   }
 
   function statusLabel(paymentStatus: PaymentStatus) {
-    if (paymentStatus === 'PAID') return 'Pago';
-    if (paymentStatus === 'PARTIAL') return 'Parcial';
-    if (paymentStatus === 'LATE') return 'Atrasado';
-    if (paymentStatus === 'WAIVED') return 'Isento';
-    return 'Pendente';
+    if (paymentStatus === "PAID") return "Pago";
+    if (paymentStatus === "PARTIAL") return "Parcial";
+    if (paymentStatus === "LATE") return "Atrasado";
+    if (paymentStatus === "WAIVED") return "Isento";
+    return "Pendente";
   }
 
   function paymentHasOpenBalance(payment: PaymentRecord) {
-    return (payment.balanceCents ?? Math.max(payment.amountCents - (payment.paidAmountCents ?? 0), 0)) > 0 && payment.status !== 'WAIVED';
+    return (
+      (payment.balanceCents ??
+        Math.max(payment.amountCents - (payment.paidAmountCents ?? 0), 0)) >
+        0 && payment.status !== "WAIVED"
+    );
   }
 
   function paymentIsLateRecord(payment: PaymentRecord, todayKey: string) {
-    const dueKey = payment.dueDate?.slice(0, 10) ?? `${payment.referenceMonth.slice(0, 7)}-01`;
+    const dueKey =
+      payment.dueDate?.slice(0, 10) ??
+      `${payment.referenceMonth.slice(0, 7)}-01`;
     return paymentHasOpenBalance(payment) && dueKey < todayKey;
   }
 
   function toggleSelectedUser(id: string) {
-    setSelectedUserIds((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
+    setSelectedUserIds((list) =>
+      list.includes(id) ? list.filter((item) => item !== id) : [...list, id],
+    );
   }
 
   function toggleFilterMenu(key: string) {
-    setActiveFilterMenu((current) => current === key ? null : key);
+    setActiveFilterMenu((current) => (current === key ? null : key));
   }
 
   function paymentMatchesFilters(payment: PaymentRecord) {
-    const name = normalizeTableFilterValue(payment.userName ?? 'Minha mensalidade');
-    const monthValue = normalizeTableFilterValue(`${paymentMonthLabel(payment.referenceMonth)} ${payment.referenceMonth.slice(0, 7)}`);
-    const dueDateValue = normalizeTableFilterValue(`${formatDateOnly(payment.dueDate, '')} ${payment.dueDate?.slice(0, 10) ?? ''}`);
+    const name = normalizeTableFilterValue(
+      payment.userName ?? "Minha mensalidade",
+    );
+    const monthValue = normalizeTableFilterValue(
+      `${paymentMonthLabel(payment.referenceMonth)} ${payment.referenceMonth.slice(0, 7)}`,
+    );
+    const dueDateValue = normalizeTableFilterValue(
+      `${formatDateOnly(payment.dueDate, "")} ${payment.dueDate?.slice(0, 10) ?? ""}`,
+    );
     const amountValue = normalizeTableFilterValue(money(payment.amountCents));
-    const paidValue = normalizeTableFilterValue(money(payment.paidAmountCents ?? 0));
-    const balanceValue = normalizeTableFilterValue(money(payment.balanceCents ?? 0));
+    const paidValue = normalizeTableFilterValue(
+      money(payment.paidAmountCents ?? 0),
+    );
+    const balanceValue = normalizeTableFilterValue(
+      money(payment.balanceCents ?? 0),
+    );
     const statusValue = normalizeTableFilterValue(statusLabel(payment.status));
-    const paidAtValue = normalizeTableFilterValue(`${formatDateOnly(payment.paidAt, 'Nao informado')} ${payment.paidAt?.slice(0, 10) ?? ''}`);
-    const pointValue = normalizeTableFilterValue(payment.earnsPoint ? 'Com ponto' : 'Sem ponto');
-    const notesValue = normalizeTableFilterValue(payment.notes ?? '');
-    return name.includes(normalizeTableFilterValue(paymentFilters.name))
-      && monthValue.includes(normalizeTableFilterValue(paymentFilters.month))
-      && dueDateValue.includes(normalizeTableFilterValue(paymentFilters.dueDate))
-      && amountValue.includes(normalizeTableFilterValue(paymentFilters.amount))
-      && paidValue.includes(normalizeTableFilterValue(paymentFilters.paid))
-      && balanceValue.includes(normalizeTableFilterValue(paymentFilters.balance))
-      && statusValue.includes(normalizeTableFilterValue(paymentFilters.status))
-      && paidAtValue.includes(normalizeTableFilterValue(paymentFilters.paidAt))
-      && pointValue.includes(normalizeTableFilterValue(paymentFilters.point))
-      && notesValue.includes(normalizeTableFilterValue(paymentFilters.notes));
+    const paidAtValue = normalizeTableFilterValue(
+      `${formatDateOnly(payment.paidAt, "Nao informado")} ${payment.paidAt?.slice(0, 10) ?? ""}`,
+    );
+    const pointValue = normalizeTableFilterValue(
+      payment.earnsPoint ? "Com ponto" : "Sem ponto",
+    );
+    const notesValue = normalizeTableFilterValue(payment.notes ?? "");
+    return (
+      name.includes(normalizeTableFilterValue(paymentFilters.name)) &&
+      monthValue.includes(normalizeTableFilterValue(paymentFilters.month)) &&
+      dueDateValue.includes(
+        normalizeTableFilterValue(paymentFilters.dueDate),
+      ) &&
+      amountValue.includes(normalizeTableFilterValue(paymentFilters.amount)) &&
+      paidValue.includes(normalizeTableFilterValue(paymentFilters.paid)) &&
+      balanceValue.includes(
+        normalizeTableFilterValue(paymentFilters.balance),
+      ) &&
+      statusValue.includes(normalizeTableFilterValue(paymentFilters.status)) &&
+      paidAtValue.includes(normalizeTableFilterValue(paymentFilters.paidAt)) &&
+      pointValue.includes(normalizeTableFilterValue(paymentFilters.point)) &&
+      notesValue.includes(normalizeTableFilterValue(paymentFilters.notes))
+    );
   }
 
   function paymentFilterOptions(key: keyof typeof paymentFilters) {
     const values = organizedPayments.map((payment) => {
-      if (key === 'name') return payment.userName ?? 'Minha mensalidade';
-      if (key === 'month') return paymentMonthLabel(payment.referenceMonth);
-      if (key === 'dueDate') return formatDateOnly(payment.dueDate, '-');
-      if (key === 'amount') return money(payment.amountCents);
-      if (key === 'paid') return money(payment.paidAmountCents ?? 0);
-      if (key === 'balance') return money(payment.balanceCents ?? 0);
-      if (key === 'status') return statusLabel(payment.status);
-      if (key === 'paidAt') return formatDateOnly(payment.paidAt, 'Nao informado');
-      if (key === 'point') return payment.earnsPoint ? 'Com ponto' : 'Sem ponto';
-      return payment.notes?.trim() ? payment.notes : '-';
+      if (key === "name") return payment.userName ?? "Minha mensalidade";
+      if (key === "month") return paymentMonthLabel(payment.referenceMonth);
+      if (key === "dueDate") return formatDateOnly(payment.dueDate, "-");
+      if (key === "amount") return money(payment.amountCents);
+      if (key === "paid") return money(payment.paidAmountCents ?? 0);
+      if (key === "balance") return money(payment.balanceCents ?? 0);
+      if (key === "status") return statusLabel(payment.status);
+      if (key === "paidAt")
+        return formatDateOnly(payment.paidAt, "Nao informado");
+      if (key === "point")
+        return payment.earnsPoint ? "Com ponto" : "Sem ponto";
+      return payment.notes?.trim() ? payment.notes : "-";
     });
-    return [...new Set(values)].filter(Boolean).sort((left, right) => left.localeCompare(right, 'pt-BR', { sensitivity: 'base' }));
+    return [...new Set(values)]
+      .filter(Boolean)
+      .sort((left, right) =>
+        left.localeCompare(right, "pt-BR", { sensitivity: "base" }),
+      );
   }
 
   function cashFilterOptions(key: keyof typeof cashFilters) {
     const values = organizedCashEntries.map((entry) => {
-      if (key === 'date') return formatDateOnly(entry.entryDate, '-');
-      if (key === 'type') return entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa';
-      if (key === 'description') return entry.description;
-      if (key === 'origin') return entry.paymentId ? 'Mensalidade' : 'Manual';
-      if (key === 'recordedBy') return entry.recordedByName?.trim() ? entry.recordedByName : '-';
-      return `${entry.entryType === 'REVENUE' ? '+' : '-'} ${money(entry.amountCents)}`;
+      if (key === "date") return formatDateOnly(entry.entryDate, "-");
+      if (key === "type")
+        return entry.entryType === "REVENUE" ? "Receita" : "Despesa";
+      if (key === "description") return entry.description;
+      if (key === "origin") return entry.paymentId ? "Mensalidade" : "Manual";
+      if (key === "recordedBy")
+        return entry.recordedByName?.trim() ? entry.recordedByName : "-";
+      return `${entry.entryType === "REVENUE" ? "+" : "-"} ${money(entry.amountCents)}`;
     });
-    return [...new Set(values)].filter(Boolean).sort((left, right) => left.localeCompare(right, 'pt-BR', { sensitivity: 'base' }));
+    return [...new Set(values)]
+      .filter(Boolean)
+      .sort((left, right) =>
+        left.localeCompare(right, "pt-BR", { sensitivity: "base" }),
+      );
   }
 
-  function renderFilterHeader(label: string, menuKey: string, currentValue: string, options: string[], onSelect: (value: string) => void, onClear: () => void, placeholder: string) {
+  function renderFilterHeader(
+    label: string,
+    menuKey: string,
+    currentValue: string,
+    options: string[],
+    onSelect: (value: string) => void,
+    onClear: () => void,
+    placeholder: string,
+  ) {
     const isOpen = activeFilterMenu === menuKey;
     const inputValue = currentValue || filterSearch;
-    return <div className="table-filter-anchor"><button type="button" className={`table-filter-button ${currentValue ? 'is-active' : ''}`} onClick={() => toggleFilterMenu(menuKey)} aria-label={`Filtrar ${label.toLowerCase()}`}><MdFilterList /></button><span>{label}</span>{isOpen && <div className="table-filter-popover"><div className="table-filter-popover-head"><strong>{label}</strong><button type="button" className="ghost small" onClick={() => { onClear(); setActiveFilterMenu(null); }}>Limpar</button></div><input value={inputValue} onChange={(event) => { setFilterSearch(event.target.value); onSelect(event.target.value); }} placeholder={placeholder} /></div>}</div>;
+    return (
+      <div className="table-filter-anchor">
+        <button
+          type="button"
+          className={`table-filter-button ${currentValue ? "is-active" : ""}`}
+          onClick={() => toggleFilterMenu(menuKey)}
+          aria-label={`Filtrar ${label.toLowerCase()}`}
+        >
+          <MdFilterList />
+        </button>
+        <span>{label}</span>
+        {isOpen && (
+          <div className="table-filter-popover">
+            <div className="table-filter-popover-head">
+              <strong>{label}</strong>
+              <button
+                type="button"
+                className="ghost small"
+                onClick={() => {
+                  onClear();
+                  setActiveFilterMenu(null);
+                }}
+              >
+                Limpar
+              </button>
+            </div>
+            <input
+              value={inputValue}
+              onChange={(event) => {
+                setFilterSearch(event.target.value);
+                onSelect(event.target.value);
+              }}
+              placeholder={placeholder}
+            />
+          </div>
+        )}
+      </div>
+    );
   }
 
   function openRegister(payment?: PaymentRecord) {
     if (payment) {
-      setUserId(payment.userId ?? activeAthletes[0]?.id ?? '');
+      setUserId(payment.userId ?? activeAthletes[0]?.id ?? "");
       setMonth(payment.referenceMonth);
       setDueDate(payment.dueDate?.slice(0, 10) ?? dueDate);
       setAmount(String((payment.amountCents / 100).toFixed(2)));
-      setPaidAmount('0.00');
+      setPaidAmount("0.00");
       setCurrentPaidCents(payment.paidAmountCents ?? 0);
-      setStatus((payment.balanceCents ?? 0) > 0 ? 'PARTIAL' : 'PAID');
+      setStatus((payment.balanceCents ?? 0) > 0 ? "PARTIAL" : "PAID");
       setFullPayment((payment.balanceCents ?? 0) <= 0);
-      setNotes(payment.notes ?? '');
+      setNotes(payment.notes ?? "");
     } else {
       setCurrentPaidCents(0);
     }
-    setPaymentModal('register');
+    setPaymentModal("register");
   }
 
-  const registerAmountCents = centsFromInput(amount || '0');
-  const registerPaidCents = status === 'PAID' ? registerAmountCents : status === 'PARTIAL' ? Math.min(registerAmountCents, currentPaidCents + centsFromInput(paidAmount || '0')) : 0;
-  const registerBalanceCents = Math.max(registerAmountCents - registerPaidCents, 0);
-  const organizedPayments = useMemo(() => [...payments].sort((left, right) => {
-    const nameCompare = (left.userName ?? 'Minha mensalidade').localeCompare(right.userName ?? 'Minha mensalidade', 'pt-BR', { sensitivity: 'base' });
-    if (nameCompare !== 0) return nameCompare;
-    const monthCompare = left.referenceMonth.localeCompare(right.referenceMonth);
-    if (monthCompare !== 0) return monthCompare;
-    return (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
-  }), [payments]);
-  const organizedPaymentHistory = useMemo(() => [...paymentHistory].sort((left, right) => {
-    const nameCompare = (left.userName ?? 'Minha mensalidade').localeCompare(right.userName ?? 'Minha mensalidade', 'pt-BR', { sensitivity: 'base' });
-    if (nameCompare !== 0) return nameCompare;
-    const monthCompare = left.referenceMonth.localeCompare(right.referenceMonth);
-    if (monthCompare !== 0) return monthCompare;
-    return (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
-  }), [paymentHistory]);
-  const filteredPayments = useMemo(() => organizedPayments.filter(paymentMatchesFilters), [organizedPayments, paymentFilters]);
+  const registerAmountCents = centsFromInput(amount || "0");
+  const registerPaidCents =
+    status === "PAID"
+      ? registerAmountCents
+      : status === "PARTIAL"
+        ? Math.min(
+            registerAmountCents,
+            currentPaidCents + centsFromInput(paidAmount || "0"),
+          )
+        : 0;
+  const registerBalanceCents = Math.max(
+    registerAmountCents - registerPaidCents,
+    0,
+  );
+  const organizedPayments = useMemo(
+    () =>
+      [...payments].sort((left, right) => {
+        const nameCompare = (
+          left.userName ?? "Minha mensalidade"
+        ).localeCompare(right.userName ?? "Minha mensalidade", "pt-BR", {
+          sensitivity: "base",
+        });
+        if (nameCompare !== 0) return nameCompare;
+        const monthCompare = left.referenceMonth.localeCompare(
+          right.referenceMonth,
+        );
+        if (monthCompare !== 0) return monthCompare;
+        return (left.dueDate ?? "").localeCompare(right.dueDate ?? "");
+      }),
+    [payments],
+  );
+  const organizedPaymentHistory = useMemo(
+    () =>
+      [...paymentHistory].sort((left, right) => {
+        const nameCompare = (
+          left.userName ?? "Minha mensalidade"
+        ).localeCompare(right.userName ?? "Minha mensalidade", "pt-BR", {
+          sensitivity: "base",
+        });
+        if (nameCompare !== 0) return nameCompare;
+        const monthCompare = left.referenceMonth.localeCompare(
+          right.referenceMonth,
+        );
+        if (monthCompare !== 0) return monthCompare;
+        return (left.dueDate ?? "").localeCompare(right.dueDate ?? "");
+      }),
+    [paymentHistory],
+  );
+  const filteredPayments = useMemo(
+    () => organizedPayments.filter(paymentMatchesFilters),
+    [organizedPayments, paymentFilters],
+  );
   const paymentGroups = useMemo(() => {
     const today = new Date();
     const todayKey = today.toISOString().slice(0, 10);
-    const groupsMap = new Map<string, { key: string; userId?: string; userName: string; payments: PaymentRecord[] }>();
+    const groupsMap = new Map<
+      string,
+      {
+        key: string;
+        userId?: string;
+        userName: string;
+        payments: PaymentRecord[];
+      }
+    >();
     const historyGroupsMap = new Map<string, PaymentRecord[]>();
     organizedPaymentHistory.forEach((payment) => {
-      const key = payment.userId ?? payment.userName ?? 'me';
+      const key = payment.userId ?? payment.userName ?? "me";
       const current = historyGroupsMap.get(key);
       if (current) {
         current.push(payment);
@@ -4530,177 +4796,1311 @@ function PaymentsPanel({ api, canCoordinate, users, activeSeasonId }: { api: Api
       historyGroupsMap.set(key, [payment]);
     });
     organizedPayments.forEach((payment) => {
-      const key = payment.userId ?? payment.userName ?? 'me';
+      const key = payment.userId ?? payment.userName ?? "me";
       const current = groupsMap.get(key);
       if (current) {
         current.payments.push(payment);
         return;
       }
-      groupsMap.set(key, { key, userId: payment.userId, userName: payment.userName ?? 'Minha mensalidade', payments: [payment] });
-    });
-    return [...groupsMap.values()].map((group): PaymentAthleteGroup | null => {
-      const historySource = historyGroupsMap.get(group.key) ?? group.payments;
-      const paymentsByMonth = new Map<string, PaymentRecord>();
-      [...historySource]
-        .sort((left, right) => left.referenceMonth.localeCompare(right.referenceMonth) || (left.dueDate ?? '').localeCompare(right.dueDate ?? ''))
-        .forEach((payment) => {
-          const referenceMonthKey = payment.referenceMonth.slice(0, 7);
-          if (!paymentsByMonth.has(referenceMonthKey)) paymentsByMonth.set(referenceMonthKey, payment);
-        });
-      const historyPayments = [...paymentsByMonth.values()].sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
-      const openPayments = historyPayments.filter((payment) => paymentHasOpenBalance(payment)).sort((left, right) => paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)));
-      const comparisonDate = new Date().toISOString().slice(0, 10);
-      const oldestLatePayment = openPayments.find((payment) => paymentIsLateRecord(payment, comparisonDate)) ?? null;
-      const nextOpenPayment = openPayments.find((payment) => !paymentIsLateRecord(payment, comparisonDate)) ?? null;
-      const displayPayments = [oldestLatePayment, nextOpenPayment].filter((payment): payment is PaymentRecord => payment !== null && payment !== undefined);
-      const paidPayments = historyPayments.filter((payment) => (payment.paidAmountCents ?? 0) > 0).sort((left, right) => {
-        const leftKey = `${left.paidAt ?? left.referenceMonth}-${left.referenceMonth}`;
-        const rightKey = `${right.paidAt ?? right.referenceMonth}-${right.referenceMonth}`;
-        return rightKey.localeCompare(leftKey);
+      groupsMap.set(key, {
+        key,
+        userId: payment.userId,
+        userName: payment.userName ?? "Minha mensalidade",
+        payments: [payment],
       });
-      const nameFilter = normalizeTableFilterValue(paymentFilters.name);
-      if (nameFilter && !normalizeTableFilterValue(group.userName).includes(nameFilter)) return null;
-      return {
-        key: group.key,
-        userId: group.userId,
-        userName: abbreviatedAthleteName(group.userName),
-        payments: historyPayments,
-        openPayments: displayPayments,
-        totalOpenCents: openPayments.reduce((sum, payment) => sum + (payment.balanceCents ?? 0), 0),
-        totalPaidCents: historyPayments.reduce((sum, payment) => sum + (payment.paidAmountCents ?? 0), 0),
-        lastPaidPayment: paidPayments[0] ?? null,
-        nextOpenPayment,
-        latePaymentsCount: openPayments.filter((payment) => paymentIsLateRecord(payment, comparisonDate)).length
-      };
-    }).filter((group): group is PaymentAthleteGroup => group !== null).sort((left, right) => left.userName.localeCompare(right.userName, 'pt-BR', { sensitivity: 'base' }));
+    });
+    return [...groupsMap.values()]
+      .map((group): PaymentAthleteGroup | null => {
+        const historySource = historyGroupsMap.get(group.key) ?? group.payments;
+        const paymentsByMonth = new Map<string, PaymentRecord>();
+        [...historySource]
+          .sort(
+            (left, right) =>
+              left.referenceMonth.localeCompare(right.referenceMonth) ||
+              (left.dueDate ?? "").localeCompare(right.dueDate ?? ""),
+          )
+          .forEach((payment) => {
+            const referenceMonthKey = payment.referenceMonth.slice(0, 7);
+            if (!paymentsByMonth.has(referenceMonthKey))
+              paymentsByMonth.set(referenceMonthKey, payment);
+          });
+        const historyPayments = [...paymentsByMonth.values()].sort(
+          (left, right) =>
+            paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)),
+        );
+        const openPayments = historyPayments
+          .filter((payment) => paymentHasOpenBalance(payment))
+          .sort((left, right) =>
+            paymentTimelineKey(left).localeCompare(paymentTimelineKey(right)),
+          );
+        const comparisonDate = new Date().toISOString().slice(0, 10);
+        const oldestLatePayment =
+          openPayments.find((payment) =>
+            paymentIsLateRecord(payment, comparisonDate),
+          ) ?? null;
+        const nextOpenPayment =
+          openPayments.find(
+            (payment) => !paymentIsLateRecord(payment, comparisonDate),
+          ) ?? null;
+        const displayPayments = [oldestLatePayment, nextOpenPayment].filter(
+          (payment): payment is PaymentRecord =>
+            payment !== null && payment !== undefined,
+        );
+        const paidPayments = historyPayments
+          .filter((payment) => (payment.paidAmountCents ?? 0) > 0)
+          .sort((left, right) => {
+            const leftKey = `${left.paidAt ?? left.referenceMonth}-${left.referenceMonth}`;
+            const rightKey = `${right.paidAt ?? right.referenceMonth}-${right.referenceMonth}`;
+            return rightKey.localeCompare(leftKey);
+          });
+        const nameFilter = normalizeTableFilterValue(paymentFilters.name);
+        if (
+          nameFilter &&
+          !normalizeTableFilterValue(group.userName).includes(nameFilter)
+        )
+          return null;
+        return {
+          key: group.key,
+          userId: group.userId,
+          userName: abbreviatedAthleteName(group.userName),
+          payments: historyPayments,
+          openPayments: displayPayments,
+          totalOpenCents: openPayments.reduce(
+            (sum, payment) => sum + (payment.balanceCents ?? 0),
+            0,
+          ),
+          totalPaidCents: historyPayments.reduce(
+            (sum, payment) => sum + (payment.paidAmountCents ?? 0),
+            0,
+          ),
+          lastPaidPayment: paidPayments[0] ?? null,
+          nextOpenPayment,
+          latePaymentsCount: openPayments.filter((payment) =>
+            paymentIsLateRecord(payment, comparisonDate),
+          ).length,
+        };
+      })
+      .filter((group): group is PaymentAthleteGroup => group !== null)
+      .sort((left, right) =>
+        left.userName.localeCompare(right.userName, "pt-BR", {
+          sensitivity: "base",
+        }),
+      );
   }, [organizedPayments, organizedPaymentHistory, paymentFilters.name]);
 
   useEffect(() => {
-    if (expandedPaymentGroupKey && !paymentGroups.some((group) => group.key === expandedPaymentGroupKey)) setExpandedPaymentGroupKey(null);
+    if (
+      expandedPaymentGroupKey &&
+      !paymentGroups.some((group) => group.key === expandedPaymentGroupKey)
+    )
+      setExpandedPaymentGroupKey(null);
   }, [expandedPaymentGroupKey, paymentGroups]);
-  const organizedCashEntries = useMemo(() => [...cashEntries].sort((left, right) => {
-    const dateCompare = (right.entryDate ?? '').localeCompare(left.entryDate ?? '');
-    if (dateCompare !== 0) return dateCompare;
-    return (right.createdAt ?? '').localeCompare(left.createdAt ?? '');
-  }), [cashEntries]);
-  const filteredCashEntries = useMemo(() => organizedCashEntries.filter((entry) => {
-    const dateValue = `${formatDateOnly(entry.entryDate, '').toLowerCase()} ${(entry.entryDate?.slice(0, 10) ?? '').toLowerCase()}`;
-    const typeValue = (entry.entryType === 'REVENUE' ? 'receita' : 'despesa').toLowerCase();
-    const descriptionValue = entry.description.toLowerCase();
-    const originValue = (entry.paymentId ? 'mensalidade' : 'manual').toLowerCase();
-    const recordedByValue = (entry.recordedByName ?? '').toLowerCase();
-    const amountValue = `${entry.entryType === 'REVENUE' ? '+' : '-'} ${money(entry.amountCents)}`.toLowerCase();
-    return dateValue.includes(cashFilters.date.trim().toLowerCase())
-      && typeValue.includes(cashFilters.type.trim().toLowerCase())
-      && descriptionValue.includes(cashFilters.description.trim().toLowerCase())
-      && originValue.includes(cashFilters.origin.trim().toLowerCase())
-      && recordedByValue.includes(cashFilters.recordedBy.trim().toLowerCase())
-      && amountValue.includes(cashFilters.amount.trim().toLowerCase());
-  }), [cashFilters, organizedCashEntries]);
+  const organizedCashEntries = useMemo(
+    () =>
+      [...cashEntries].sort((left, right) => {
+        const dateCompare = (right.entryDate ?? "").localeCompare(
+          left.entryDate ?? "",
+        );
+        if (dateCompare !== 0) return dateCompare;
+        return (right.createdAt ?? "").localeCompare(left.createdAt ?? "");
+      }),
+    [cashEntries],
+  );
+  const filteredCashEntries = useMemo(
+    () =>
+      organizedCashEntries.filter((entry) => {
+        const dateValue = `${formatDateOnly(entry.entryDate, "").toLowerCase()} ${(entry.entryDate?.slice(0, 10) ?? "").toLowerCase()}`;
+        const typeValue = (
+          entry.entryType === "REVENUE" ? "receita" : "despesa"
+        ).toLowerCase();
+        const descriptionValue = entry.description.toLowerCase();
+        const originValue = (
+          entry.paymentId ? "mensalidade" : "manual"
+        ).toLowerCase();
+        const recordedByValue = (entry.recordedByName ?? "").toLowerCase();
+        const amountValue =
+          `${entry.entryType === "REVENUE" ? "+" : "-"} ${money(entry.amountCents)}`.toLowerCase();
+        return (
+          dateValue.includes(cashFilters.date.trim().toLowerCase()) &&
+          typeValue.includes(cashFilters.type.trim().toLowerCase()) &&
+          descriptionValue.includes(
+            cashFilters.description.trim().toLowerCase(),
+          ) &&
+          originValue.includes(cashFilters.origin.trim().toLowerCase()) &&
+          recordedByValue.includes(
+            cashFilters.recordedBy.trim().toLowerCase(),
+          ) &&
+          amountValue.includes(cashFilters.amount.trim().toLowerCase())
+        );
+      }),
+    [cashFilters, organizedCashEntries],
+  );
   const todayKey = new Date().toISOString().slice(0, 10);
-  const overviewPaymentRows = overviewDetail === 'received'
-    ? organizedPayments.filter((payment) => (payment.paidAmountCents ?? 0) > 0)
-    : overviewDetail === 'pending'
-      ? organizedPayments.filter((payment) => payment.status === 'PENDING' && (payment.dueDate?.slice(0, 10) ?? '') >= todayKey)
-      : overviewDetail === 'late'
-        ? organizedPayments.filter((payment) => paymentIsLateRecord(payment, todayKey))
-        : [];
-  const overviewCashRows = overviewDetail === 'revenue'
-    ? organizedCashEntries.filter((entry) => entry.entryType === 'REVENUE')
-    : overviewDetail === 'expense'
-      ? organizedCashEntries.filter((entry) => entry.entryType === 'EXPENSE')
-      : overviewDetail === 'balance'
-        ? organizedCashEntries
-        : [];
-  const overviewTitle = overviewDetail === 'received' ? 'Valores recebidos'
-    : overviewDetail === 'pending' ? 'Mensalidades pendentes'
-      : overviewDetail === 'late' ? 'Mensalidades em atraso'
-        : overviewDetail === 'revenue' ? 'Receitas do caixa'
-          : overviewDetail === 'expense' ? 'Despesas do caixa'
-            : 'Saldo do caixa';
-  const overviewTotal = overviewDetail === 'received' ? money(summary?.paidCents)
-    : overviewDetail === 'pending' ? `${summary?.pending ?? 0} pendente(s)`
-      : overviewDetail === 'late' ? `${summary?.late ?? 0} atraso(s)`
-        : overviewDetail === 'revenue' ? money(cashSummary?.revenueCents)
-          : overviewDetail === 'expense' ? money(cashSummary?.expenseCents)
-            : money(cashSummary?.balanceCents);
+  const overviewPaymentRows =
+    overviewDetail === "received"
+      ? organizedPayments.filter(
+          (payment) => (payment.paidAmountCents ?? 0) > 0,
+        )
+      : overviewDetail === "pending"
+        ? organizedPayments.filter(
+            (payment) =>
+              payment.status === "PENDING" &&
+              (payment.dueDate?.slice(0, 10) ?? "") >= todayKey,
+          )
+        : overviewDetail === "late"
+          ? organizedPayments.filter((payment) =>
+              paymentIsLateRecord(payment, todayKey),
+            )
+          : [];
+  const overviewCashRows =
+    overviewDetail === "revenue"
+      ? organizedCashEntries.filter((entry) => entry.entryType === "REVENUE")
+      : overviewDetail === "expense"
+        ? organizedCashEntries.filter((entry) => entry.entryType === "EXPENSE")
+        : overviewDetail === "balance"
+          ? organizedCashEntries
+          : [];
+  const overviewTitle =
+    overviewDetail === "received"
+      ? "Valores recebidos"
+      : overviewDetail === "pending"
+        ? "Mensalidades pendentes"
+        : overviewDetail === "late"
+          ? "Mensalidades em atraso"
+          : overviewDetail === "revenue"
+            ? "Receitas do caixa"
+            : overviewDetail === "expense"
+              ? "Despesas do caixa"
+              : "Saldo do caixa";
+  const overviewTotal =
+    overviewDetail === "received"
+      ? money(summary?.paidCents)
+      : overviewDetail === "pending"
+        ? `${summary?.pending ?? 0} pendente(s)`
+        : overviewDetail === "late"
+          ? `${summary?.late ?? 0} atraso(s)`
+          : overviewDetail === "revenue"
+            ? money(cashSummary?.revenueCents)
+            : overviewDetail === "expense"
+              ? money(cashSummary?.expenseCents)
+              : money(cashSummary?.balanceCents);
 
   return (
     <section className="card compact payments-panel">
       <div className="card-head">
         <div>
-          <h2>Gestão financeira</h2>
+          <h2>
+            {cashMode
+              ? "Caixa do grupo"
+              : canCoordinate
+                ? "Gestão financeira"
+                : "Minha mensalidade"}
+          </h2>
         </div>
-        {canCoordinate && <div className="actions panel-actions"><button className="primary small" onClick={() => setPaymentModal('generate')}>Gerar mensalidades</button><button className="ghost" onClick={() => setPaymentModal('cash')}>Lançar caixa</button>{filteredPayments.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-mensalidades.csv', filteredPayments.map((payment) => ({ atleta: payment.userName ?? 'Minha mensalidade', mes: paymentMonthLabel(payment.referenceMonth), vencimento: formatDateOnly(payment.dueDate, ''), pagoEm: formatDateOnly(payment.paidAt, ''), valor: (payment.amountCents / 100).toFixed(2), pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2), saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2), status: payment.status, pontoAntecipado: payment.earnsPoint, observacao: payment.notes ?? '' })))}>Exportar mensalidades</button>}{filteredCashEntries.length > 0 && <button className="ghost" onClick={() => downloadCsv('poka-pratika-caixa.csv', filteredCashEntries.map((entry) => ({ data: formatDateOnly(entry.entryDate, ''), tipo: entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa', descricao: entry.description, valor: (entry.amountCents / 100).toFixed(2), origem: entry.paymentId ? 'Mensalidade' : 'Manual', responsavel: entry.recordedByName ?? '' })))}>Exportar caixa</button>}</div>}
+        {canCoordinate && (
+          <div className="actions panel-actions">
+            {!cashMode && (
+              <button
+                className="primary small"
+                onClick={() => setPaymentModal("generate")}
+              >
+                Gerar mensalidades
+              </button>
+            )}
+            {cashMode && (
+              <button
+                className="primary small"
+                onClick={() => setPaymentModal("cash")}
+              >
+                Lançar caixa
+              </button>
+            )}
+            {!cashMode && filteredPayments.length > 0 && (
+              <button
+                className="ghost"
+                onClick={() =>
+                  downloadCsv(
+                    "poka-pratika-mensalidades.csv",
+                    filteredPayments.map((payment) => ({
+                      atleta: payment.userName ?? "Minha mensalidade",
+                      mes: paymentMonthLabel(payment.referenceMonth),
+                      vencimento: formatDateOnly(payment.dueDate, ""),
+                      pagoEm: formatDateOnly(payment.paidAt, ""),
+                      valor: (payment.amountCents / 100).toFixed(2),
+                      pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2),
+                      saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2),
+                      status: payment.status,
+                      pontoAntecipado: payment.earnsPoint,
+                      observacao: payment.notes ?? "",
+                    })),
+                  )
+                }
+              >
+                Exportar mensalidades
+              </button>
+            )}
+            {cashMode && filteredCashEntries.length > 0 && (
+              <button
+                className="ghost"
+                onClick={() =>
+                  downloadCsv(
+                    "poka-pratika-caixa.csv",
+                    filteredCashEntries.map((entry) => ({
+                      data: formatDateOnly(entry.entryDate, ""),
+                      tipo:
+                        entry.entryType === "REVENUE" ? "Receita" : "Despesa",
+                      descricao: entry.description,
+                      valor: (entry.amountCents / 100).toFixed(2),
+                      origem: entry.paymentId ? "Mensalidade" : "Manual",
+                      responsavel: entry.recordedByName ?? "",
+                    })),
+                  )
+                }
+              >
+                Exportar caixa
+              </button>
+            )}
+          </div>
+        )}
       </div>
-      {canCoordinate && (summary || cashSummary) && <div className="stat-grid payments-overview-strip">{summary && <><button type="button" onClick={() => setOverviewDetail('received')}><b>R$ {(summary.paidCents / 100).toFixed(2)}</b> recebido</button><button type="button"><b>R$ {(summary.openCents / 100).toFixed(2)}</b> aberto</button><button type="button" onClick={() => setOverviewDetail('pending')}><b>{summary.pending}</b> pendente(s)</button><button type="button" onClick={() => setOverviewDetail('late')}><b>{summary.late}</b> atraso(s)</button><button type="button"><b>{summary.earlyPoints}</b> ponto(s) antecipados</button></>}{cashSummary && <><button type="button" onClick={() => setOverviewDetail('revenue')}><b>{money(cashSummary.revenueCents)}</b> receitas</button><button type="button" onClick={() => setOverviewDetail('expense')}><b>{money(cashSummary.expenseCents)}</b> despesas</button><button type="button" onClick={() => setOverviewDetail('balance')}><b>{money(cashSummary.balanceCents)}</b> saldo caixa</button></>}</div>}
-      {overviewDetail && <div className="modal financial-detail-modal" role="dialog" aria-modal="true" aria-labelledby="financial-detail-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setOverviewDetail(null); }}><section className="card modal-card financial-detail-card"><div className="card-head"><div><h2 id="financial-detail-title">{overviewTitle}</h2><p className="muted">{overviewTotal}</p></div><button type="button" className="ghost" onClick={() => setOverviewDetail(null)}>Fechar</button></div><div className="financial-detail-list">{overviewPaymentRows.map((payment) => <article className="financial-detail-item" key={payment.id ?? `${payment.userId}-${payment.referenceMonth}`}><div className="financial-detail-item-head"><strong>{payment.userName ?? 'Atleta'}</strong><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></div><div className="financial-detail-meta"><span><small>Mês</small><b>{paymentMonthLabel(payment.referenceMonth)}</b></span><span><small>Vencimento</small><b>{formatDateOnly(payment.dueDate, '-')}</b></span><span><small>Pago</small><b>{money(payment.paidAmountCents)}</b></span><span><small>Saldo</small><b>{money(payment.balanceCents)}</b></span></div></article>)}{overviewCashRows.map((entry) => <article className="financial-detail-item" key={entry.id}><div className="financial-detail-item-head"><strong>{entry.description}</strong><span className={`status ${entry.entryType === 'REVENUE' ? 'open' : 'danger'}`}>{entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa'}</span></div><div className="financial-detail-meta"><span><small>Data</small><b>{formatDateOnly(entry.entryDate, '-')}</b></span><span><small>Origem</small><b>{entry.paymentId ? 'Mensalidade' : 'Manual'}</b></span><span><small>Responsável</small><b>{entry.recordedByName?.trim() || '-'}</b></span><span><small>Valor</small><b>{entry.entryType === 'REVENUE' ? '+' : '-'} {money(entry.amountCents)}</b></span></div></article>)}{overviewPaymentRows.length === 0 && overviewCashRows.length === 0 && <p className="financial-detail-empty">Nenhum registro neste bloco.</p>}</div></section></div>}
-      {!canCoordinate && <p className="muted">Você visualiza apenas sua mensalidade e se ela gerou ponto por pagamento antecipado.</p>}
+      {canCoordinate && ((!cashMode && summary) || (cashMode && cashSummary)) && (
+        <div className="stat-grid payments-overview-strip">
+          {!cashMode && summary && (
+            <>
+              <button
+                type="button"
+                onClick={() => setOverviewDetail("received")}
+              >
+                <b>R$ {(summary.paidCents / 100).toFixed(2)}</b> recebido
+              </button>
+              <button type="button">
+                <b>R$ {(summary.openCents / 100).toFixed(2)}</b> aberto
+              </button>
+              <button type="button" onClick={() => setOverviewDetail("late")}>
+                <b>{summary.late}</b> atraso(s)
+              </button>
+              <button type="button">
+                <b>{summary.earlyPoints}</b> ponto(s) antecipados
+              </button>
+            </>
+          )}
+          {cashMode && cashSummary && (
+            <>
+              <button
+                type="button"
+                onClick={() => setOverviewDetail("revenue")}
+              >
+                <b>{money(cashSummary.revenueCents)}</b> receitas
+              </button>
+              <button
+                type="button"
+                onClick={() => setOverviewDetail("expense")}
+              >
+                <b>{money(cashSummary.expenseCents)}</b> despesas
+              </button>
+              <button
+                type="button"
+                onClick={() => setOverviewDetail("balance")}
+              >
+                <b>{money(cashSummary.balanceCents)}</b> saldo caixa
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {overviewDetail && (
+        <div
+          className="modal financial-detail-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="financial-detail-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOverviewDetail(null);
+          }}
+        >
+          <section className="card modal-card financial-detail-card">
+            <div className="card-head">
+              <div>
+                <h2 id="financial-detail-title">{overviewTitle}</h2>
+                <p className="muted">{overviewTotal}</p>
+              </div>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setOverviewDetail(null)}
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="financial-detail-list">
+              {overviewPaymentRows.map((payment) => (
+                <article
+                  className="financial-detail-item"
+                  key={
+                    payment.id ?? `${payment.userId}-${payment.referenceMonth}`
+                  }
+                >
+                  <div className="financial-detail-item-head">
+                    <strong>{payment.userName ?? "Atleta"}</strong>
+                    <span
+                      className={`status ${paymentStatusTone(payment.status)}`}
+                    >
+                      {statusLabel(payment.status)}
+                    </span>
+                  </div>
+                  <div className="financial-detail-meta">
+                    <span>
+                      <small>Mês</small>
+                      <b>{paymentMonthLabel(payment.referenceMonth)}</b>
+                    </span>
+                    <span>
+                      <small>Vencimento</small>
+                      <b>{formatDateOnly(payment.dueDate, "-")}</b>
+                    </span>
+                    <span>
+                      <small>Pago</small>
+                      <b>{money(payment.paidAmountCents)}</b>
+                    </span>
+                    <span>
+                      <small>Saldo</small>
+                      <b>{money(payment.balanceCents)}</b>
+                    </span>
+                  </div>
+                </article>
+              ))}
+              {overviewCashRows.map((entry) => (
+                <article className="financial-detail-item" key={entry.id}>
+                  <div className="financial-detail-item-head">
+                    <strong>{entry.description}</strong>
+                    <span
+                      className={`status ${entry.entryType === "REVENUE" ? "open" : "danger"}`}
+                    >
+                      {entry.entryType === "REVENUE" ? "Receita" : "Despesa"}
+                    </span>
+                  </div>
+                  <div className="financial-detail-meta">
+                    <span>
+                      <small>Data</small>
+                      <b>{formatDateOnly(entry.entryDate, "-")}</b>
+                    </span>
+                    <span>
+                      <small>Origem</small>
+                      <b>{entry.paymentId ? "Mensalidade" : "Manual"}</b>
+                    </span>
+                    <span>
+                      <small>Responsável</small>
+                      <b>{entry.recordedByName?.trim() || "-"}</b>
+                    </span>
+                    <span>
+                      <small>Valor</small>
+                      <b>
+                        {entry.entryType === "REVENUE" ? "+" : "-"}{" "}
+                        {money(entry.amountCents)}
+                      </b>
+                    </span>
+                  </div>
+                </article>
+              ))}
+              {overviewPaymentRows.length === 0 &&
+                overviewCashRows.length === 0 && (
+                  <p className="financial-detail-empty">
+                    Nenhum registro neste bloco.
+                  </p>
+                )}
+            </div>
+          </section>
+        </div>
+      )}
+      {!cashMode && !canCoordinate && (
+        <p className="muted">
+          Você visualiza apenas sua mensalidade e se ela gerou ponto por
+          pagamento antecipado.
+        </p>
+      )}
       {message && <p className="muted">{message}</p>}
-      {organizedPayments.length === 0 ? <EmptyState title="Sem mensalidades lançadas" text="Gere o mês ou registre uma cobrança individual para começar a acompanhar a tabela financeira." /> : <div className="championship-wrap payments-table-wrap"><table className="championship-table payments-table payments-group-table payments-summary-table"><thead><tr><th>{renderFilterHeader('Atleta', 'payments-name', paymentFilters.name, paymentFilterOptions('name'), (value) => setPaymentFilters((current) => ({ ...current, name: value })), () => setPaymentFilters((current) => ({ ...current, name: '' })), 'Pesquisar atleta')}</th><th>Inadimplência total</th><th>Total pago</th><th>Último mês pago</th><th>Próximo mês em aberto</th><th>Meses em atraso</th></tr></thead><tbody>{paymentGroups.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhum atleta encontrado com os filtros atuais.</td></tr> : paymentGroups.map((group) => <Fragment key={group.key}><tr className={expandedPaymentGroupKey === group.key ? 'payments-group-row is-open' : 'payments-group-row'} onClick={() => setExpandedPaymentGroupKey((current) => current === group.key ? null : group.key)}><td className="athlete-cell payments-name-cell payments-athlete-cell"><strong>{group.userName}</strong></td><td className="payments-summary-cell payments-balance-cell">{money(group.totalOpenCents)}</td><td className="payments-summary-cell">{money(group.totalPaidCents)}</td><td className="payments-summary-cell">{group.lastPaidPayment ? paymentMonthLabel(group.lastPaidPayment.referenceMonth) : <span className="payments-muted">Sem pagamento</span>}</td><td className="payments-summary-cell">{group.nextOpenPayment ? paymentMonthLabel(group.nextOpenPayment.referenceMonth) : <span className="payments-muted">Sem aberto</span>}</td><td className="payments-summary-cell">{group.latePaymentsCount > 0 ? <span className="status danger">{group.latePaymentsCount} atraso(s)</span> : <span className="status open">Em dia</span>}</td></tr>{expandedPaymentGroupKey === group.key && <tr className="payments-group-detail-row"><td colSpan={6}><div className="payments-subtable-wrap"><div className="payments-subtable-head"><strong>Mensalidades abertas do atleta</strong><span>{group.openPayments.length} registro(s) com saldo pendente</span></div>{group.openPayments.length === 0 ? <p className="payments-muted">Este atleta não possui mensalidades abertas ou atrasadas no momento.</p> : <table className="championship-table payments-table payments-subtable"><thead><tr><th>Mês</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Status</th>{canCoordinate && <th>Ação</th>}</tr></thead><tbody>{group.openPayments.map((payment) => <tr key={`${group.key}-${payment.id ?? payment.referenceMonth}-${payment.dueDate ?? 'sem-vencimento'}`}><td>{paymentMonthLabel(payment.referenceMonth)}</td><td>{formatDateOnly(payment.dueDate, '-')}</td><td>{money(payment.amountCents)}</td><td>{money(payment.paidAmountCents ?? 0)}</td><td><span className={`status ${paymentStatusTone(payment.status)}`}>{statusLabel(payment.status)}</span></td>{canCoordinate && <td className="payments-action-cell"><button type="button" className="ghost small" onClick={() => openRegister(payment)}>{(payment.balanceCents ?? 0) > 0 ? 'Baixar saldo' : 'Editar'}</button></td>}</tr>)}</tbody></table>}</div></td></tr>}</Fragment>)}</tbody></table></div>}
-      {canCoordinate && <section className="cash-ledger"><div className="card-head"><div><h2>Caixa do grupo</h2><p className="muted">Prestação de contas simples: receitas e despesas com data, descrição e valor.</p></div><span className="status open">{filteredCashEntries.length} de {organizedCashEntries.length} lançamento(s)</span></div>{organizedCashEntries.length === 0 ? <EmptyState title="Caixa sem lançamentos" text="Pagamentos de mensalidade entram automaticamente como receita. Despesas podem ser lançadas manualmente." /> : <div className="championship-wrap cash-table-wrap"><table className="championship-table cash-table"><thead><tr><th>{renderFilterHeader('Data', 'cash-date', cashFilters.date, cashFilterOptions('date'), (value) => setCashFilters((current) => ({ ...current, date: value })), () => setCashFilters((current) => ({ ...current, date: '' })), 'Pesquisar data')}</th><th>{renderFilterHeader('Tipo', 'cash-type', cashFilters.type, cashFilterOptions('type'), (value) => setCashFilters((current) => ({ ...current, type: value })), () => setCashFilters((current) => ({ ...current, type: '' })), 'Pesquisar tipo')}</th><th>{renderFilterHeader('Descrição', 'cash-description', cashFilters.description, cashFilterOptions('description'), (value) => setCashFilters((current) => ({ ...current, description: value })), () => setCashFilters((current) => ({ ...current, description: '' })), 'Pesquisar descrição')}</th><th>{renderFilterHeader('Origem', 'cash-origin', cashFilters.origin, cashFilterOptions('origin'), (value) => setCashFilters((current) => ({ ...current, origin: value })), () => setCashFilters((current) => ({ ...current, origin: '' })), 'Pesquisar origem')}</th><th>{renderFilterHeader('Responsável', 'cash-recordedBy', cashFilters.recordedBy, cashFilterOptions('recordedBy'), (value) => setCashFilters((current) => ({ ...current, recordedBy: value })), () => setCashFilters((current) => ({ ...current, recordedBy: '' })), 'Pesquisar responsável')}</th><th>{renderFilterHeader('Valor', 'cash-amount', cashFilters.amount, cashFilterOptions('amount'), (value) => setCashFilters((current) => ({ ...current, amount: value })), () => setCashFilters((current) => ({ ...current, amount: '' })), 'Pesquisar valor')}</th></tr></thead><tbody>{filteredCashEntries.length === 0 ? <tr><td colSpan={6} className="table-empty-cell">Nenhum lançamento encontrado com os filtros atuais.</td></tr> : filteredCashEntries.map((entry) => <tr key={entry.id}><td>{formatDateOnly(entry.entryDate, '-')}</td><td><span className={`status ${entry.entryType === 'REVENUE' ? 'open' : 'danger'}`}>{entry.entryType === 'REVENUE' ? 'Receita' : 'Despesa'}</span></td><td className="cash-description-cell"><strong>{entry.description}</strong></td><td>{entry.paymentId ? 'Mensalidade' : 'Manual'}</td><td>{entry.recordedByName?.trim() ? entry.recordedByName : <span className="payments-muted">-</span>}</td><td className={`cash-amount-cell ${entry.entryType === 'REVENUE' ? 'is-revenue' : 'is-expense'}`}>{entry.entryType === 'REVENUE' ? '+' : '-'} {money(entry.amountCents)}</td></tr>)}</tbody></table></div>}</section>}
-      {paymentModal === 'generate' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void generateMonth().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao gerar mensalidades.')); }}><div className="card-head"><div><h2>Gerar mensalidades em lote</h2><p className="muted">Crie vários meses para todos os atletas ou para uma seleção específica.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Mês inicial</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Quantidade de meses</span><input type="number" min="1" max="24" value={monthCount} onChange={(event) => setMonthCount(Number(event.target.value))} /></label><label><span>Vencimento inicial</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Valor mensal</span><input value={bulkAmount} onChange={(event) => setBulkAmount(event.target.value)} placeholder="Ex. 120,00" /></label></div><div className="segmented"><button type="button" className={generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(true)}>Todos os atletas</button><button type="button" className={!generateForAll ? 'primary small' : 'ghost'} onClick={() => setGenerateForAll(false)}>Selecionar atletas</button></div>{!generateForAll && <div className="user-select-grid">{activeAthletes.map((user) => <label className="payment-user-option" key={user.id}><input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleSelectedUser(user.id)} /> <span>{user.name}</span></label>)}</div>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação opcional" /><div className="payment-preview"><span><b>{generateForAll ? activeAthletes.length : selectedUserIds.length}</b><small>atleta(s)</small></span><span><b>{monthCount}</b><small>mês(es)</small></span><span><b>{money(centsFromInput(bulkAmount || amount || '0') * monthCount * (generateForAll ? activeAthletes.length : selectedUserIds.length))}</b><small>volume gerado</small></span></div><button className="primary" disabled={!generateForAll && selectedUserIds.length === 0}>Gerar cobranças reais</button></form></div>}
-      {paymentModal === 'register' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void save().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao registrar pagamento.')); }}><div className="card-head"><div><h2>Registrar pagamento</h2><p className="muted">Baixa total ou parcial. Só pagamento total antecipado gera ponto.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="payment-form-grid"><label><span>Atleta</span><select value={userId} onChange={(event) => setUserId(event.target.value)}>{activeAthletes.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label><label><span>Mês</span><input type="month" value={month.slice(0, 7)} onChange={(event) => setMonth(`${event.target.value}-01`)} /></label><label><span>Vencimento</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label><span>Data da baixa</span><input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} /></label><label><span>Valor da mensalidade</span><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Valor individual" /></label>{status === 'PARTIAL' && <label><span>Valor recebido agora</span><input value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)} placeholder="Valor parcial" /></label>}</div><div className="segmented payment-mode"><button type="button" className={status === 'PAID' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PAID'); setFullPayment(true); }}>Pagamento total</button><button type="button" className={status === 'PARTIAL' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PARTIAL'); setFullPayment(false); }}>Pagamento parcial</button><button type="button" className={status === 'PENDING' ? 'primary small' : 'ghost'} onClick={() => { setStatus('PENDING'); setFullPayment(false); }}>Pendente</button><button type="button" className={status === 'LATE' ? 'primary small' : 'ghost'} onClick={() => { setStatus('LATE'); setFullPayment(false); }}>Atrasado</button><button type="button" className={status === 'WAIVED' ? 'primary small' : 'ghost'} onClick={() => { setStatus('WAIVED'); setFullPayment(false); }}>Isento</button></div><div className="payment-preview"><span><b>{money(registerAmountCents)}</b><small>valor</small></span><span><b>{money(registerPaidCents)}</b><small>pago após baixa</small></span><span><b>{money(registerBalanceCents)}</b><small>saldo restante</small></span></div>{fullPayment && status === 'PAID' && <p className="muted">Se a data da baixa for antes do vencimento, o atleta recebe +1 ponto automaticamente.</p>}<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observação" /><button className="primary">Salvar baixa</button></form></div>}
-      {paymentModal === 'cash' && <div className="modal"><form className="card modal-card payment-card wide-payment" onSubmit={(event) => { event.preventDefault(); void saveCashEntry().then(() => setPaymentModal(null)).catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao lançar caixa.')); }}><div className="card-head"><div><h2>Lançamento de caixa</h2><p className="muted">Use para despesas e receitas avulsas. Mensalidades pagas entram automaticamente.</p></div><button type="button" className="ghost" onClick={() => setPaymentModal(null)}>Fechar</button></div><div className="segmented payment-mode"><button type="button" className={cashEntryType === 'REVENUE' ? 'primary small' : 'ghost'} onClick={() => setCashEntryType('REVENUE')}>Receita</button><button type="button" className={cashEntryType === 'EXPENSE' ? 'primary small' : 'ghost'} onClick={() => setCashEntryType('EXPENSE')}>Despesa</button></div><div className="payment-form-grid"><label><span>Data</span><input type="date" value={cashDate} onChange={(event) => setCashDate(event.target.value)} /></label><label><span>Valor</span><input value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} placeholder="Ex. 85,00" /></label></div><input value={cashDescription} onChange={(event) => setCashDescription(event.target.value)} placeholder="Descrição: aluguel da quadra, bola nova, patrocínio, etc." required minLength={3} maxLength={240} /><div className="payment-preview"><span><b>{cashEntryType === 'REVENUE' ? 'Receita' : 'Despesa'}</b><small>tipo</small></span><span><b>{money(centsFromInput(cashAmount))}</b><small>valor</small></span><span><b>{formatDateOnly(cashDate, '--/--/----')}</b><small>data</small></span></div><button className="primary" disabled={centsFromInput(cashAmount) <= 0 || cashDescription.trim().length < 3}>Salvar lançamento</button></form></div>}
+      {!cashMode && (organizedPayments.length === 0 ? (
+        <EmptyState
+          title="Sem mensalidades lançadas"
+          text="Gere o mês ou registre uma cobrança individual para começar a acompanhar a tabela financeira."
+        />
+      ) : (
+        <div className="championship-wrap payments-table-wrap">
+          <table className="championship-table payments-table payments-group-table payments-summary-table">
+            <thead>
+              <tr>
+                <th>
+                  {renderFilterHeader(
+                    "Atleta",
+                    "payments-name",
+                    paymentFilters.name,
+                    paymentFilterOptions("name"),
+                    (value) =>
+                      setPaymentFilters((current) => ({
+                        ...current,
+                        name: value,
+                      })),
+                    () =>
+                      setPaymentFilters((current) => ({
+                        ...current,
+                        name: "",
+                      })),
+                    "Pesquisar atleta",
+                  )}
+                </th>
+                <th>Inadimplência total</th>
+                <th>Total pago</th>
+                <th>Último mês pago</th>
+                <th>Próximo mês em aberto</th>
+                <th>Meses em atraso</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paymentGroups.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="table-empty-cell">
+                    Nenhum atleta encontrado com os filtros atuais.
+                  </td>
+                </tr>
+              ) : (
+                paymentGroups.map((group) => (
+                  <Fragment key={group.key}>
+                    <tr
+                      className={
+                        expandedPaymentGroupKey === group.key
+                          ? "payments-group-row is-open"
+                          : "payments-group-row"
+                      }
+                      onClick={() =>
+                        setExpandedPaymentGroupKey((current) =>
+                          current === group.key ? null : group.key,
+                        )
+                      }
+                    >
+                      <td className="athlete-cell payments-name-cell payments-athlete-cell">
+                        <strong>{group.userName}</strong>
+                      </td>
+                      <td className="payments-summary-cell payments-balance-cell">
+                        {money(group.totalOpenCents)}
+                      </td>
+                      <td className="payments-summary-cell">
+                        {money(group.totalPaidCents)}
+                      </td>
+                      <td className="payments-summary-cell">
+                        {group.lastPaidPayment ? (
+                          paymentMonthLabel(
+                            group.lastPaidPayment.referenceMonth,
+                          )
+                        ) : (
+                          <span className="payments-muted">Sem pagamento</span>
+                        )}
+                      </td>
+                      <td className="payments-summary-cell">
+                        {group.nextOpenPayment ? (
+                          paymentMonthLabel(
+                            group.nextOpenPayment.referenceMonth,
+                          )
+                        ) : (
+                          <span className="payments-muted">Sem aberto</span>
+                        )}
+                      </td>
+                      <td className="payments-summary-cell">
+                        {group.latePaymentsCount > 0 ? (
+                          <span className="status danger">
+                            {group.latePaymentsCount} atraso(s)
+                          </span>
+                        ) : (
+                          <span className="status open">Em dia</span>
+                        )}
+                      </td>
+                    </tr>
+                    {expandedPaymentGroupKey === group.key && (
+                      <tr className="payments-group-detail-row">
+                        <td colSpan={6}>
+                          <div className="payments-subtable-wrap">
+                            <div className="payments-subtable-head">
+                              <strong>Mensalidades abertas do atleta</strong>
+                              <span>
+                                {group.openPayments.length} registro(s) com
+                                saldo pendente
+                              </span>
+                            </div>
+                            {group.openPayments.length === 0 ? (
+                              <p className="payments-muted">
+                                Este atleta não possui mensalidades abertas ou
+                                atrasadas no momento.
+                              </p>
+                            ) : (
+                              <table className="championship-table payments-table payments-subtable">
+                                <thead>
+                                  <tr>
+                                    <th>Mês</th>
+                                    <th>Vencimento</th>
+                                    <th>Valor</th>
+                                    <th>Pago</th>
+                                    <th>Status</th>
+                                    {canCoordinate && <th>Ação</th>}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {group.openPayments.map((payment) => (
+                                    <tr
+                                      key={`${group.key}-${payment.id ?? payment.referenceMonth}-${payment.dueDate ?? "sem-vencimento"}`}
+                                    >
+                                      <td>
+                                        {paymentMonthLabel(
+                                          payment.referenceMonth,
+                                        )}
+                                      </td>
+                                      <td>
+                                        {formatDateOnly(payment.dueDate, "-")}
+                                      </td>
+                                      <td>{money(payment.amountCents)}</td>
+                                      <td>
+                                        {money(payment.paidAmountCents ?? 0)}
+                                      </td>
+                                      <td>
+                                        <span
+                                          className={`status ${paymentStatusTone(payment.status)}`}
+                                        >
+                                          {statusLabel(payment.status)}
+                                        </span>
+                                      </td>
+                                      {canCoordinate && (
+                                        <td className="payments-action-cell">
+                                          <button
+                                            type="button"
+                                            className="ghost small"
+                                            onClick={() =>
+                                              openRegister(payment)
+                                            }
+                                          >
+                                            {(payment.balanceCents ?? 0) > 0
+                                              ? "Baixar saldo"
+                                              : "Editar"}
+                                          </button>
+                                        </td>
+                                      )}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      {cashMode && canCoordinate && (
+        <section className="cash-ledger">
+          <div className="card-head">
+            <div>
+              <h2>Lançamentos</h2>
+              <p className="muted">
+                Prestação de contas simples: receitas e despesas com data,
+                descrição e valor.
+              </p>
+            </div>
+            <span className="status open">
+              {filteredCashEntries.length} de {organizedCashEntries.length}{" "}
+              lançamento(s)
+            </span>
+          </div>
+          {organizedCashEntries.length === 0 ? (
+            <EmptyState
+              title="Caixa sem lançamentos"
+              text="Pagamentos de mensalidade entram automaticamente como receita. Despesas podem ser lançadas manualmente."
+            />
+          ) : (
+            <div className="championship-wrap cash-table-wrap">
+              <table className="championship-table cash-table">
+                <thead>
+                  <tr>
+                    <th>
+                      {renderFilterHeader(
+                        "Data",
+                        "cash-date",
+                        cashFilters.date,
+                        cashFilterOptions("date"),
+                        (value) =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            date: value,
+                          })),
+                        () =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            date: "",
+                          })),
+                        "Pesquisar data",
+                      )}
+                    </th>
+                    <th>
+                      {renderFilterHeader(
+                        "Tipo",
+                        "cash-type",
+                        cashFilters.type,
+                        cashFilterOptions("type"),
+                        (value) =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            type: value,
+                          })),
+                        () =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            type: "",
+                          })),
+                        "Pesquisar tipo",
+                      )}
+                    </th>
+                    <th>
+                      {renderFilterHeader(
+                        "Descrição",
+                        "cash-description",
+                        cashFilters.description,
+                        cashFilterOptions("description"),
+                        (value) =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            description: value,
+                          })),
+                        () =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            description: "",
+                          })),
+                        "Pesquisar descrição",
+                      )}
+                    </th>
+                    <th>
+                      {renderFilterHeader(
+                        "Origem",
+                        "cash-origin",
+                        cashFilters.origin,
+                        cashFilterOptions("origin"),
+                        (value) =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            origin: value,
+                          })),
+                        () =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            origin: "",
+                          })),
+                        "Pesquisar origem",
+                      )}
+                    </th>
+                    <th>
+                      {renderFilterHeader(
+                        "Responsável",
+                        "cash-recordedBy",
+                        cashFilters.recordedBy,
+                        cashFilterOptions("recordedBy"),
+                        (value) =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            recordedBy: value,
+                          })),
+                        () =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            recordedBy: "",
+                          })),
+                        "Pesquisar responsável",
+                      )}
+                    </th>
+                    <th>
+                      {renderFilterHeader(
+                        "Valor",
+                        "cash-amount",
+                        cashFilters.amount,
+                        cashFilterOptions("amount"),
+                        (value) =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            amount: value,
+                          })),
+                        () =>
+                          setCashFilters((current) => ({
+                            ...current,
+                            amount: "",
+                          })),
+                        "Pesquisar valor",
+                      )}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCashEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="table-empty-cell">
+                        Nenhum lançamento encontrado com os filtros atuais.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCashEntries.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{formatDateOnly(entry.entryDate, "-")}</td>
+                        <td>
+                          <span
+                            className={`status ${entry.entryType === "REVENUE" ? "open" : "danger"}`}
+                          >
+                            {entry.entryType === "REVENUE"
+                              ? "Receita"
+                              : "Despesa"}
+                          </span>
+                        </td>
+                        <td className="cash-description-cell">
+                          <strong>{entry.description}</strong>
+                        </td>
+                        <td>{entry.paymentId ? "Mensalidade" : "Manual"}</td>
+                        <td>
+                          {entry.recordedByName?.trim() ? (
+                            entry.recordedByName
+                          ) : (
+                            <span className="payments-muted">-</span>
+                          )}
+                        </td>
+                        <td
+                          className={`cash-amount-cell ${entry.entryType === "REVENUE" ? "is-revenue" : "is-expense"}`}
+                        >
+                          {entry.entryType === "REVENUE" ? "+" : "-"}{" "}
+                          {money(entry.amountCents)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+      {!cashMode && paymentModal === "generate" && (
+        <div className="modal">
+          <form
+            className="card modal-card payment-card wide-payment"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void generateMonth()
+                .then(() => setPaymentModal(null))
+                .catch((err) =>
+                  setMessage(
+                    err instanceof Error
+                      ? err.message
+                      : "Falha ao gerar mensalidades.",
+                  ),
+                );
+            }}
+          >
+            <div className="card-head">
+              <div>
+                <h2>Gerar mensalidades em lote</h2>
+                <p className="muted">
+                  Crie vários meses para todos os atletas ou para uma seleção
+                  específica.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setPaymentModal(null)}
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="payment-form-grid">
+              <label>
+                <span>Mês inicial</span>
+                <input
+                  type="month"
+                  value={month.slice(0, 7)}
+                  onChange={(event) => setMonth(`${event.target.value}-01`)}
+                />
+              </label>
+              <label>
+                <span>Quantidade de meses</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={monthCount}
+                  onChange={(event) =>
+                    setMonthCount(Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                <span>Vencimento inicial</span>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Valor mensal</span>
+                <input
+                  value={bulkAmount}
+                  onChange={(event) => setBulkAmount(event.target.value)}
+                  placeholder="Ex. 120,00"
+                />
+              </label>
+            </div>
+            <div className="segmented">
+              <button
+                type="button"
+                className={generateForAll ? "primary small" : "ghost"}
+                onClick={() => setGenerateForAll(true)}
+              >
+                Todos os atletas
+              </button>
+              <button
+                type="button"
+                className={!generateForAll ? "primary small" : "ghost"}
+                onClick={() => setGenerateForAll(false)}
+              >
+                Selecionar atletas
+              </button>
+            </div>
+            {!generateForAll && (
+              <div className="user-select-grid">
+                {activeAthletes.map((user) => (
+                  <label className="payment-user-option" key={user.id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.includes(user.id)}
+                      onChange={() => toggleSelectedUser(user.id)}
+                    />{" "}
+                    <span>{user.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <input
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Observação opcional"
+            />
+            <div className="payment-preview">
+              <span>
+                <b>
+                  {generateForAll
+                    ? activeAthletes.length
+                    : selectedUserIds.length}
+                </b>
+                <small>atleta(s)</small>
+              </span>
+              <span>
+                <b>{monthCount}</b>
+                <small>mês(es)</small>
+              </span>
+              <span>
+                <b>
+                  {money(
+                    centsFromInput(bulkAmount || amount || "0") *
+                      monthCount *
+                      (generateForAll
+                        ? activeAthletes.length
+                        : selectedUserIds.length),
+                  )}
+                </b>
+                <small>volume gerado</small>
+              </span>
+            </div>
+            <button
+              className="primary"
+              disabled={!generateForAll && selectedUserIds.length === 0}
+            >
+              Gerar cobranças reais
+            </button>
+          </form>
+        </div>
+      )}
+      {!cashMode && paymentModal === "register" && (
+        <div className="modal">
+          <form
+            className="card modal-card payment-card wide-payment"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save()
+                .then(() => setPaymentModal(null))
+                .catch((err) =>
+                  setMessage(
+                    err instanceof Error
+                      ? err.message
+                      : "Falha ao registrar pagamento.",
+                  ),
+                );
+            }}
+          >
+            <div className="card-head">
+              <div>
+                <h2>Registrar pagamento</h2>
+                <p className="muted">
+                  Baixa total ou parcial. Só pagamento total antecipado gera
+                  ponto.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setPaymentModal(null)}
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="payment-form-grid">
+              <label>
+                <span>Atleta</span>
+                <select
+                  value={userId}
+                  onChange={(event) => setUserId(event.target.value)}
+                >
+                  {activeAthletes.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Mês</span>
+                <input
+                  type="month"
+                  value={month.slice(0, 7)}
+                  onChange={(event) => setMonth(`${event.target.value}-01`)}
+                />
+              </label>
+              <label>
+                <span>Vencimento</span>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Data da baixa</span>
+                <input
+                  type="date"
+                  value={paidAt}
+                  onChange={(event) => setPaidAt(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Valor da mensalidade</span>
+                <input
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  placeholder="Valor individual"
+                />
+              </label>
+              {status === "PARTIAL" && (
+                <label>
+                  <span>Valor recebido agora</span>
+                  <input
+                    value={paidAmount}
+                    onChange={(event) => setPaidAmount(event.target.value)}
+                    placeholder="Valor parcial"
+                  />
+                </label>
+              )}
+            </div>
+            <div className="segmented payment-mode">
+              <button
+                type="button"
+                className={status === "PAID" ? "primary small" : "ghost"}
+                onClick={() => {
+                  setStatus("PAID");
+                  setFullPayment(true);
+                }}
+              >
+                Pagamento total
+              </button>
+              <button
+                type="button"
+                className={status === "PARTIAL" ? "primary small" : "ghost"}
+                onClick={() => {
+                  setStatus("PARTIAL");
+                  setFullPayment(false);
+                }}
+              >
+                Pagamento parcial
+              </button>
+              <button
+                type="button"
+                className={status === "PENDING" ? "primary small" : "ghost"}
+                onClick={() => {
+                  setStatus("PENDING");
+                  setFullPayment(false);
+                }}
+              >
+                Pendente
+              </button>
+              <button
+                type="button"
+                className={status === "LATE" ? "primary small" : "ghost"}
+                onClick={() => {
+                  setStatus("LATE");
+                  setFullPayment(false);
+                }}
+              >
+                Atrasado
+              </button>
+              <button
+                type="button"
+                className={status === "WAIVED" ? "primary small" : "ghost"}
+                onClick={() => {
+                  setStatus("WAIVED");
+                  setFullPayment(false);
+                }}
+              >
+                Isento
+              </button>
+            </div>
+            <div className="payment-preview">
+              <span>
+                <b>{money(registerAmountCents)}</b>
+                <small>valor</small>
+              </span>
+              <span>
+                <b>{money(registerPaidCents)}</b>
+                <small>pago após baixa</small>
+              </span>
+              <span>
+                <b>{money(registerBalanceCents)}</b>
+                <small>saldo restante</small>
+              </span>
+            </div>
+            {fullPayment && status === "PAID" && (
+              <p className="muted">
+                Se a data da baixa for antes do vencimento, o atleta recebe +1
+                ponto automaticamente.
+              </p>
+            )}
+            <input
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Observação"
+            />
+            <button className="primary">Salvar baixa</button>
+          </form>
+        </div>
+      )}
+      {cashMode && paymentModal === "cash" && (
+        <div className="modal">
+          <form
+            className="card modal-card payment-card wide-payment"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveCashEntry()
+                .then(() => setPaymentModal(null))
+                .catch((err) =>
+                  setMessage(
+                    err instanceof Error
+                      ? err.message
+                      : "Falha ao lançar caixa.",
+                  ),
+                );
+            }}
+          >
+            <div className="card-head">
+              <div>
+                <h2>Lançamento de caixa</h2>
+                <p className="muted">
+                  Use para despesas e receitas avulsas. Mensalidades pagas
+                  entram automaticamente.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setPaymentModal(null)}
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="segmented payment-mode">
+              <button
+                type="button"
+                className={
+                  cashEntryType === "REVENUE" ? "primary small" : "ghost"
+                }
+                onClick={() => setCashEntryType("REVENUE")}
+              >
+                Receita
+              </button>
+              <button
+                type="button"
+                className={
+                  cashEntryType === "EXPENSE" ? "primary small" : "ghost"
+                }
+                onClick={() => setCashEntryType("EXPENSE")}
+              >
+                Despesa
+              </button>
+            </div>
+            <div className="payment-form-grid">
+              <label>
+                <span>Data</span>
+                <input
+                  type="date"
+                  value={cashDate}
+                  onChange={(event) => setCashDate(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Valor</span>
+                <input
+                  value={cashAmount}
+                  onChange={(event) => setCashAmount(event.target.value)}
+                  placeholder="Ex. 85,00"
+                />
+              </label>
+            </div>
+            <input
+              value={cashDescription}
+              onChange={(event) => setCashDescription(event.target.value)}
+              placeholder="Descrição: aluguel da quadra, bola nova, patrocínio, etc."
+              required
+              minLength={3}
+              maxLength={240}
+            />
+            <div className="payment-preview">
+              <span>
+                <b>{cashEntryType === "REVENUE" ? "Receita" : "Despesa"}</b>
+                <small>tipo</small>
+              </span>
+              <span>
+                <b>{money(centsFromInput(cashAmount))}</b>
+                <small>valor</small>
+              </span>
+              <span>
+                <b>{formatDateOnly(cashDate, "--/--/----")}</b>
+                <small>data</small>
+              </span>
+            </div>
+            <button
+              className="primary"
+              disabled={
+                centsFromInput(cashAmount) <= 0 ||
+                cashDescription.trim().length < 3
+              }
+            >
+              Salvar lançamento
+            </button>
+          </form>
+        </div>
+      )}
     </section>
   );
 }
 
 function AwardSettingsCard({ api }: { api: ApiClient }) {
   const [categories, setCategories] = useState<AwardSetting[]>([]);
-  const [message, setMessage] = useState('');
-  const [newLabel, setNewLabel] = useState('');
-  const [newMetric, setNewMetric] = useState<MetricCode>('TOTAL_POINTS');
-  const [newIcon, setNewIcon] = useState('🏅');
+  const [message, setMessage] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newMetric, setNewMetric] = useState<MetricCode>("TOTAL_POINTS");
+  const [newIcon, setNewIcon] = useState("🏅");
   const [createRuleModalOpen, setCreateRuleModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AwardSetting | null>(null);
-  const [tableFilters, setTableFilters] = useState({ label: '', type: '', metric: '', sortDirection: '', winners: '', minGames: '', voteSlots: '', allowSelfVote: '', badgeIcon: '', badgeColor: '', active: '', hint: '' });
+  const [tableFilters, setTableFilters] = useState({
+    label: "",
+    type: "",
+    metric: "",
+    sortDirection: "",
+    winners: "",
+    minGames: "",
+    voteSlots: "",
+    allowSelfVote: "",
+    badgeIcon: "",
+    badgeColor: "",
+    active: "",
+    hint: "",
+  });
   const [activeFilterMenu, setActiveFilterMenu] = useState<string | null>(null);
-  const [filterSearch, setFilterSearch] = useState('');
+  const [filterSearch, setFilterSearch] = useState("");
 
   useEffect(() => {
-    setFilterSearch('');
+    setFilterSearch("");
   }, [activeFilterMenu]);
 
   useEffect(() => {
     if (!createRuleModalOpen && !editingRule) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         setCreateRuleModalOpen(false);
         setEditingRule(null);
       }
     };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
   }, [createRuleModalOpen, editingRule]);
 
   async function loadSettings() {
-    setCategories(await api.request<AwardSetting[]>('/settings/awards'));
+    setCategories(await api.request<AwardSetting[]>("/settings/awards"));
   }
 
   useEffect(() => {
-    void loadSettings().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao carregar configuração de prêmios.'));
+    void loadSettings().catch((err) =>
+      setMessage(
+        err instanceof Error
+          ? err.message
+          : "Falha ao carregar configuração de prêmios.",
+      ),
+    );
   }, []);
 
-  async function persistCategories(nextCategories: AwardSetting[], successMessage: string) {
-    const updated = await api.request<AwardSetting[]>('/settings/awards', { method: 'PUT', body: JSON.stringify({ categories: nextCategories }) });
+  async function persistCategories(
+    nextCategories: AwardSetting[],
+    successMessage: string,
+  ) {
+    const updated = await api.request<AwardSetting[]>("/settings/awards", {
+      method: "PUT",
+      body: JSON.stringify({ categories: nextCategories }),
+    });
     setCategories(updated);
     setMessage(successMessage);
   }
 
   function patchCategory(code: string, patch: Partial<AwardSetting>) {
-    setCategories((list) => list.map((item) => item.code === code ? { ...item, ...patch, votingEnabled: patch.awardType === 'VOTACAO' ? true : patch.awardType ? false : item.votingEnabled } : item));
+    setCategories((list) =>
+      list.map((item) =>
+        item.code === code
+          ? {
+              ...item,
+              ...patch,
+              votingEnabled:
+                patch.awardType === "VOTACAO"
+                  ? true
+                  : patch.awardType
+                    ? false
+                    : item.votingEnabled,
+            }
+          : item,
+      ),
+    );
   }
 
   async function addCategory() {
     const label = newLabel.trim();
     if (!label) {
-      setMessage('Informe o nome da regra/premiação antes de adicionar.');
+      setMessage("Informe o nome da regra/premiação antes de adicionar.");
       return;
     }
     const code = awardCodeFromLabel(label);
     if (categories.some((item) => item.code === code)) {
-      setMessage('Já existe uma regra com este nome/código. Ajuste o nome para diferenciar.');
+      setMessage(
+        "Já existe uma regra com este nome/código. Ajuste o nome para diferenciar.",
+      );
       return;
     }
     const newCategory: AwardSetting = {
@@ -4709,20 +6109,23 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
       votingEnabled: false,
       adminOnly: false,
       active: true,
-      awardType: 'RANKING',
+      awardType: "RANKING",
       metricCode: newMetric,
-      sortDirection: 'DESC',
+      sortDirection: "DESC",
       winnersCount: 1,
       minGames: 0,
       voteSlots: 1,
       allowSelfVote: false,
       badgeIcon: newIcon,
-      badgeColor: '#3b82f6'
+      badgeColor: "#3b82f6",
     };
     const nextCategories = [newCategory, ...categories];
-    await persistCategories(nextCategories, 'Regra adicionada e salva. Rankings e badges já usam esta configuração.');
-    setNewLabel('');
-    setNewIcon('🏅');
+    await persistCategories(
+      nextCategories,
+      "Regra adicionada e salva. Rankings e badges já usam esta configuração.",
+    );
+    setNewLabel("");
+    setNewIcon("🏅");
     setCreateRuleModalOpen(false);
   }
 
@@ -4730,64 +6133,922 @@ function AwardSettingsCard({ api }: { api: ApiClient }) {
     if (!editingRule) return;
     const label = editingRule.label.trim();
     if (!label) {
-      setMessage('Informe o nome da regra antes de salvar.');
+      setMessage("Informe o nome da regra antes de salvar.");
       return;
     }
-    const nextCategories = categories.map((item) => item.code === editingRule.code ? { ...editingRule, label } : item);
-    await persistCategories(nextCategories, 'Configurações da regra salvas.');
+    const nextCategories = categories.map((item) =>
+      item.code === editingRule.code ? { ...editingRule, label } : item,
+    );
+    await persistCategories(nextCategories, "Configurações da regra salvas.");
     setEditingRule(null);
   }
 
   function toggleFilterMenu(key: string) {
-    setActiveFilterMenu((current) => current === key ? null : key);
+    setActiveFilterMenu((current) => (current === key ? null : key));
   }
 
   function filterValue(item: AwardSetting, key: keyof typeof tableFilters) {
-    if (key === 'label') return item.label;
-    if (key === 'type') return item.awardType === 'RANKING' ? 'Ranking automático' : item.awardType === 'VOTACAO' ? 'Votação' : item.awardType === 'SORTEIO' ? 'Sorteio/manual' : 'Premiação manual';
-    if (key === 'metric') return item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.votingEnabled ? 'Entra na votação' : 'Sem votação';
-    if (key === 'sortDirection') return item.sortDirection === 'DESC' ? 'Maior vence' : 'Menor vence';
-    if (key === 'winners') return String(item.winnersCount);
-    if (key === 'minGames') return String(item.minGames);
-    if (key === 'voteSlots') return String(item.voteSlots);
-    if (key === 'allowSelfVote') return item.allowSelfVote ? 'Permitido' : 'Bloqueado';
-    if (key === 'badgeIcon') return item.badgeIcon;
-    if (key === 'badgeColor') return item.badgeColor;
-    if (key === 'active') return item.active ? 'Ativa' : 'Inativa';
-    return metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.';
+    if (key === "label") return item.label;
+    if (key === "type")
+      return item.awardType === "RANKING"
+        ? "Ranking automático"
+        : item.awardType === "VOTACAO"
+          ? "Votação"
+          : item.awardType === "SORTEIO"
+            ? "Sorteio/manual"
+            : "Premiação manual";
+    if (key === "metric")
+      return item.awardType === "RANKING"
+        ? metricLabel(item.metricCode)
+        : item.votingEnabled
+          ? "Entra na votação"
+          : "Sem votação";
+    if (key === "sortDirection")
+      return item.sortDirection === "DESC" ? "Maior vence" : "Menor vence";
+    if (key === "winners") return String(item.winnersCount);
+    if (key === "minGames") return String(item.minGames);
+    if (key === "voteSlots") return String(item.voteSlots);
+    if (key === "allowSelfVote")
+      return item.allowSelfVote ? "Permitido" : "Bloqueado";
+    if (key === "badgeIcon") return item.badgeIcon;
+    if (key === "badgeColor") return item.badgeColor;
+    if (key === "active") return item.active ? "Ativa" : "Inativa";
+    return (
+      metricOptions.find((metric) => metric.value === item.metricCode)?.hint ??
+      "Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático."
+    );
   }
 
   function filterOptions(key: keyof typeof tableFilters) {
-    return buildTableFilterOptions(categories.map((item) => filterValue(item, key)));
+    return buildTableFilterOptions(
+      categories.map((item) => filterValue(item, key)),
+    );
   }
 
-  const filteredCategories = useMemo(() => categories.filter((item) => Object.entries(tableFilters).every(([key, value]) => !value || normalizeTableFilterValue(filterValue(item, key as keyof typeof tableFilters)).includes(normalizeTableFilterValue(value)))), [categories, tableFilters]);
+  const filteredCategories = useMemo(
+    () =>
+      categories.filter((item) =>
+        Object.entries(tableFilters).every(
+          ([key, value]) =>
+            !value ||
+            normalizeTableFilterValue(
+              filterValue(item, key as keyof typeof tableFilters),
+            ).includes(normalizeTableFilterValue(value)),
+        ),
+      ),
+    [categories, tableFilters],
+  );
 
   return (
     <section className="card compact rules-center">
       <div className="card-head">
         <div>
           <h2>Central de regras, rankings e premiações</h2>
-          <p className="muted">Configure pontuação, acompanhamentos individuais, votação e badges sem alterar código.</p>
+          <p className="muted">
+            Configure pontuação, acompanhamentos individuais, votação e badges
+            sem alterar código.
+          </p>
         </div>
-        <button type="button" className="primary small award-add-button" onClick={() => setCreateRuleModalOpen(true)}>Adicionar regra</button>
+        <button
+          type="button"
+          className="primary small award-add-button"
+          onClick={() => setCreateRuleModalOpen(true)}
+        >
+          Adicionar regra
+        </button>
       </div>
 
       {message && <p className="status-line">{message}</p>}
 
-      {createRuleModalOpen && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="create-award-rule-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateRuleModalOpen(false); }}><form className="card modal-card award-rule-modal" onSubmit={(event) => { event.preventDefault(); void addCategory().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao adicionar regra.')); }}><div className="card-head"><h2 id="create-award-rule-title">Adicionar regra</h2><button type="button" className="ghost" onClick={() => setCreateRuleModalOpen(false)}>Fechar</button></div><label><span>Nome da regra</span><input autoFocus value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Ex. Artilheiro" /></label><label><span>Métrica</span><select value={newMetric} onChange={(event) => setNewMetric(event.target.value as MetricCode)}>{metricOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="award-icon-field"><span>Ícone</span><input value={newIcon} onChange={(event) => setNewIcon(event.target.value)} maxLength={4} placeholder="🏅" /></label><button className="primary">Adicionar e salvar</button></form></div>}
+      {createRuleModalOpen && (
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-award-rule-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget)
+              setCreateRuleModalOpen(false);
+          }}
+        >
+          <form
+            className="card modal-card award-rule-modal"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void addCategory().catch((err) =>
+                setMessage(
+                  err instanceof Error
+                    ? err.message
+                    : "Falha ao adicionar regra.",
+                ),
+              );
+            }}
+          >
+            <div className="card-head">
+              <h2 id="create-award-rule-title">Adicionar regra</h2>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setCreateRuleModalOpen(false)}
+              >
+                Fechar
+              </button>
+            </div>
+            <label>
+              <span>Nome da regra</span>
+              <input
+                autoFocus
+                value={newLabel}
+                onChange={(event) => setNewLabel(event.target.value)}
+                placeholder="Ex. Artilheiro"
+              />
+            </label>
+            <label>
+              <span>Métrica</span>
+              <select
+                value={newMetric}
+                onChange={(event) =>
+                  setNewMetric(event.target.value as MetricCode)
+                }
+              >
+                {metricOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="award-icon-field">
+              <span>Ícone</span>
+              <input
+                value={newIcon}
+                onChange={(event) => setNewIcon(event.target.value)}
+                maxLength={4}
+                placeholder="🏅"
+              />
+            </label>
+            <button className="primary">Adicionar e salvar</button>
+          </form>
+        </div>
+      )}
 
-      <div className="award-rule-list">{categories.length === 0 ? <EmptyState title="Sem regras cadastradas" text="Adicione a primeira regra de premiação." /> : categories.map((item) => <button type="button" className="award-rule-list-item" key={item.code} onClick={() => setEditingRule({ ...item })}><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><span className="award-rule-list-copy"><strong>{item.label}</strong><small>{item.awardType === 'RANKING' ? metricLabel(item.metricCode) : item.awardType === 'VOTACAO' ? 'Votação' : 'Configuração manual'}</small></span><span className={`status ${item.active ? 'open' : 'draft'}`}>{item.active ? 'Ativa' : 'Inativa'}</span></button>)}</div>
+      <div className="award-rule-list">
+        {categories.length === 0 ? (
+          <EmptyState
+            title="Sem regras cadastradas"
+            text="Adicione a primeira regra de premiação."
+          />
+        ) : (
+          categories.map((item) => (
+            <button
+              type="button"
+              className="award-rule-list-item"
+              key={item.code}
+              onClick={() => setEditingRule({ ...item })}
+            >
+              <span
+                className="rule-icon"
+                style={{
+                  background: `${item.badgeColor}33`,
+                  color: item.badgeColor,
+                }}
+              >
+                {item.badgeIcon}
+              </span>
+              <span className="award-rule-list-copy">
+                <strong>{item.label}</strong>
+                <small>
+                  {item.awardType === "RANKING"
+                    ? metricLabel(item.metricCode)
+                    : item.awardType === "VOTACAO"
+                      ? "Votação"
+                      : "Configuração manual"}
+                </small>
+              </span>
+              <span className={`status ${item.active ? "open" : "draft"}`}>
+                {item.active ? "Ativa" : "Inativa"}
+              </span>
+            </button>
+          ))
+        )}
+      </div>
 
-      {editingRule && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-award-rule-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingRule(null); }}><form className="card modal-card award-rule-modal award-rule-edit-modal" onSubmit={(event) => { event.preventDefault(); void saveEditingRule().catch((err) => setMessage(err instanceof Error ? err.message : 'Falha ao salvar regra.')); }}><div className="card-head"><div><h2 id="edit-award-rule-title">{editingRule.label}</h2><p className="muted">{editingRule.code}</p></div><button type="button" className="ghost" onClick={() => setEditingRule(null)}>Fechar</button></div><div className="award-rule-form-grid"><label><span>Nome</span><input value={editingRule.label} onChange={(event) => setEditingRule((current) => current ? { ...current, label: event.target.value } : current)} /></label>{editingRule.awardType === 'RANKING' && <><label><span>Métrica</span><select value={editingRule.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => setEditingRule((current) => current ? { ...current, metricCode: event.target.value as MetricCode } : current)}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></label><label><span>Ordenação</span><select value={editingRule.sortDirection} onChange={(event) => setEditingRule((current) => current ? { ...current, sortDirection: event.target.value as 'ASC' | 'DESC' } : current)}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select></label><label><span>Vencedores</span><input type="number" min="1" max="20" value={editingRule.winnersCount} onChange={(event) => setEditingRule((current) => current ? { ...current, winnersCount: Number(event.target.value) } : current)} /></label><label><span>Mínimo de jogos</span><input type="number" min="0" max="500" value={editingRule.minGames} onChange={(event) => setEditingRule((current) => current ? { ...current, minGames: Number(event.target.value) } : current)} /></label></>}{editingRule.awardType === 'VOTACAO' && <><label><span>Quantidade de votos</span><input type="number" min="1" max="7" value={editingRule.voteSlots} onChange={(event) => setEditingRule((current) => current ? { ...current, voteSlots: Number(event.target.value) } : current)} /></label><label className="award-rule-check"><input type="checkbox" checked={editingRule.allowSelfVote} onChange={(event) => setEditingRule((current) => current ? { ...current, allowSelfVote: event.target.checked } : current)} /><span>Permitir voto em si mesmo</span></label></>}<label className="award-icon-field"><span>Ícone</span><input value={editingRule.badgeIcon} onChange={(event) => setEditingRule((current) => current ? { ...current, badgeIcon: event.target.value } : current)} maxLength={4} /></label><label><span>Cor</span><input type="color" value={editingRule.badgeColor} onChange={(event) => setEditingRule((current) => current ? { ...current, badgeColor: event.target.value } : current)} /></label><label className="award-rule-check"><input type="checkbox" checked={editingRule.active} onChange={(event) => setEditingRule((current) => current ? { ...current, active: event.target.checked } : current)} /><span>Regra ativa</span></label></div><button className="primary">Salvar alterações</button></form></div>}
+      {editingRule && (
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-award-rule-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEditingRule(null);
+          }}
+        >
+          <form
+            className="card modal-card award-rule-modal award-rule-edit-modal"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveEditingRule().catch((err) =>
+                setMessage(
+                  err instanceof Error ? err.message : "Falha ao salvar regra.",
+                ),
+              );
+            }}
+          >
+            <div className="card-head">
+              <div>
+                <h2 id="edit-award-rule-title">{editingRule.label}</h2>
+                <p className="muted">{editingRule.code}</p>
+              </div>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setEditingRule(null)}
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="award-rule-form-grid">
+              <label>
+                <span>Nome</span>
+                <input
+                  value={editingRule.label}
+                  onChange={(event) =>
+                    setEditingRule((current) =>
+                      current
+                        ? { ...current, label: event.target.value }
+                        : current,
+                    )
+                  }
+                />
+              </label>
+              {editingRule.awardType === "RANKING" && (
+                <>
+                  <label>
+                    <span>Métrica</span>
+                    <select
+                      value={editingRule.metricCode ?? "TOTAL_POINTS"}
+                      onChange={(event) =>
+                        setEditingRule((current) =>
+                          current
+                            ? {
+                                ...current,
+                                metricCode: event.target.value as MetricCode,
+                              }
+                            : current,
+                        )
+                      }
+                    >
+                      {metricOptions.map((metric) => (
+                        <option key={metric.value} value={metric.value}>
+                          {metric.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Ordenação</span>
+                    <select
+                      value={editingRule.sortDirection}
+                      onChange={(event) =>
+                        setEditingRule((current) =>
+                          current
+                            ? {
+                                ...current,
+                                sortDirection: event.target.value as
+                                  "ASC" | "DESC",
+                              }
+                            : current,
+                        )
+                      }
+                    >
+                      <option value="DESC">Maior vence</option>
+                      <option value="ASC">Menor vence</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Vencedores</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={editingRule.winnersCount}
+                      onChange={(event) =>
+                        setEditingRule((current) =>
+                          current
+                            ? {
+                                ...current,
+                                winnersCount: Number(event.target.value),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Mínimo de jogos</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="500"
+                      value={editingRule.minGames}
+                      onChange={(event) =>
+                        setEditingRule((current) =>
+                          current
+                            ? {
+                                ...current,
+                                minGames: Number(event.target.value),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  </label>
+                </>
+              )}
+              {editingRule.awardType === "VOTACAO" && (
+                <>
+                  <label>
+                    <span>Quantidade de votos</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="7"
+                      value={editingRule.voteSlots}
+                      onChange={(event) =>
+                        setEditingRule((current) =>
+                          current
+                            ? {
+                                ...current,
+                                voteSlots: Number(event.target.value),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  </label>
+                  <label className="award-rule-check">
+                    <input
+                      type="checkbox"
+                      checked={editingRule.allowSelfVote}
+                      onChange={(event) =>
+                        setEditingRule((current) =>
+                          current
+                            ? {
+                                ...current,
+                                allowSelfVote: event.target.checked,
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                    <span>Permitir voto em si mesmo</span>
+                  </label>
+                </>
+              )}
+              <label className="award-icon-field">
+                <span>Ícone</span>
+                <input
+                  value={editingRule.badgeIcon}
+                  onChange={(event) =>
+                    setEditingRule((current) =>
+                      current
+                        ? { ...current, badgeIcon: event.target.value }
+                        : current,
+                    )
+                  }
+                  maxLength={4}
+                />
+              </label>
+              <label>
+                <span>Cor</span>
+                <input
+                  type="color"
+                  value={editingRule.badgeColor}
+                  onChange={(event) =>
+                    setEditingRule((current) =>
+                      current
+                        ? { ...current, badgeColor: event.target.value }
+                        : current,
+                    )
+                  }
+                />
+              </label>
+              <label className="award-rule-check">
+                <input
+                  type="checkbox"
+                  checked={editingRule.active}
+                  onChange={(event) =>
+                    setEditingRule((current) =>
+                      current
+                        ? { ...current, active: event.target.checked }
+                        : current,
+                    )
+                  }
+                />
+                <span>Regra ativa</span>
+              </label>
+            </div>
+            <button className="primary">Salvar alterações</button>
+          </form>
+        </div>
+      )}
 
       <div className="championship-wrap management-table-wrap awards-table-wrap awards-legacy-table">
         <table className="championship-table management-table rules-table">
-          <thead>
-          </thead>
+          <thead></thead>
           <tbody>
-            <tr><th>{TableFilterHeader({ label: 'Regra', menuKey: 'award-label', currentValue: tableFilters.label, options: filterOptions('label'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar regra', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, label: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, label: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Tipo', menuKey: 'award-type', currentValue: tableFilters.type, options: filterOptions('type'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar tipo', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, type: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, type: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Métrica / Votação', menuKey: 'award-metric', currentValue: tableFilters.metric, options: filterOptions('metric'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar métrica', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, metric: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, metric: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Ordenação', menuKey: 'award-sort', currentValue: tableFilters.sortDirection, options: filterOptions('sortDirection'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar ordenação', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, sortDirection: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, sortDirection: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Vencedores', menuKey: 'award-winners', currentValue: tableFilters.winners, options: filterOptions('winners'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar quantidade', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, winners: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, winners: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Mín. jogos', menuKey: 'award-minGames', currentValue: tableFilters.minGames, options: filterOptions('minGames'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar mínimo', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, minGames: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, minGames: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Votos', menuKey: 'award-voteSlots', currentValue: tableFilters.voteSlots, options: filterOptions('voteSlots'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar votos', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, voteSlots: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, voteSlots: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Auto-voto', menuKey: 'award-selfVote', currentValue: tableFilters.allowSelfVote, options: filterOptions('allowSelfVote'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar auto-voto', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, allowSelfVote: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, allowSelfVote: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Ícone', menuKey: 'award-icon', currentValue: tableFilters.badgeIcon, options: filterOptions('badgeIcon'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar ícone', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, badgeIcon: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, badgeIcon: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Cor', menuKey: 'award-color', currentValue: tableFilters.badgeColor, options: filterOptions('badgeColor'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar cor', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, badgeColor: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, badgeColor: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Status', menuKey: 'award-active', currentValue: tableFilters.active, options: filterOptions('active'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar status', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, active: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, active: '' })); setActiveFilterMenu(null); } })}</th><th>{TableFilterHeader({ label: 'Dica', menuKey: 'award-hint', currentValue: tableFilters.hint, options: filterOptions('hint'), activeMenu: activeFilterMenu, searchValue: filterSearch, placeholder: 'Pesquisar dica', onToggle: toggleFilterMenu, onSearchChange: setFilterSearch, onSelect: (value) => { setTableFilters((current) => ({ ...current, hint: value })); setActiveFilterMenu(null); }, onClear: () => { setTableFilters((current) => ({ ...current, hint: '' })); setActiveFilterMenu(null); } })}</th></tr>
-            {filteredCategories.length === 0 ? <tr><td colSpan={12} className="table-empty-cell">Nenhuma regra encontrada com os filtros atuais.</td></tr> : filteredCategories.map((item) => <tr key={item.code}><td className="management-main-cell"><div className="rule-title"><span className="rule-icon" style={{ background: `${item.badgeColor}33`, color: item.badgeColor }}>{item.badgeIcon}</span><div><input value={item.label} onChange={(event) => patchCategory(item.code, { label: event.target.value })} /><small>{item.code}</small></div></div></td><td><select value={item.awardType} onChange={(event) => patchCategory(item.code, { awardType: event.target.value as AwardType })}><option value="RANKING">Ranking automático</option><option value="VOTACAO">Votação</option><option value="SORTEIO">Sorteio/manual</option><option value="MANUAL">Premiação manual</option></select></td><td>{item.awardType === 'RANKING' ? <select value={item.metricCode ?? 'TOTAL_POINTS'} onChange={(event) => patchCategory(item.code, { metricCode: event.target.value as MetricCode })}>{metricOptions.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select> : <label className="bench compact-bench"><input type="checkbox" checked={item.votingEnabled} onChange={(event) => patchCategory(item.code, { votingEnabled: event.target.checked, awardType: 'VOTACAO' })} />Entra na votação</label>}</td><td><select value={item.sortDirection} onChange={(event) => patchCategory(item.code, { sortDirection: event.target.value as 'ASC' | 'DESC' })}><option value="DESC">Maior vence</option><option value="ASC">Menor vence</option></select></td><td><input type="number" min="1" max="20" value={item.winnersCount} onChange={(event) => patchCategory(item.code, { winnersCount: Number(event.target.value) })} /></td><td><input type="number" min="0" max="500" value={item.minGames} onChange={(event) => patchCategory(item.code, { minGames: Number(event.target.value) })} /></td><td><input type="number" min="1" max="7" value={item.voteSlots} onChange={(event) => patchCategory(item.code, { voteSlots: Number(event.target.value) })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.allowSelfVote} onChange={(event) => patchCategory(item.code, { allowSelfVote: event.target.checked })} />Permitido</label></td><td><input value={item.badgeIcon} onChange={(event) => patchCategory(item.code, { badgeIcon: event.target.value })} maxLength={4} /></td><td><input value={item.badgeColor} onChange={(event) => patchCategory(item.code, { badgeColor: event.target.value })} /></td><td><label className="bench compact-bench"><input type="checkbox" checked={item.active} onChange={(event) => patchCategory(item.code, { active: event.target.checked })} />{item.active ? 'Ativa' : 'Inativa'}</label></td><td className="management-hint-cell">{metricOptions.find((metric) => metric.value === item.metricCode)?.hint ?? 'Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático.'}</td></tr>)}
+            <tr>
+              <th>
+                {TableFilterHeader({
+                  label: "Regra",
+                  menuKey: "award-label",
+                  currentValue: tableFilters.label,
+                  options: filterOptions("label"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar regra",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      label: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({ ...current, label: "" }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Tipo",
+                  menuKey: "award-type",
+                  currentValue: tableFilters.type,
+                  options: filterOptions("type"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar tipo",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({ ...current, type: value }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({ ...current, type: "" }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Métrica / Votação",
+                  menuKey: "award-metric",
+                  currentValue: tableFilters.metric,
+                  options: filterOptions("metric"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar métrica",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      metric: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({ ...current, metric: "" }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Ordenação",
+                  menuKey: "award-sort",
+                  currentValue: tableFilters.sortDirection,
+                  options: filterOptions("sortDirection"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar ordenação",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      sortDirection: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      sortDirection: "",
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Vencedores",
+                  menuKey: "award-winners",
+                  currentValue: tableFilters.winners,
+                  options: filterOptions("winners"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar quantidade",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      winners: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({ ...current, winners: "" }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Mín. jogos",
+                  menuKey: "award-minGames",
+                  currentValue: tableFilters.minGames,
+                  options: filterOptions("minGames"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar mínimo",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      minGames: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      minGames: "",
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Votos",
+                  menuKey: "award-voteSlots",
+                  currentValue: tableFilters.voteSlots,
+                  options: filterOptions("voteSlots"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar votos",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      voteSlots: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      voteSlots: "",
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Auto-voto",
+                  menuKey: "award-selfVote",
+                  currentValue: tableFilters.allowSelfVote,
+                  options: filterOptions("allowSelfVote"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar auto-voto",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      allowSelfVote: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      allowSelfVote: "",
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Ícone",
+                  menuKey: "award-icon",
+                  currentValue: tableFilters.badgeIcon,
+                  options: filterOptions("badgeIcon"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar ícone",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      badgeIcon: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      badgeIcon: "",
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Cor",
+                  menuKey: "award-color",
+                  currentValue: tableFilters.badgeColor,
+                  options: filterOptions("badgeColor"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar cor",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      badgeColor: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      badgeColor: "",
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Status",
+                  menuKey: "award-active",
+                  currentValue: tableFilters.active,
+                  options: filterOptions("active"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar status",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({
+                      ...current,
+                      active: value,
+                    }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({ ...current, active: "" }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+              <th>
+                {TableFilterHeader({
+                  label: "Dica",
+                  menuKey: "award-hint",
+                  currentValue: tableFilters.hint,
+                  options: filterOptions("hint"),
+                  activeMenu: activeFilterMenu,
+                  searchValue: filterSearch,
+                  placeholder: "Pesquisar dica",
+                  onToggle: toggleFilterMenu,
+                  onSearchChange: setFilterSearch,
+                  onSelect: (value) => {
+                    setTableFilters((current) => ({ ...current, hint: value }));
+                    setActiveFilterMenu(null);
+                  },
+                  onClear: () => {
+                    setTableFilters((current) => ({ ...current, hint: "" }));
+                    setActiveFilterMenu(null);
+                  },
+                })}
+              </th>
+            </tr>
+            {filteredCategories.length === 0 ? (
+              <tr>
+                <td colSpan={12} className="table-empty-cell">
+                  Nenhuma regra encontrada com os filtros atuais.
+                </td>
+              </tr>
+            ) : (
+              filteredCategories.map((item) => (
+                <tr key={item.code}>
+                  <td className="management-main-cell">
+                    <div className="rule-title">
+                      <span
+                        className="rule-icon"
+                        style={{
+                          background: `${item.badgeColor}33`,
+                          color: item.badgeColor,
+                        }}
+                      >
+                        {item.badgeIcon}
+                      </span>
+                      <div>
+                        <input
+                          value={item.label}
+                          onChange={(event) =>
+                            patchCategory(item.code, {
+                              label: event.target.value,
+                            })
+                          }
+                        />
+                        <small>{item.code}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <select
+                      value={item.awardType}
+                      onChange={(event) =>
+                        patchCategory(item.code, {
+                          awardType: event.target.value as AwardType,
+                        })
+                      }
+                    >
+                      <option value="RANKING">Ranking automático</option>
+                      <option value="VOTACAO">Votação</option>
+                      <option value="SORTEIO">Sorteio/manual</option>
+                      <option value="MANUAL">Premiação manual</option>
+                    </select>
+                  </td>
+                  <td>
+                    {item.awardType === "RANKING" ? (
+                      <select
+                        value={item.metricCode ?? "TOTAL_POINTS"}
+                        onChange={(event) =>
+                          patchCategory(item.code, {
+                            metricCode: event.target.value as MetricCode,
+                          })
+                        }
+                      >
+                        {metricOptions.map((metric) => (
+                          <option key={metric.value} value={metric.value}>
+                            {metric.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <label className="bench compact-bench">
+                        <input
+                          type="checkbox"
+                          checked={item.votingEnabled}
+                          onChange={(event) =>
+                            patchCategory(item.code, {
+                              votingEnabled: event.target.checked,
+                              awardType: "VOTACAO",
+                            })
+                          }
+                        />
+                        Entra na votação
+                      </label>
+                    )}
+                  </td>
+                  <td>
+                    <select
+                      value={item.sortDirection}
+                      onChange={(event) =>
+                        patchCategory(item.code, {
+                          sortDirection: event.target.value as "ASC" | "DESC",
+                        })
+                      }
+                    >
+                      <option value="DESC">Maior vence</option>
+                      <option value="ASC">Menor vence</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={item.winnersCount}
+                      onChange={(event) =>
+                        patchCategory(item.code, {
+                          winnersCount: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      max="500"
+                      value={item.minGames}
+                      onChange={(event) =>
+                        patchCategory(item.code, {
+                          minGames: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="1"
+                      max="7"
+                      value={item.voteSlots}
+                      onChange={(event) =>
+                        patchCategory(item.code, {
+                          voteSlots: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <label className="bench compact-bench">
+                      <input
+                        type="checkbox"
+                        checked={item.allowSelfVote}
+                        onChange={(event) =>
+                          patchCategory(item.code, {
+                            allowSelfVote: event.target.checked,
+                          })
+                        }
+                      />
+                      Permitido
+                    </label>
+                  </td>
+                  <td>
+                    <input
+                      value={item.badgeIcon}
+                      onChange={(event) =>
+                        patchCategory(item.code, {
+                          badgeIcon: event.target.value,
+                        })
+                      }
+                      maxLength={4}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={item.badgeColor}
+                      onChange={(event) =>
+                        patchCategory(item.code, {
+                          badgeColor: event.target.value,
+                        })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <label className="bench compact-bench">
+                      <input
+                        type="checkbox"
+                        checked={item.active}
+                        onChange={(event) =>
+                          patchCategory(item.code, {
+                            active: event.target.checked,
+                          })
+                        }
+                      />
+                      {item.active ? "Ativa" : "Inativa"}
+                    </label>
+                  </td>
+                  <td className="management-hint-cell">
+                    {metricOptions.find(
+                      (metric) => metric.value === item.metricCode,
+                    )?.hint ??
+                      "Configure como votação, sorteio ou premiação manual quando não depender de cálculo automático."}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
