@@ -3375,7 +3375,8 @@ textarea {
 .pregame-loading { min-height: 220px; display: grid; place-items: center; gap: 10px; }
 .pregame-section { display: grid; gap: 10px; padding: 12px 0; border-top: 1px solid rgba(159,227,203,.14); }
 .pregame-section h3 { margin: 0; font-size: 1rem; }
-.pregame-add-guest-section { justify-items: start; }
+.pregame-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pregame-actions button { width: 100%; }
 .pregame-guest-modal { z-index: 30; }
 .pregame-guest-modal-card { width: min(460px, calc(100vw - 24px)); }
 .pregame-guest-form, .pregame-replacement-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .55fr) auto; gap: 8px; align-items: end; min-width: 0; }
@@ -3394,7 +3395,8 @@ textarea {
 .pregame-confirmed-list > span { display: flex; align-items: center; justify-content: space-between; gap: 5px; min-width: 0; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .pregame-confirmed-list b { display: flex; align-items: center; gap: 5px; min-width: 0; overflow-wrap: anywhere; font-size: .75rem; }
 .pregame-confirmed-list b em { display: grid; flex: 0 0 18px; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: rgba(53,184,107,.16); color: #9fe3cb; font-size: .62rem; font-style: normal; }
-.pregame-confirmed-list small { flex: 0 0 auto; color: var(--muted); font-size: .65rem; }
+.pregame-confirmed-list small { flex: 0 0 auto; color: #9fe3cb; font-size: .65rem; }
+.pregame-confirmed-list i { color: var(--muted); font-size: .62rem; font-style: normal; }
 .pregame-entry-actions { justify-content: flex-end; align-items: center; }
 .readonly-lineup { padding-top: 8px; }
 
@@ -3407,7 +3409,9 @@ textarea {
   .pregame-team > span { align-items: flex-start; flex-direction: column; gap: 2px; }
   .pregame-reserves { grid-template-columns: 1fr; }
   .pregame-confirmed-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6px; }
-  .pregame-confirmed-list > span { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .pregame-confirmed-list > span { display: block; }
+  .pregame-confirmed-list b { align-items: baseline; flex-wrap: wrap; }
+  .pregame-actions { grid-template-columns: 1fr; }
   .pregame-entry-actions { justify-content: stretch; }
   .pregame-entry-actions button { flex: 1 1 auto; }
 }
