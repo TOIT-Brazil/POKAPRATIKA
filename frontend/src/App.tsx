@@ -982,6 +982,7 @@ export function App() {
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [operationalDialogOpen, setOperationalDialogOpen] = useState(false);
+  const skipLoadedSeasonEffectRef = useRef('');
   const canCoordinate = auth?.user.role === 'ADMIN' || auth?.user.role === 'COORDENADOR';
   const isAdmin = auth?.user.role === 'ADMIN';
   const activeSeason = seasons.find((season) => season.id === activeSeasonId) ?? seasons.find((season) => season.status === 'OPEN') ?? seasons[0];
@@ -1002,6 +1003,7 @@ export function App() {
       setPoints(pointData);
       setSuspensions(suspensionData);
       const selected = activeSeasonId || seasonData.find((season) => season.status === 'OPEN')?.id || seasonData[0]?.id || '';
+      if (selected && selected !== activeSeasonId) skipLoadedSeasonEffectRef.current = selected;
       setActiveSeasonId(selected);
       if (selected) {
         const [standingData, rankingData, matchData] = await Promise.all([
@@ -1037,6 +1039,10 @@ export function App() {
 
   useEffect(() => {
     if (!auth || !activeSeasonId) return;
+    if (skipLoadedSeasonEffectRef.current === activeSeasonId) {
+      skipLoadedSeasonEffectRef.current = '';
+      return;
+    }
     Promise.all([
       api.request<Standing[]>(`/seasons/${activeSeasonId}/standings`),
       api.request<RankingPayload>(`/seasons/${activeSeasonId}/rankings`),
