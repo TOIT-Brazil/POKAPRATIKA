@@ -33,7 +33,7 @@ type CareerProfile = {
 type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'LATE' | 'WAIVED';
 type FinancialOverviewDetail = 'received' | 'pending' | 'late' | 'revenue' | 'expense' | 'balance';
 type PaymentRecord = { id?: string; userId?: string; userName?: string; referenceMonth: string; dueDate: string; amountCents: number; paidAmountCents?: number; balanceCents?: number; status: PaymentStatus; paidAt?: string | null; earnsPoint: boolean; notes?: string | null };
-type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; openPayments: PaymentRecord[]; totalOpenCents: number; totalPaidCents: number; lastPaidPayment?: PaymentRecord | null; nextOpenPayment?: PaymentRecord | null; latePaymentsCount: number };
+type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; openPayments: PaymentRecord[]; lastPaidPayment?: PaymentRecord | null; currentMonthPayment?: PaymentRecord | null; latePaymentsCount: number };
 type PaymentSummary = { totalCents: number; paidCents: number; openCents: number; total: number; paid: number; pending: number; late: number; waived: number; earlyPoints: number };
 type CashEntryType = 'REVENUE' | 'EXPENSE';
 type CashEntry = { id: string; entryType: CashEntryType; entryDate: string; description: string; amountCents: number; paymentId?: string | null; recordedByName?: string | null; createdAt?: string; updatedAt?: string };
@@ -4776,6 +4776,7 @@ function PaymentsPanel({
   const paymentGroups = useMemo(() => {
     const today = new Date();
     const todayKey = today.toISOString().slice(0, 10);
+    const currentMonthKey = todayKey.slice(0, 7);
     const groupsMap = new Map<
       string,
       {
@@ -4865,16 +4866,11 @@ function PaymentsPanel({
           userName: abbreviatedAthleteName(group.userName),
           payments: historyPayments,
           openPayments: displayPayments,
-          totalOpenCents: openPayments.reduce(
-            (sum, payment) => sum + (payment.balanceCents ?? 0),
-            0,
-          ),
-          totalPaidCents: historyPayments.reduce(
-            (sum, payment) => sum + (payment.paidAmountCents ?? 0),
-            0,
-          ),
           lastPaidPayment: paidPayments[0] ?? null,
-          nextOpenPayment,
+          currentMonthPayment:
+            historyPayments.find(
+              (payment) => payment.referenceMonth.slice(0, 7) === currentMonthKey,
+            ) ?? null,
           latePaymentsCount: openPayments.filter((payment) =>
             paymentIsLateRecord(payment, comparisonDate),
           ).length,
@@ -5015,30 +5011,6 @@ function PaymentsPanel({
                 Lançar caixa
               </button>
             )}
-            {!cashMode && filteredPayments.length > 0 && (
-              <button
-                className="ghost"
-                onClick={() =>
-                  downloadCsv(
-                    "poka-pratika-mensalidades.csv",
-                    filteredPayments.map((payment) => ({
-                      atleta: payment.userName ?? "Minha mensalidade",
-                      mes: paymentMonthLabel(payment.referenceMonth),
-                      vencimento: formatDateOnly(payment.dueDate, ""),
-                      pagoEm: formatDateOnly(payment.paidAt, ""),
-                      valor: (payment.amountCents / 100).toFixed(2),
-                      pago: ((payment.paidAmountCents ?? 0) / 100).toFixed(2),
-                      saldo: ((payment.balanceCents ?? 0) / 100).toFixed(2),
-                      status: payment.status,
-                      pontoAntecipado: payment.earnsPoint,
-                      observacao: payment.notes ?? "",
-                    })),
-                  )
-                }
-              >
-                Exportar mensalidades
-              </button>
-            )}
             {cashMode && filteredCashEntries.length > 0 && (
               <button
                 className="ghost"
@@ -5078,9 +5050,6 @@ function PaymentsPanel({
               </button>
               <button type="button" onClick={() => setOverviewDetail("late")}>
                 <b>{summary.late}</b> atraso(s)
-              </button>
-              <button type="button">
-                <b>{summary.earlyPoints}</b> ponto(s) antecipados
               </button>
             </>
           )}
@@ -5213,8 +5182,7 @@ function PaymentsPanel({
       )}
       {!cashMode && !canCoordinate && (
         <p className="muted">
-          Você visualiza apenas sua mensalidade e se ela gerou ponto por
-          pagamento antecipado.
+          Você visualiza apenas sua mensalidade.
         </p>
       )}
       {message && <p className="muted">{message}</p>}
@@ -5247,17 +5215,16 @@ function PaymentsPanel({
                     "Pesquisar atleta",
                   )}
                 </th>
-                <th>Inadimplência total</th>
-                <th>Total pago</th>
+                <th>Situação</th>
+                <th>Pagamento do mês</th>
                 <th>Último mês pago</th>
-                <th>Próximo mês em aberto</th>
                 <th>Meses em atraso</th>
               </tr>
             </thead>
             <tbody>
               {paymentGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="table-empty-cell">
+                  <td colSpan={5} className="table-empty-cell">
                     Nenhum atleta encontrado com os filtros atuais.
                   </td>
                 </tr>
@@ -5279,11 +5246,23 @@ function PaymentsPanel({
                       <td className="athlete-cell payments-name-cell payments-athlete-cell">
                         <strong>{group.userName}</strong>
                       </td>
-                      <td className="payments-summary-cell payments-balance-cell">
-                        {money(group.totalOpenCents)}
+                      <td className="payments-summary-cell">
+                        {group.latePaymentsCount > 0 ? (
+                          <span className="status danger">Inadimplente</span>
+                        ) : (
+                          <span className="status open">OK</span>
+                        )}
                       </td>
                       <td className="payments-summary-cell">
-                        {money(group.totalPaidCents)}
+                        {group.currentMonthPayment ? (
+                          <span
+                            className={`status ${paymentStatusTone(group.currentMonthPayment.status)}`}
+                          >
+                            {statusLabel(group.currentMonthPayment.status)}
+                          </span>
+                        ) : (
+                          <span className="payments-muted">Não lançada</span>
+                        )}
                       </td>
                       <td className="payments-summary-cell">
                         {group.lastPaidPayment ? (
@@ -5292,15 +5271,6 @@ function PaymentsPanel({
                           )
                         ) : (
                           <span className="payments-muted">Sem pagamento</span>
-                        )}
-                      </td>
-                      <td className="payments-summary-cell">
-                        {group.nextOpenPayment ? (
-                          paymentMonthLabel(
-                            group.nextOpenPayment.referenceMonth,
-                          )
-                        ) : (
-                          <span className="payments-muted">Sem aberto</span>
                         )}
                       </td>
                       <td className="payments-summary-cell">
@@ -5315,7 +5285,7 @@ function PaymentsPanel({
                     </tr>
                     {expandedPaymentGroupKey === group.key && (
                       <tr className="payments-group-detail-row">
-                        <td colSpan={6}>
+                        <td colSpan={5}>
                           <div className="payments-subtable-wrap">
                             <div className="payments-subtable-head">
                               <strong>Mensalidades abertas do atleta</strong>
