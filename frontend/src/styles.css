@@ -5980,8 +5980,7 @@ select optgroup { color: var(--text); background: #10231f; }
   outline: none;
 }
 
-.payments-panel > .payments-overview-strip > button:nth-child(2),
-.payments-panel > .payments-overview-strip > button:nth-child(5),
+.payments-panel.payments-page > .payments-overview-strip > button:nth-child(2),
 .payments-panel .cash-ledger > .card-head .muted {
   display: none;
 }

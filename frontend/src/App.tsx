@@ -4982,7 +4982,9 @@ function PaymentsPanel({
               : money(cashSummary?.balanceCents);
 
   return (
-    <section className="card compact payments-panel">
+    <section
+      className={`card compact payments-panel ${cashMode ? "cash-page" : "payments-page"}`}
+    >
       <div className="card-head">
         <div>
           <h2>
