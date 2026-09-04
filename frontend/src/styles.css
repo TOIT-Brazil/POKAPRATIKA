@@ -4367,7 +4367,8 @@ textarea {
 }
 
 .dashboard-standings-table {
-  min-width: 560px;
+  width: 100%;
+  min-width: 640px;
   table-layout: fixed;
 }
 
@@ -4378,8 +4379,8 @@ textarea {
 }
 
 .dashboard-standings-table .athlete-cell {
-  width: 140px;
-  min-width: 140px;
+  width: 120px;
+  min-width: 120px;
 }
 
 @media (max-width: 1100px) {
@@ -5068,8 +5069,8 @@ textarea {
   }
 
   .dashboard-standings-table .athlete-cell {
-    width: 96px;
-    min-width: 96px !important;
+    width: 72px;
+    min-width: 72px !important;
     white-space: nowrap !important;
     overflow: hidden;
   }
@@ -5080,7 +5081,7 @@ textarea {
     min-width: 0;
     overflow: hidden;
     color: inherit;
-    font-size: .74rem;
+    font-size: .66rem;
     line-height: 1.2;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -5094,23 +5095,28 @@ textarea {
 
   .dashboard-standings-table th,
   .dashboard-standings-table td {
-    padding: 8px 1px;
-    font-size: .76rem;
+    padding: 8px 0;
+    font-size: .64rem;
     line-height: 1.2;
   }
 
   .dashboard-standings-table th {
-    font-size: .7rem;
+    font-size: .6rem;
   }
 
   .dashboard-standings-table th:first-child,
   .dashboard-standings-table td:first-child {
-    width: 28px;
+    width: 24px;
   }
 
   .dashboard-standings-table th:nth-child(2),
   .dashboard-standings-table td:nth-child(2) {
-    width: 96px;
+    width: 72px;
+  }
+
+  .dashboard-standings-table th:last-child,
+  .dashboard-standings-table td:last-child {
+    width: 44px;
   }
 
   .payments-table .payments-action-cell,

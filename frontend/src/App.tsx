@@ -2827,6 +2827,9 @@ function DashboardFinishedMatchesPanel({ matches }: { matches: MatchListItem[] }
 
 function DashboardStandingsPanel({ standings, onOpenProfile }: { standings: Standing[]; onOpenProfile: (userId: string) => void }) {
   const sortedStandings = useMemo(() => [...standings].sort((left, right) => left.position - right.position), [standings]);
+  const efficiency = (row: Standing) => row.games_played > 0
+    ? ((row.wins * 3 + row.draws) / (row.games_played * 3)) * 100
+    : 0;
 
   return (
     <section className="card compact dashboard-standings-card">
@@ -2836,7 +2839,7 @@ function DashboardStandingsPanel({ standings, onOpenProfile }: { standings: Stan
           <p className="muted">Classificação geral dos atletas na temporada.</p>
         </div>
       </div>
-      {standings.length === 0 ? <EmptyState title="Sem classificação ainda" text="A tabela será preenchida assim que os jogos forem confirmados." /> : <div className="championship-wrap dashboard-standings-wrap"><table className="championship-table dashboard-standings-table"><thead><tr><th>#</th><th>Atleta</th><th>PTS</th><th>J</th><th>G</th><th>V</th><th>E</th><th>D</th></tr></thead><tbody>{sortedStandings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" title={row.name} onClick={() => onOpenProfile(row.user_id)}>{abbreviatedAthleteName(row.name)}</button></td><td className="points-cell">{row.total_points}</td><td>{row.games_played}</td><td>{row.goals}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td></tr>)}</tbody></table></div>}
+      {standings.length === 0 ? <EmptyState title="Sem classificação ainda" text="A tabela será preenchida assim que os jogos forem confirmados." /> : <div className="championship-wrap dashboard-standings-wrap"><table className="championship-table dashboard-standings-table"><thead><tr><th>#</th><th>Atleta</th><th>PTS</th><th>J</th><th>V</th><th>E</th><th>D</th><th>G</th><th>A</th><th>APR</th></tr></thead><tbody>{sortedStandings.map((row) => <tr key={row.user_id}><td className="pos-cell">{row.position}</td><td className="athlete-cell"><button className="name-link strong" title={row.name} onClick={() => onOpenProfile(row.user_id)}>{abbreviatedAthleteName(row.name)}</button></td><td className="points-cell">{row.total_points}</td><td>{row.games_played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.goals}</td><td>{row.assists}</td><td className="efficiency-cell">{formatPercent(efficiency(row))}</td></tr>)}</tbody></table></div>}
     </section>
   );
 }
