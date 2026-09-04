@@ -2030,32 +2030,23 @@ textarea {
 }
 
 .shell-page .schedule-table th:nth-child(1),
-.shell-page .schedule-table td:nth-child(1) { width: 32%; }
+.shell-page .schedule-table td:nth-child(1) { width: 22%; }
 .shell-page .schedule-table th:nth-child(2),
-.shell-page .schedule-table td:nth-child(2) { width: 24%; }
+.shell-page .schedule-table td:nth-child(2) { width: 38%; }
 .shell-page .schedule-table th:nth-child(3),
-.shell-page .schedule-table td:nth-child(3) { width: 27%; }
+.shell-page .schedule-table td:nth-child(3) { width: 23%; }
 .shell-page .schedule-table th:nth-child(4),
 .shell-page .schedule-table td:nth-child(4) { width: 17%; }
 
-.shell-page .schedule-table th:nth-child(2):has(.table-filter-anchor) { text-align: right; }
-.shell-page .schedule-table th:nth-child(2) .table-filter-anchor { justify-content: flex-end; }
-.shell-page .schedule-table th:nth-child(2) .table-filter-popover { right: 0; left: auto; text-align: left; }
-
 .schedule-date-cell strong,
-.schedule-date-cell span,
 .schedule-date-cell small {
   display: block;
 }
 
-.schedule-date-cell { text-align: right; text-transform: uppercase; }
-.schedule-date-day { color: var(--text); font-size: 1.5rem; font-weight: 950; line-height: .9; }
-.schedule-date-month { margin-top: 4px; color: var(--text); font-size: .72rem; font-weight: 950; line-height: 1; }
-.schedule-date-weekday,
-.schedule-date-time { margin-top: 3px; color: var(--muted); font-size: .65rem; font-weight: 900; line-height: 1; white-space: nowrap; }
-.schedule-title-cell,
-.schedule-title-cell .schedule-detail-trigger { text-align: left; }
-.schedule-detail-trigger .schedule-game-title { font-size: 1.5rem; font-weight: 950; line-height: .95; text-transform: uppercase; }
+.schedule-date-cell small {
+  margin-top: 3px;
+  color: var(--muted);
+}
 
 .schedule-detail-trigger {
   width: 100%;
@@ -2182,11 +2173,11 @@ textarea {
   }
 
   .shell-page .schedule-table th:nth-child(1),
-  .shell-page .schedule-table td:nth-child(1) { width: 27%; }
+  .shell-page .schedule-table td:nth-child(1) { width: 24%; }
   .shell-page .schedule-table th:nth-child(2),
-  .shell-page .schedule-table td:nth-child(2) { width: 27%; }
+  .shell-page .schedule-table td:nth-child(2) { width: 35%; }
   .shell-page .schedule-table th:nth-child(3),
-  .shell-page .schedule-table td:nth-child(3) { width: 29%; }
+  .shell-page .schedule-table td:nth-child(3) { width: 24%; }
   .shell-page .schedule-table th:nth-child(4),
   .shell-page .schedule-table td:nth-child(4) { width: 17%; }
 
@@ -2194,12 +2185,6 @@ textarea {
   .schedule-detail-trigger small {
     font-size: .56rem;
   }
-
-  .schedule-date-day { font-size: 1.32rem; }
-  .schedule-date-month { font-size: .59rem; }
-  .schedule-date-weekday,
-  .schedule-date-time { font-size: .54rem; }
-  .schedule-detail-trigger .schedule-game-title { font-size: 1.32rem; }
 
   .schedule-status-cell .status {
     display: inline-block;
@@ -3847,7 +3832,7 @@ textarea {
 
 .next-match-date-badge {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   justify-items: start;
   gap: 12px;
@@ -3861,15 +3846,20 @@ textarea {
 }
 
 .next-match-date-badge b {
+  grid-column: 2;
+  grid-row: 1;
   font-size: 2.45rem;
   line-height: .92;
   color: #0d2a22;
 }
 
 .next-match-date-stack {
+  grid-column: 3;
+  grid-row: 1;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   min-width: 0;
   text-align: left;
   white-space: nowrap;
@@ -3886,11 +3876,17 @@ textarea {
 }
 
 .next-match-date-stack em {
+  order: 3;
   font-size: .86rem;
   color: #10392f;
 }
 
+.next-match-date-stack span { order: 1; }
+.next-match-date-stack small { order: 2; }
+
 .next-match-title-block {
+  grid-column: 1;
+  grid-row: 1;
   min-width: 0;
   display: flex;
   align-items: baseline;
@@ -3901,8 +3897,10 @@ textarea {
 .next-match-title-block strong {
   min-width: 0;
   color: #0d2a22;
-  font-size: 1.18rem;
+  font-size: 2.45rem;
+  font-weight: 950;
   line-height: 1;
+  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4707,7 +4705,7 @@ textarea {
   }
 
   .next-match-date-badge {
-    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
@@ -4725,7 +4723,7 @@ textarea {
   }
 
   .next-match-title-block strong {
-    font-size: 1.08rem;
+    font-size: 1.7rem;
   }
 
   .next-match-title-block small {
@@ -5237,13 +5235,13 @@ textarea {
   }
 
   .next-match-date-badge {
-    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 7px;
     padding: 9px 10px;
   }
 
   .next-match-date-stack {
-    gap: 4px;
+    gap: 1px;
   }
 
   .next-match-date-stack span,
@@ -5292,7 +5290,7 @@ textarea {
   }
 
   .next-match-title-block strong {
-    font-size: .9rem;
+    font-size: 1.5rem;
   }
 
   .next-match-title-block small {

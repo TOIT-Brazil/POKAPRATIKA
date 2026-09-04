@@ -1,5 +1,7 @@
 # RCA000000000057 - Hierarquia de Data e Jogo na Agenda
 
+> Supersedido em 2026-09-04 pelo RCA 058. A referência visual pertencia à tela Temporada, e a Agenda foi restaurada.
+
 ## Sintoma
 
 A Agenda exibia Data antes de Jogo e tratava a data como texto compacto comum, sem a hierarquia visual solicitada para dia, mês, dia da semana e horário.

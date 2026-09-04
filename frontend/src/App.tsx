@@ -680,19 +680,6 @@ function matchDateParts(match: MatchListItem): { day: string; month: string; wee
   };
 }
 
-function scheduleDateParts(match: MatchListItem): { day: string; month: string; weekday: string; time: string } {
-  const date = new Date(`${match.matchDate?.slice(0, 10) || todayInputValue()}T12:00:00-03:00`);
-  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short', weekday: 'long' });
-  const parts = formatter.formatToParts(date);
-  const pick = (type: string) => parts.find((part) => part.type === type)?.value.replace('.', '') ?? '';
-  return {
-    day: pick('day'),
-    month: pick('month').toUpperCase(),
-    weekday: pick('weekday').replace('-feira', '').toUpperCase(),
-    time: match.scheduledStart?.slice(0, 5) ?? '20:00'
-  };
-}
-
 function matchRelativeLabel(match: MatchListItem): string {
   const today = new Date(`${todayInputValue()}T12:00:00-03:00`).getTime();
   const matchDay = new Date(`${match.matchDate?.slice(0, 10) || todayInputValue()}T12:00:00-03:00`).getTime();
@@ -3898,16 +3885,16 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
             <table className="championship-table management-table schedule-table">
               <thead>
                 <tr>
-                  <th><TableFilterHeader label="Jogo" menuKey="schedule-title" currentValue={tableFilters.title} options={filterOptions('title')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar jogo" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, title: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, title: '' })); setActiveFilterMenu(null); }} /></th>
                   <th><TableFilterHeader label="Data" menuKey="schedule-date" currentValue={tableFilters.date} options={filterOptions('date')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar data" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, date: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, date: '' })); setActiveFilterMenu(null); }} /></th>
+                  <th><TableFilterHeader label="Jogo" menuKey="schedule-title" currentValue={tableFilters.title} options={filterOptions('title')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar jogo" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, title: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, title: '' })); setActiveFilterMenu(null); }} /></th>
                   <th><TableFilterHeader label="Confirmação" menuKey="schedule-status" currentValue={tableFilters.status} options={filterOptions('status')} activeMenu={activeFilterMenu} searchValue={filterSearch} placeholder="Pesquisar status" onToggle={toggleFilterMenu} onSearchChange={setFilterSearch} onSelect={(value) => { setTableFilters((current) => ({ ...current, status: value })); setActiveFilterMenu(null); }} onClear={() => { setTableFilters((current) => ({ ...current, status: '' })); setActiveFilterMenu(null); }} /></th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredScheduleGroups.length === 0 ? <tr><td colSpan={4} className="table-empty-cell">Nenhum jogo pré-definido encontrado com os filtros atuais.</td></tr> : filteredScheduleGroups.map((group) => { const match = group.match; const date = scheduleDateParts(match); return <tr key={group.key}>
-                  <td className="management-main-cell schedule-title-cell"><button type="button" className="schedule-detail-trigger" onClick={() => setSelectedScheduleGroup(group)}><strong className="schedule-game-title">{match.title}</strong><small>{match.teamAName} x {match.teamBName}</small>{group.matches.length > 1 && <span className="status danger">{group.matches.length} registros</span>}</button></td>
-                  <td className="schedule-date-cell"><strong className="schedule-date-day">{date.day}</strong><span className="schedule-date-month">{date.month}</span><small className="schedule-date-weekday">{date.weekday}</small><small className="schedule-date-time">{date.time}</small></td>
+                {filteredScheduleGroups.length === 0 ? <tr><td colSpan={4} className="table-empty-cell">Nenhum jogo pré-definido encontrado com os filtros atuais.</td></tr> : filteredScheduleGroups.map((group) => { const match = group.match; return <tr key={group.key}>
+                  <td className="schedule-date-cell"><strong>{matchDateLabel(match)}</strong><small>{match.scheduledStart?.slice(0, 5) ?? '20:00'} - {match.scheduledEnd?.slice(0, 5) ?? '21:00'}</small></td>
+                  <td className="management-main-cell schedule-title-cell"><button type="button" className="schedule-detail-trigger" onClick={() => setSelectedScheduleGroup(group)}><strong>{match.title}</strong><small>{match.teamAName} x {match.teamBName}</small>{group.matches.length > 1 && <span className="status danger">{group.matches.length} registros</span>}</button></td>
                   <td className="schedule-status-cell"><span className={`status ${match.confirmationOpen ? 'open' : confirmationWindowHasEnded(match) ? 'danger' : 'draft'}`}>{confirmationStatus(match)}</span></td>
                   <td className="schedule-actions-cell"><button type="button" className="ghost" onClick={() => loadForEdit(match)}>Editar</button></td>
                 </tr>; })}
