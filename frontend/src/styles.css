@@ -3834,7 +3834,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
   gap: 24px;
   min-width: 0;
   padding: 14px 16px;
@@ -3846,6 +3848,7 @@ textarea {
 }
 
 .next-match-date-badge b {
+  order: 2;
   flex: 0 0 auto;
   font-size: 2.45rem;
   line-height: .92;
@@ -3853,6 +3856,7 @@ textarea {
 }
 
 .next-match-date-stack {
+  order: 3;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -3883,6 +3887,7 @@ textarea {
 .next-match-date-stack small { order: 2; }
 
 .next-match-title-block {
+  order: 1;
   flex: 0 1 auto;
   min-width: 0;
   display: flex;

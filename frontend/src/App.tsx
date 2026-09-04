@@ -669,13 +669,13 @@ function abbreviatedAthleteName(name: string): string {
 
 function matchDateParts(match: MatchListItem): { day: string; month: string; weekday: string; time: string } {
   const date = new Date(`${match.matchDate?.slice(0, 10) || todayInputValue()}T12:00:00-03:00`);
-  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short', weekday: 'short' });
+  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', weekday: 'long' });
   const parts = formatter.formatToParts(date);
   const pick = (type: string) => parts.find((part) => part.type === type)?.value.replace('.', '') ?? '';
   return {
     day: pick('day'),
     month: pick('month').toUpperCase(),
-    weekday: pick('weekday').toUpperCase(),
+    weekday: pick('weekday').replace('-feira', '').toUpperCase(),
     time: match.scheduledStart?.slice(0, 5) ?? '20:00'
   };
 }
