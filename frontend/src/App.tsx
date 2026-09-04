@@ -1980,8 +1980,8 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {nextMatch?.pregameState && nextMatch.status === 'DRAFT' && (
         <div className="next-match-actions pregame-entry-actions">
           {!canCoordinate && nextMatch.pregameState === 'DRAWN' && nextMatch.myAttendanceStatus === 'JOGAR' && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && <button type="button" className="primary small" onClick={() => void openSheet(nextMatch.id)}>Ver escalação</button>}
-          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameState === 'DRAWN' ? 'Times definidos' : `${nextMatch.pregameEligibleCount ?? nextMatch.attendancePlaying ?? 0} / mínimo 20`}</span>
-          {canCoordinate && <button type="button" className="ghost small" onClick={() => setSelectedPregameMatch(nextMatch)}>Ver confirmados</button>}
+          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameEligibleCount ?? nextMatch.attendancePlaying ?? 0}/20 respostas enviadas</span>
+          {canCoordinate && <button type="button" className="primary small" onClick={() => setSelectedPregameMatch(nextMatch)}>Abrir pré-jogo</button>}
         </div>
       )}
       {canCoordinate && nextMatch?.status === 'DRAFT' && dismissedSheetMatchId === nextMatch.id && countdownNow >= getMatchStartTime(nextMatch) && (
