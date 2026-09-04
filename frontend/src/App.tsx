@@ -4346,7 +4346,6 @@ function PaymentsPanel({
     date: "",
     type: "",
     description: "",
-    origin: "",
     recordedBy: "",
     amount: "",
   });
@@ -4641,7 +4640,6 @@ function PaymentsPanel({
       if (key === "type")
         return entry.entryType === "REVENUE" ? "Receita" : "Despesa";
       if (key === "description") return entry.description;
-      if (key === "origin") return entry.paymentId ? "Mensalidade" : "Manual";
       if (key === "recordedBy")
         return entry.recordedByName?.trim() ? entry.recordedByName : "-";
       return `${entry.entryType === "REVENUE" ? "+" : "-"} ${money(entry.amountCents)}`;
@@ -4910,9 +4908,6 @@ function PaymentsPanel({
           entry.entryType === "REVENUE" ? "receita" : "despesa"
         ).toLowerCase();
         const descriptionValue = entry.description.toLowerCase();
-        const originValue = (
-          entry.paymentId ? "mensalidade" : "manual"
-        ).toLowerCase();
         const recordedByValue = (entry.recordedByName ?? "").toLowerCase();
         const amountValue =
           `${entry.entryType === "REVENUE" ? "+" : "-"} ${money(entry.amountCents)}`.toLowerCase();
@@ -4922,7 +4917,6 @@ function PaymentsPanel({
           descriptionValue.includes(
             cashFilters.description.trim().toLowerCase(),
           ) &&
-          originValue.includes(cashFilters.origin.trim().toLowerCase()) &&
           recordedByValue.includes(
             cashFilters.recordedBy.trim().toLowerCase(),
           ) &&
@@ -5452,25 +5446,6 @@ function PaymentsPanel({
                     </th>
                     <th>
                       {renderFilterHeader(
-                        "Origem",
-                        "cash-origin",
-                        cashFilters.origin,
-                        cashFilterOptions("origin"),
-                        (value) =>
-                          setCashFilters((current) => ({
-                            ...current,
-                            origin: value,
-                          })),
-                        () =>
-                          setCashFilters((current) => ({
-                            ...current,
-                            origin: "",
-                          })),
-                        "Pesquisar origem",
-                      )}
-                    </th>
-                    <th>
-                      {renderFilterHeader(
                         "Responsável",
                         "cash-recordedBy",
                         cashFilters.recordedBy,
@@ -5512,7 +5487,7 @@ function PaymentsPanel({
                 <tbody>
                   {filteredCashEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="table-empty-cell">
+                      <td colSpan={5} className="table-empty-cell">
                         Nenhum lançamento encontrado com os filtros atuais.
                       </td>
                     </tr>
@@ -5532,7 +5507,6 @@ function PaymentsPanel({
                         <td className="cash-description-cell">
                           <strong>{entry.description}</strong>
                         </td>
-                        <td>{entry.paymentId ? "Mensalidade" : "Manual"}</td>
                         <td>
                           {entry.recordedByName?.trim() ? (
                             entry.recordedByName

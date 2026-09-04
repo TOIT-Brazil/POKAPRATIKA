@@ -496,10 +496,20 @@ textarea { width: 100%; min-height: 120px; color: #f5fbf7; background: rgba(255,
 .payments-overview-strip::-webkit-scrollbar-thumb { background: rgba(15,82,87,.18); border-radius: 999px; }
 .cash-ledger { display: grid; gap: 7px; padding: 9px; border-radius: 15px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
 .cash-table-wrap { max-height: 42dvh; border-color: rgba(15,82,87,.12); background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,250,246,.98)); }
-.cash-table { min-width: 880px; font-size: .75rem; }
+.cash-table { width: 100%; min-width: 0; table-layout: fixed; font-size: .75rem; }
 .cash-table th,
-.cash-table td { white-space: nowrap; }
-.cash-table .cash-description-cell { min-width: 280px; padding-left: 25px; white-space: normal; text-align: left; }
+.cash-table td { white-space: normal; text-align: center; vertical-align: middle; }
+.cash-table th:nth-child(1),
+.cash-table td:nth-child(1) { width: 16%; }
+.cash-table th:nth-child(2),
+.cash-table td:nth-child(2) { width: 15%; }
+.cash-table th:nth-child(3),
+.cash-table td:nth-child(3) { width: 31%; }
+.cash-table th:nth-child(4),
+.cash-table td:nth-child(4) { width: 19%; }
+.cash-table th:nth-child(5),
+.cash-table td:nth-child(5) { width: 19%; }
+.cash-table .cash-description-cell { min-width: 0; padding-left: 0; white-space: normal; text-align: center; }
 .cash-table .cash-amount-cell { font-weight: 900; }
 .cash-table .cash-amount-cell.is-revenue { color: #1a7f4b; }
 .cash-table .cash-amount-cell.is-expense { color: #c2410c; }
@@ -6054,6 +6064,15 @@ select optgroup { color: var(--text); background: #10231f; }
     overflow: hidden;
   }
 
+  .payments-panel.cash-page .payments-overview-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .payments-panel.cash-page .payments-overview-strip button {
+    padding-inline: 3px;
+    text-align: center;
+  }
+
   .payments-panel .payments-overview-strip button {
     min-width: 0;
     padding: 7px 5px;
@@ -6153,17 +6172,15 @@ select optgroup { color: var(--text); background: #10231f; }
   }
 
   .payments-panel .cash-table th:nth-child(1),
-  .payments-panel .cash-table td:nth-child(1) { width: 14%; }
+  .payments-panel .cash-table td:nth-child(1) { width: 16%; }
   .payments-panel .cash-table th:nth-child(2),
-  .payments-panel .cash-table td:nth-child(2) { width: 12%; }
+  .payments-panel .cash-table td:nth-child(2) { width: 15%; }
   .payments-panel .cash-table th:nth-child(3),
-  .payments-panel .cash-table td:nth-child(3) { width: 25%; }
+  .payments-panel .cash-table td:nth-child(3) { width: 31%; }
   .payments-panel .cash-table th:nth-child(4),
-  .payments-panel .cash-table td:nth-child(4) { width: 13%; }
+  .payments-panel .cash-table td:nth-child(4) { width: 19%; }
   .payments-panel .cash-table th:nth-child(5),
-  .payments-panel .cash-table td:nth-child(5) { width: 17%; }
-  .payments-panel .cash-table th:nth-child(6),
-  .payments-panel .cash-table td:nth-child(6) { width: 19%; }
+  .payments-panel .cash-table td:nth-child(5) { width: 19%; }
 
   .payments-panel .cash-table th,
   .payments-panel .cash-table td {
