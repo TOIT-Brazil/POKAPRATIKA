@@ -4999,6 +4999,14 @@ function PaymentsPanel({
                 Gerar mensalidades
               </button>
             )}
+            {cashMode && (
+              <button
+                className="primary small"
+                onClick={() => setPaymentModal("cash")}
+              >
+                Lançar caixa
+              </button>
+            )}
           </div>
         )}
       </div>
