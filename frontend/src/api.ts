@@ -24,6 +24,10 @@ if (['localhost', '127.0.0.1', '0.0.0.0'].includes(parsedApiUrl.hostname)) {
 
 export const API_URL = parsedApiUrl.origin;
 
+function waitForRetry() {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, 300));
+}
+
 export class ApiClient {
   private token: string | null;
   private onUnauthorized?: () => void;
@@ -42,17 +46,60 @@ export class ApiClient {
     headers.set('Content-Type', 'application/json');
     if (this.token) headers.set('Authorization', `Bearer ${this.token}`);
 
-    const response = await fetch(`${API_URL}${path}`, { ...options, headers });
-    const payload = response.status === 204 ? null : await response.json().catch(() => null);
+    const method = (options.method ?? 'GET').toUpperCase();
+    const maxAttempts = method === 'GET' ? 2 : 1;
 
-    if (!response.ok) {
-      if (response.status === 401 && this.token) {
-        this.token = null;
-        this.onUnauthorized?.();
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      let response: Response;
+      try {
+        response = await fetch(`${API_URL}${path}`, { ...options, headers });
+      } catch {
+        if (attempt < maxAttempts) {
+          await waitForRetry();
+          continue;
+        }
+        throw new Error('A conexão com o servidor foi interrompida. Tente novamente.');
       }
-      throw new Error(payload?.message ?? 'Falha na comunicação com o backend.');
+
+      const transientStatus = response.status === 502 || response.status === 503 || response.status === 504;
+      if (transientStatus && attempt < maxAttempts) {
+        await waitForRetry();
+        continue;
+      }
+
+      let payload: unknown = null;
+      if (response.status !== 204) {
+        try {
+          payload = await response.json();
+        } catch {
+          if (response.ok && attempt < maxAttempts) {
+            await waitForRetry();
+            continue;
+          }
+          if (response.ok) throw new Error('O servidor retornou uma resposta inválida. Tente novamente.');
+        }
+      }
+
+      if (!response.ok) {
+        if (response.status === 401 && this.token) {
+          this.token = null;
+          this.onUnauthorized?.();
+        }
+        const errorPayload = payload as { message?: string } | null;
+        throw new Error(errorPayload?.message ?? 'Falha na comunicação com o backend.');
+      }
+
+      if (payload === null) {
+        if (attempt < maxAttempts) {
+          await waitForRetry();
+          continue;
+        }
+        throw new Error('O servidor retornou uma resposta vazia. Tente novamente.');
+      }
+
+      return payload as T;
     }
 
-    return payload as T;
+    throw new Error('Falha na comunicação com o backend.');
   }
 }
