@@ -3373,12 +3373,11 @@ textarea {
 .pregame-modal-card { width: min(820px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
 .pregame-panel { display: grid; gap: 12px; min-width: 0; }
 .pregame-loading { min-height: 220px; display: grid; place-items: center; gap: 10px; }
-.pregame-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.pregame-summary span { display: grid; gap: 3px; min-width: 0; padding: 10px; border: 1px solid rgba(159,227,203,.14); background: rgba(255,255,255,.04); border-radius: 8px; }
-.pregame-summary small { color: var(--muted); font-size: .68rem; text-transform: uppercase; }
-.pregame-summary b { color: #f3fff8; overflow-wrap: anywhere; }
 .pregame-section { display: grid; gap: 10px; padding: 12px 0; border-top: 1px solid rgba(159,227,203,.14); }
 .pregame-section h3 { margin: 0; font-size: 1rem; }
+.pregame-add-guest-section { justify-items: start; }
+.pregame-guest-modal { z-index: 30; }
+.pregame-guest-modal-card { width: min(460px, calc(100vw - 24px)); }
 .pregame-guest-form, .pregame-replacement-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .55fr) auto; gap: 8px; align-items: end; min-width: 0; }
 .pregame-guest-form label { display: grid; gap: 4px; min-width: 0; }
 .pregame-guest-form label > span { color: var(--muted); font-size: .7rem; }
@@ -3401,8 +3400,6 @@ textarea {
 
 @media (max-width: 620px) {
   .pregame-modal-card { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); padding: 12px; }
-  .pregame-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pregame-summary span:first-child { grid-column: 1 / -1; }
   .pregame-guest-form, .pregame-replacement-form, .pregame-draw-action { grid-template-columns: 1fr; }
   .pregame-guest-form button, .pregame-replacement-form button, .pregame-draw-action button { width: 100%; }
   .pregame-teams { gap: 6px; }

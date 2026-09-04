@@ -1767,6 +1767,15 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
 
   useEffect(() => { void load(); }, [match.id]);
 
+  useEffect(() => {
+    if (!guestFormOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setGuestFormOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [guestFormOpen]);
+
   async function run(action: () => Promise<void>, successMessage: string) {
     setBusy(true);
     setMessage('');
@@ -1820,7 +1829,6 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
   }
 
   if (!data) return <div className="pregame-loading"><span className="app-loading-spinner" />{message && <p className="alert">{message}</p>}</div>;
-  const stateLabels: Record<PregamePayload['state'], string> = { CONFIRMING: 'Confirmação aberta', COMPLETING: 'Completando grupo', READY_TO_DRAW: 'Pronto para sorteio', DRAWN: 'Times sorteados', NO_QUORUM: 'Sem quórum' };
   const confirmedGuests = data.participants.filter((participant) => participant.source === 'GUEST' && participant.status !== 'REPLACED');
   const confirmedPlayers = [
     ...data.clubConfirmed.map((participant) => ({ ...participant, source: 'CLUB' as const })),
@@ -1828,26 +1836,19 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
   ].sort((left, right) => left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }));
 
   return <div className="pregame-panel">
-    <div className="pregame-summary">
-      <span><small>Status</small><b>{stateLabels[data.state]}</b></span>
-      <span><small>Quórum</small><b>{data.eligibleCount} / mínimo {data.capacity}</b></span>
-      <span><small>Clube</small><b>{data.confirmedCount}</b></span>
-      <span><small>Convidados</small><b>{data.guestCount}</b></span>
-      <span><small>Reservas</small><b>{reserves.length}</b></span>
-    </div>
     {message && <button type="button" className="alert" onClick={() => setMessage('')}>{message}</button>}
     <section className="pregame-section pregame-confirmed-section">
-      <div className="card-head"><div><h3>Jogadores confirmados</h3><p className="muted">Quem confirmou presença para jogar e está disponível para o sorteio.</p></div><span className="status open">{confirmedPlayers.length}</span></div>
+      <div className="card-head"><h3>Jogadores convocados</h3><span className="status open">{confirmedPlayers.length}</span></div>
       {confirmedPlayers.length ? <div className="pregame-confirmed-list">{confirmedPlayers.map((participant, index) => <span key={participant.participantKey}><b><em>{index + 1}</em>{participant.name}</b><small>{positionLabel(participant.position)}{participant.source === 'GUEST' ? ' · Suplente' : ''}</small></span>)}</div> : <p className="muted">Nenhum jogador confirmou presença para jogar.</p>}
     </section>
-    {data.state === 'CONFIRMING' && <p className="muted">A confirmação fecha em {formatBrasiliaTime(data.confirmationCloseAt ?? '')}. Depois, convidados poderão completar as vagas.</p>}
-    <section className="pregame-section pregame-add-guest-section"><div className="card-head"><div><h3>Suplentes</h3><p className="muted">Entram nos confirmados antes do sorteio ou no fim da fila de reservas depois dele.</p></div><button type="button" className="ghost small" onClick={() => setGuestFormOpen((open) => !open)}>{guestFormOpen ? 'Cancelar' : 'Cadastrar suplente'}</button></div>{guestFormOpen && <div className="pregame-guest-form"><label><span>Nome</span><input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do suplente" maxLength={120} autoFocus /></label><label><span>Posição</span><select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button type="button" className="primary small" disabled={busy || guestName.trim().length < 2} onClick={() => void addGuest()}>Confirmar suplente</button></div>}</section>
-    {data.state !== 'DRAWN' && <section className="pregame-section pregame-draw-action"><div><h3>Sortear os times</h3><p className="muted">{data.state === 'READY_TO_DRAW' ? 'A lista está pronta. O sistema escolherá 20 participantes, ordenará os excedentes como reservas e dividirá duas equipes de 10 por posição.' : `O sorteio será liberado após o fechamento da confirmação e com 20 participantes. Faltam ${data.missingCount}.`}</p></div><button type="button" className="primary" disabled={busy || data.state !== 'READY_TO_DRAW'} onClick={() => void drawTeams()}>Sortear times</button></section>}
+    <section className="pregame-section pregame-add-guest-section"><button type="button" className="ghost small" onClick={() => setGuestFormOpen(true)}>Cadastrar suplente</button></section>
+    {data.state !== 'DRAWN' && <section className="pregame-section pregame-draw-action"><div><h3>Sortear os times</h3><p className="muted">{data.state === 'READY_TO_DRAW' ? 'A lista está pronta para formar os dois times.' : `O sorteio será liberado após o fechamento da confirmação e com 20 participantes. Faltam ${data.missingCount}.`}</p></div><button type="button" className="primary" disabled={busy || data.state !== 'READY_TO_DRAW'} onClick={() => void drawTeams()}>🎲 Sortear times</button></section>}
     {data.state === 'DRAWN' && <>
       <div className="pregame-teams">{(['A', 'B'] as const).map((team) => <section className="pregame-team" key={team}><h3>{team === 'A' ? match.teamAName : match.teamBName}</h3>{selected.filter((participant) => participant.team === team).map((participant) => <span key={participant.participantKey}><b>{participant.name}</b><small>{positionLabel(participant.position)}</small></span>)}</section>)}</div>
       <section className="pregame-section"><div className="card-head"><div><h3>Fila de reservas</h3><p className="muted">Ordem sorteada para substituições compatíveis.</p></div></div>{reserves.length ? <div className="pregame-reserves">{reserves.map((participant) => <span key={participant.participantKey}><b>#{participant.reserveOrder} {participant.name}</b><small>{positionLabel(participant.position)}</small></span>)}</div> : <p className="muted">Nenhum reserva disponível.</p>}</section>
       <section className="pregame-section"><div className="card-head"><div><h3>Substituir ausência</h3><p className="muted">A vaga permanece no mesmo time e exige a mesma posição.</p></div></div><div className="pregame-replacement-form"><select value={outgoingKey} onChange={(event) => { setOutgoingKey(event.target.value); setReserveKey(''); }}><option value="">Quem saiu?</option>{selected.map((participant) => <option key={participant.participantKey} value={participant.participantKey}>{participant.name} · {positionLabel(participant.position)}</option>)}</select><select value={reserveKey} onChange={(event) => setReserveKey(event.target.value)} disabled={!outgoing}><option value="">Reserva compatível</option>{compatibleReserves.map((participant) => <option key={participant.participantKey} value={participant.participantKey}>#{participant.reserveOrder} {participant.name}</option>)}</select><button type="button" className="primary small" disabled={busy || !reserveKey} onClick={() => void replaceWithReserve()}>Usar reserva</button></div>{outgoing && <div className="pregame-guest-form"><input value={replacementName} onChange={(event) => setReplacementName(event.target.value)} placeholder={`Novo convidado · ${positionLabel(outgoing.position)}`} maxLength={120} /><button type="button" className="ghost small" disabled={busy || replacementName.trim().length < 2} onClick={() => void replaceWithGuest()}>Adicionar substituto externo</button></div>}</section>
     </>}
+    {guestFormOpen && <div className="modal pregame-guest-modal" onMouseDown={() => setGuestFormOpen(false)}><section className="card modal-card pregame-guest-modal-card" onMouseDown={(event) => event.stopPropagation()}><div className="card-head"><h3>Cadastrar suplente</h3><button type="button" className="ghost modal-close-button" aria-label="Fechar cadastro de suplente" title="Fechar" onClick={() => setGuestFormOpen(false)}>X</button></div><div className="pregame-guest-form"><label><span>Nome</span><input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do suplente" maxLength={120} autoFocus /></label><label><span>Posição</span><select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button type="button" className="primary small" disabled={busy || guestName.trim().length < 2} onClick={() => void addGuest()}>Confirmar suplente</button></div></section></div>}
   </div>;
 }
 
