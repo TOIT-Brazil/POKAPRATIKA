@@ -4,6 +4,8 @@
 
 ADMIN e COORDENADOR viam apenas o estado resumido do próximo jogo, sem acesso à lista nominal de confirmados, ao sorteio ou à inclusão de suplentes. Além disso, a API rejeitava suplentes antes do fechamento da confirmação e depois do sorteio.
 
+O contador também apresentava 20 como limite de vagas e considerava somente respostas do clube, sem somar suplentes. A súmula administrativa abria em T-1h, embora o fluxo operacional vigente determine abertura no horário marcado.
+
 ## Causa raiz
 
 O modal administrativo de pré-jogo havia sido temporariamente removido da árvore de renderização, embora seu componente e seus endpoints permanecessem implementados. A interface condicionava o formulário de suplente exclusivamente ao estado `COMPLETING`, e o endpoint exigia horário posterior a `confirmation_close_at` e estado diferente de `DRAWN`.
@@ -14,7 +16,9 @@ A coordenação não conseguia conferir quem respondeu, preparar suplentes antec
 
 ## Correção
 
-Restaurar no card do próximo jogo o contador `X de 20 responderam` e o botão `Ver confirmados` somente para ADMIN/COORDENADOR. O botão abre o modal existente com lista nominal, inclusão de suplente e sorteio. Permitir suplentes durante todo o estado `DRAFT`: antes do sorteio entram como elegíveis e podem exceder 20 para formar reservas; depois do sorteio entram no fim da fila de reservas sem alterar os times. Manter o sorteio condicionado ao fechamento da confirmação e ao mínimo de 20 participantes.
+Restaurar no card do próximo jogo o contador `N / mínimo 20` e o botão `Ver confirmados` somente para ADMIN/COORDENADOR. O total vem do backend e soma respostas para jogar e suplentes, sem truncar valores acima de 20. O botão abre um único modal com lista nominal compacta em duas colunas, cadastro progressivo de suplente com nome e posição, sorteio, dois times e reservas.
+
+Permitir suplentes durante todo o estado `DRAFT`: antes do sorteio entram como elegíveis e podem exceder 20 para formar reservas; depois do sorteio entram no fim da fila de reservas sem alterar os times. Manter o sorteio condicionado ao fechamento da confirmação e ao quórum mínimo de 20 participantes. No horário inicial agendado, fechar o pré-jogo e abrir automaticamente a súmula administrativa grande; o operador confirma o início pelo comando autoritativo `INICIAR JOGO`.
 
 ## Prevenção
 

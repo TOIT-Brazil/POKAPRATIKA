@@ -624,6 +624,12 @@ function getMatchStartTime(match: MatchListItem): number {
   return new Date(`${date}T${start}:00-03:00`).getTime();
 }
 
+function getMatchEndTime(match: MatchListItem): number {
+  const date = match.matchDate?.slice(0, 10) || todayInputValue();
+  const end = match.scheduledEnd?.slice(0, 5) || '21:00';
+  return new Date(`${date}T${end}:00-03:00`).getTime();
+}
+
 function sortMatchesByOperationalRelevance(matches: MatchListItem[]): MatchListItem[] {
   const now = Date.now();
   return [...matches].sort((left, right) => {
@@ -1744,6 +1750,7 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
   const [data, setData] = useState<PregamePayload | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [guestFormOpen, setGuestFormOpen] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<AthletePosition>('MC');
   const [outgoingKey, setOutgoingKey] = useState('');
@@ -1779,7 +1786,8 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
     await run(async () => {
       await api.request(`/matches/${match.id}/pregame/guests`, { method: 'POST', body: JSON.stringify({ name: guestName, position: guestPosition }) });
       setGuestName('');
-    }, 'Convidado confirmado e adicionado às vagas disponíveis.');
+      setGuestFormOpen(false);
+    }, 'Suplente cadastrado e adicionado aos confirmados.');
   }
 
   async function drawTeams() {
@@ -1822,7 +1830,7 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
   return <div className="pregame-panel">
     <div className="pregame-summary">
       <span><small>Status</small><b>{stateLabels[data.state]}</b></span>
-      <span><small>Vagas</small><b>{Math.min(data.eligibleCount, data.capacity)}/{data.capacity}</b></span>
+      <span><small>Quórum</small><b>{data.eligibleCount} / mínimo {data.capacity}</b></span>
       <span><small>Clube</small><b>{data.confirmedCount}</b></span>
       <span><small>Convidados</small><b>{data.guestCount}</b></span>
       <span><small>Reservas</small><b>{reserves.length}</b></span>
@@ -1833,7 +1841,7 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
       {confirmedPlayers.length ? <div className="pregame-confirmed-list">{confirmedPlayers.map((participant, index) => <span key={participant.participantKey}><b><em>{index + 1}</em>{participant.name}</b><small>{positionLabel(participant.position)}{participant.source === 'GUEST' ? ' · Suplente' : ''}</small></span>)}</div> : <p className="muted">Nenhum jogador confirmou presença para jogar.</p>}
     </section>
     {data.state === 'CONFIRMING' && <p className="muted">A confirmação fecha em {formatBrasiliaTime(data.confirmationCloseAt ?? '')}. Depois, convidados poderão completar as vagas.</p>}
-    <section className="pregame-section"><div className="card-head"><div><h3>Adicionar suplente</h3><p className="muted">A coordenação pode adicionar suplentes a qualquer momento. Após o sorteio, o novo nome entra no fim da fila de reservas.</p></div></div><div className="pregame-guest-form"><input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do suplente" maxLength={120} /><select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button type="button" className="primary small" disabled={busy || guestName.trim().length < 2} onClick={() => void addGuest()}>Adicionar suplente</button></div></section>
+    <section className="pregame-section pregame-add-guest-section"><div className="card-head"><div><h3>Suplentes</h3><p className="muted">Entram nos confirmados antes do sorteio ou no fim da fila de reservas depois dele.</p></div><button type="button" className="ghost small" onClick={() => setGuestFormOpen((open) => !open)}>{guestFormOpen ? 'Cancelar' : 'Cadastrar suplente'}</button></div>{guestFormOpen && <div className="pregame-guest-form"><label><span>Nome</span><input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do suplente" maxLength={120} autoFocus /></label><label><span>Posição</span><select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button type="button" className="primary small" disabled={busy || guestName.trim().length < 2} onClick={() => void addGuest()}>Confirmar suplente</button></div>}</section>
     {data.state !== 'DRAWN' && <section className="pregame-section pregame-draw-action"><div><h3>Sortear os times</h3><p className="muted">{data.state === 'READY_TO_DRAW' ? 'A lista está pronta. O sistema escolherá 20 participantes, ordenará os excedentes como reservas e dividirá duas equipes de 10 por posição.' : `O sorteio será liberado após o fechamento da confirmação e com 20 participantes. Faltam ${data.missingCount}.`}</p></div><button type="button" className="primary" disabled={busy || data.state !== 'READY_TO_DRAW'} onClick={() => void drawTeams()}>Sortear times</button></section>}
     {data.state === 'DRAWN' && <>
       <div className="pregame-teams">{(['A', 'B'] as const).map((team) => <section className="pregame-team" key={team}><h3>{team === 'A' ? match.teamAName : match.teamBName}</h3>{selected.filter((participant) => participant.team === team).map((participant) => <span key={participant.participantKey}><b>{participant.name}</b><small>{positionLabel(participant.position)}</small></span>)}</section>)}</div>
@@ -1901,12 +1909,13 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
 
   const sortedMatches = sortMatchesByOperationalRelevance(matches);
   const activeUserCount = Math.max(1, users.filter((user) => user.active !== false).length);
-  const nextMatch = sortedMatches.filter((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED').find((match) => getMatchStartTime(match) >= countdownNow) ?? sortedMatches.find((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED') ?? null;
+  const currentDraftMatch = sortedMatches.find((match) => match.status === 'DRAFT' && getMatchStartTime(match) <= countdownNow && getMatchEndTime(match) >= countdownNow);
+  const nextMatch = currentDraftMatch ?? sortedMatches.filter((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED').find((match) => getMatchStartTime(match) >= countdownNow) ?? sortedMatches.find((match) => match.status !== 'CONFIRMED' && match.status !== 'CANCELLED') ?? null;
   const lastConfirmedMatch = [...matches].filter((match) => match.status === 'CONFIRMED').sort((left, right) => getMatchStartTime(right) - getMatchStartTime(left))[0] ?? null;
 
   useEffect(() => {
     if (!canCoordinate || !nextMatch || nextMatch.status !== 'DRAFT' || selectedSheetMatch || dismissedSheetMatchId === nextMatch.id) return;
-    const sheetOpensAt = getMatchStartTime(nextMatch) - 60 * 60 * 1000;
+    const sheetOpensAt = getMatchStartTime(nextMatch);
     if (countdownNow < sheetOpensAt) return;
 
     const checkKey = `${nextMatch.id}:${Math.floor(countdownNow / 15000)}`;
@@ -1917,7 +1926,10 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       .then((detail) => {
         const hasTeamA = detail.players.some((player) => player.team === 'A');
         const hasTeamB = detail.players.some((player) => player.team === 'B');
-        if (hasTeamA && hasTeamB) setSelectedSheetMatch(detail);
+        if (hasTeamA && hasTeamB) {
+          setSelectedPregameMatch(null);
+          setSelectedSheetMatch(detail);
+        }
       })
       .catch(() => undefined);
   }, [api, canCoordinate, countdownNow, dismissedSheetMatchId, nextMatch?.id, nextMatch?.status, selectedSheetMatch?.id]);
@@ -1968,11 +1980,11 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {nextMatch?.pregameState && nextMatch.status === 'DRAFT' && (
         <div className="next-match-actions pregame-entry-actions">
           {!canCoordinate && nextMatch.pregameState === 'DRAWN' && nextMatch.myAttendanceStatus === 'JOGAR' && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && <button type="button" className="primary small" onClick={() => void openSheet(nextMatch.id)}>Ver escalação</button>}
-          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameState === 'DRAWN' ? 'Times definidos' : `${nextMatch.attendancePlaying ?? 0} de 20 responderam`}</span>
+          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameState === 'DRAWN' ? 'Times definidos' : `${nextMatch.pregameEligibleCount ?? nextMatch.attendancePlaying ?? 0} / mínimo 20`}</span>
           {canCoordinate && <button type="button" className="ghost small" onClick={() => setSelectedPregameMatch(nextMatch)}>Ver confirmados</button>}
         </div>
       )}
-      {canCoordinate && nextMatch?.status === 'DRAFT' && dismissedSheetMatchId === nextMatch.id && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && (
+      {canCoordinate && nextMatch?.status === 'DRAFT' && dismissedSheetMatchId === nextMatch.id && countdownNow >= getMatchStartTime(nextMatch) && (
         <div className="next-match-actions">
           <button type="button" className="ghost" onClick={() => void openSheet(nextMatch.id)}>Reabrir súmula</button>
         </div>
@@ -4274,7 +4286,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   </div>
                 )}
 
-                <p className="draw-card-note">Todos os atletas ativos poderão confirmar. Depois do fechamento em T-3h, a coordenação completa as 20 vagas com convidados pelo painel Pré-jogo.</p>
+                <p className="draw-card-note">Todos os atletas ativos poderão confirmar. A coordenação pode cadastrar suplentes pelo painel Pré-jogo; o sorteio exige no mínimo 20 nomes e mantém os excedentes como reservas.</p>
               </section>
             </div>
 

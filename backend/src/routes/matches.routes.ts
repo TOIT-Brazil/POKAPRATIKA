@@ -133,7 +133,7 @@ function deterministicOrder(seed: string, scope: string, participantKey: string)
 }
 
 function drawPregameParticipants(participants: PregameParticipant[], seed: string): { selected: Array<PregameParticipant & { team: 'A' | 'B'; selectionOrder: number; startsOnBench: boolean; roleInMatch: 'GOLEIRO' | 'LINHA' }>; reserves: PregameParticipant[] } {
-  if (participants.length < pregameCapacity) throw httpError(409, `O sorteio exige exatamente ${pregameCapacity} participantes confirmados.`);
+  if (participants.length < pregameCapacity) throw httpError(409, `O sorteio exige no mínimo ${pregameCapacity} participantes confirmados.`);
   const ordered = [...participants].sort((left, right) => deterministicOrder(seed, 'selection', left.participantKey).localeCompare(deterministicOrder(seed, 'selection', right.participantKey)));
   const goalkeepers = ordered.filter((participant) => participant.position === 'GO');
 
@@ -784,6 +784,7 @@ matchesRouter.use(requireAuth);
 matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
   const matchColumns = await getMatchColumns();
   const hasAttendance = await tableExists('match_attendance_responses');
+  const hasPregameParticipants = matchColumns.has('pregame_state') && await tableExists('match_pregame_participants');
   const confirmationOpenExpression = confirmationWindowExpression(matchColumns, 'm');
   const scheduleSelect = [
     matchColumns.has('scheduled_start') ? 'm.scheduled_start AS "scheduledStart"' : 'TIME \'20:00\' AS "scheduledStart"',
@@ -814,10 +815,24 @@ matchesRouter.get('/', asyncHandler(async (req: AuthRequest, res) => {
   const attendanceSelect = hasAttendance
     ? 'COALESCE(att.playing, 0) AS "attendancePlaying", COALESCE(att.present_only, 0) AS "attendancePresentOnly", COALESCE(att.absent, 0) AS "attendanceAbsent", COALESCE(att.dinner_people, 0) AS "attendanceDinnerPeople", att.my_status AS "myAttendanceStatus"'
     : '0::INTEGER AS "attendancePlaying", 0::INTEGER AS "attendancePresentOnly", 0::INTEGER AS "attendanceAbsent", 0::INTEGER AS "attendanceDinnerPeople", NULL::TEXT AS "myAttendanceStatus"';
+  const pregameEligibleSelect = hasPregameParticipants
+    ? `CASE
+         WHEN m.pregame_state = 'DRAWN' THEN (
+           SELECT count(*)::INTEGER
+           FROM match_pregame_participants mpp
+           WHERE mpp.match_id = m.id AND mpp.participant_status IN ('SELECTED', 'RESERVE')
+         )
+         ELSE ${hasAttendance ? 'COALESCE(att.playing, 0)' : '0'} + (
+           SELECT count(*)::INTEGER
+           FROM match_pregame_participants mpp
+           WHERE mpp.match_id = m.id AND mpp.source = 'GUEST' AND mpp.participant_status <> 'REPLACED'
+         )
+       END AS "pregameEligibleCount"`
+    : `${hasAttendance ? 'COALESCE(att.playing, 0)' : '0'}::INTEGER AS "pregameEligibleCount"`;
   const result = await query(
     `SELECT m.id, m.season_id AS "seasonId", m.match_date AS "matchDate", m.title, m.referee_name AS "refereeName", m.status,
       m.team_a_name AS "teamAName", m.team_b_name AS "teamBName", m.team_a_score AS "teamAScore", m.team_b_score AS "teamBScore", m.created_at AS "createdAt",
-      ${scheduleSelect.join(', ')}, ${attendanceSelect},
+      ${scheduleSelect.join(', ')}, ${attendanceSelect}, ${pregameEligibleSelect},
       (SELECT count(*)::INTEGER FROM users invited WHERE invited.active = TRUE) AS "invitedCount",
       EXISTS (SELECT 1 FROM users invited WHERE invited.id = $2::UUID AND invited.active = TRUE) AS "isInvited"
      FROM matches m

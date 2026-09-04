@@ -65,6 +65,7 @@ export type MatchListItem = {
   confirmationOpen?: boolean;
   pregameState?: 'CONFIRMING' | 'COMPLETING' | 'READY_TO_DRAW' | 'DRAWN' | 'NO_QUORUM' | null;
   playerCapacity?: number | null;
+  pregameEligibleCount?: number;
   drawnAt?: string | null;
   scheduleSource?: 'MANUAL' | 'RECURRING';
   attendancePlaying?: number;
