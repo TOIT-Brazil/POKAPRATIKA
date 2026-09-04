@@ -1839,7 +1839,7 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
     {message && <button type="button" className="alert" onClick={() => setMessage('')}>{message}</button>}
     <section className="pregame-section pregame-confirmed-section">
       <div className="card-head"><h3>Jogadores convocados</h3><span className="status open">{confirmedPlayers.length}</span></div>
-      {confirmedPlayers.length ? <div className="pregame-confirmed-list">{confirmedPlayers.map((participant, index) => <span key={participant.participantKey}><b><em>{index + 1}</em><small>{positionLabel(participant.position)}</small>{participant.name}{participant.source === 'GUEST' ? <i>Suplente</i> : null}</b></span>)}</div> : <p className="muted">Nenhum jogador confirmou presença para jogar.</p>}
+      {confirmedPlayers.length ? <div className="pregame-confirmed-list">{confirmedPlayers.map((participant, index) => <span key={participant.participantKey}><b><em>{index + 1}</em>{participant.name}<small>{participant.position}</small>{participant.source === 'GUEST' ? <i>Suplente</i> : null}</b></span>)}</div> : <p className="muted">Nenhum jogador confirmou presença para jogar.</p>}
     </section>
     <section className="pregame-section pregame-actions"><button type="button" className="primary small" onClick={() => setGuestFormOpen(true)}>Cadastrar suplente</button>{data.state !== 'DRAWN' && <button type="button" className="primary small" disabled={busy || data.state !== 'READY_TO_DRAW'} onClick={() => void drawTeams()}>🎲 Sortear times</button>}</section>
     {data.state === 'DRAWN' && <>
