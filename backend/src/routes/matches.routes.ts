@@ -1222,6 +1222,17 @@ matchesRouter.post('/:id/open-confirmation', requireRoles('ADMIN', 'COORDENADOR'
 matchesRouter.get('/:id/pregame', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async (req: AuthRequest, res) => {
   const params = validate(idParamSchema, req.params);
   await ensurePregameAvailable();
+  await query(
+    `UPDATE matches
+     SET pregame_state = CASE
+           WHEN confirmation_close_at IS NOT NULL AND clock_timestamp() >= confirmation_close_at THEN 'COMPLETING'
+           ELSE 'CONFIRMING'
+         END,
+         player_capacity = $2,
+         updated_at = now()
+     WHERE id = $1 AND status = 'DRAFT' AND pregame_state IS NULL`,
+    [params.id, pregameCapacity]
+  );
   const match = await query<{
     id: string;
     status: string;

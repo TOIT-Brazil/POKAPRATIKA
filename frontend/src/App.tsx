@@ -1977,7 +1977,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {matchMessage && <button className="alert" onClick={() => setMatchMessage('')}>{matchMessage}</button>}
       {leaderBubbles.length > 0 && <div className="next-match-leader-strip">{leaderBubbles.map((item) => <button type="button" className={`next-match-leader-card ${item.accent}`} key={item.key} onClick={() => onOpenProfile(item.userId)} aria-label={`Abrir perfil de ${item.name}`}><div className="next-match-leader-value"><strong>{item.value}</strong><small>{item.detail}</small></div><div className="next-match-leader-copy"><span>{item.label}</span><strong>{item.name}</strong></div></button>)}</div>}
       {nextMatch ? renderHeroCard(nextMatch) : <EmptyState title="Sem próximo jogo operacional" text="Crie ou ajuste a agenda para exibir a próxima rodada aqui." />}
-      {nextMatch?.pregameState && nextMatch.status === 'DRAFT' && (
+      {nextMatch?.status === 'DRAFT' && (canCoordinate || nextMatch.pregameState) && (
         <div className="next-match-actions pregame-entry-actions">
           {!canCoordinate && nextMatch.pregameState === 'DRAWN' && nextMatch.myAttendanceStatus === 'JOGAR' && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && <button type="button" className="primary small" onClick={() => void openSheet(nextMatch.id)}>Ver escalação</button>}
           <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameEligibleCount ?? nextMatch.attendancePlaying ?? 0}/20 respostas enviadas</span>
