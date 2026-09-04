@@ -16,7 +16,10 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const guestPlayersMigrationFile = 'migrations/17_convidados_temporarios_sumula.sql';
 const matchFieldLayoutMigrationFile = 'migrations/18_posicionamento_manual_sumula.sql';
 const pregameMigrationFile = 'migrations/19_fluxo_pre_jogo_20_vagas.sql';
-const pregameCapacity = 20;
+const defaultLinePlayerCount = 18;
+const goalkeeperCount = 2;
+const defaultPregameCapacity = defaultLinePlayerCount + goalkeeperCount;
+const linePlayerCountSchema = z.number().int().min(2).max(40).refine((value) => value % 2 === 0, 'Informe uma quantidade par de jogadores de linha.').default(defaultLinePlayerCount);
 
 const playerSchema = z.object({
   userId: z.string().min(1),
@@ -71,6 +74,7 @@ const createMatchBaseSchema = z.object({
   confirmationOpensHoursBefore: z.number().int().min(1).max(336).default(48),
   confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(3),
   confirmationOpenAt: z.string().datetime().nullable().optional(),
+  linePlayerCount: linePlayerCountSchema,
   players: z.array(playerSchema).default([])
 });
 const createMatchSchema = createMatchBaseSchema.refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
@@ -94,7 +98,8 @@ const manualScheduleBaseSchema = z.object({
   scheduledStart: timeSchema.default('20:00'),
   scheduledEnd: timeSchema.default('21:00'),
   confirmationOpensHoursBefore: z.number().int().min(1).max(336).default(48),
-  confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(3)
+  confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(3),
+  linePlayerCount: linePlayerCountSchema
 });
 const manualScheduleSchema = manualScheduleBaseSchema.refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
 const recurringScheduleSchema = manualScheduleBaseSchema.omit({ matchDate: true }).extend({
@@ -132,49 +137,33 @@ function deterministicOrder(seed: string, scope: string, participantKey: string)
   return createHash('sha256').update(`${seed}:${scope}:${participantKey}`).digest('hex');
 }
 
-function drawPregameParticipants(participants: PregameParticipant[], seed: string): { selected: Array<PregameParticipant & { team: 'A' | 'B'; selectionOrder: number; startsOnBench: boolean; roleInMatch: 'GOLEIRO' | 'LINHA' }>; reserves: PregameParticipant[] } {
-  if (participants.length < pregameCapacity) throw httpError(409, `O sorteio exige no mínimo ${pregameCapacity} participantes confirmados.`);
+function drawPregameParticipants(participants: PregameParticipant[], seed: string, playerCapacity: number): { selected: Array<PregameParticipant & { team: 'A' | 'B'; selectionOrder: number; startsOnBench: boolean; roleInMatch: 'GOLEIRO' | 'LINHA' }>; reserves: PregameParticipant[] } {
+  const linePlayerCount = playerCapacity - goalkeeperCount;
+  if (linePlayerCount < 2 || linePlayerCount % 2 !== 0) throw httpError(409, 'A partida precisa ter uma quantidade par de jogadores de linha e dois goleiros.');
   const ordered = [...participants].sort((left, right) => deterministicOrder(seed, 'selection', left.participantKey).localeCompare(deterministicOrder(seed, 'selection', right.participantKey)));
   const goalkeepers = ordered.filter((participant) => participant.position === 'GO');
+  const linePlayers = ordered.filter((participant) => participant.position !== 'GO');
+  if (goalkeepers.length < goalkeeperCount) throw httpError(409, 'O sorteio exige dois goleiros confirmados, um para cada time.');
+  if (linePlayers.length < linePlayerCount) throw httpError(409, `O sorteio exige ${linePlayerCount} jogadores de linha confirmados.`);
 
-  const selected = ordered.slice(0, pregameCapacity);
+  const selected = [...goalkeepers.slice(0, goalkeeperCount), ...linePlayers.slice(0, linePlayerCount)];
   const selectedKeys = new Set(selected.map((participant) => participant.participantKey));
-  for (const goalkeeper of goalkeepers) {
-    if (selected.filter((participant) => participant.position === 'GO').length >= 2) break;
-    let replaceIndex = -1;
-    for (let index = selected.length - 1; index >= 0; index -= 1) {
-      if (selected[index].position !== 'GO') {
-        replaceIndex = index;
-        break;
-      }
-    }
-    if (replaceIndex < 0) break;
-    selectedKeys.delete(selected[replaceIndex].participantKey);
-    selected[replaceIndex] = goalkeeper;
-    selectedKeys.add(goalkeeper.participantKey);
-  }
 
   const byPosition = [...selected].sort((left, right) => {
     const positionDifference = positionSequenceOrder(left.position) - positionSequenceOrder(right.position);
     return positionDifference || deterministicOrder(seed, 'teams', left.participantKey).localeCompare(deterministicOrder(seed, 'teams', right.participantKey));
   });
   const teamCounts = { A: 0, B: 0 };
-  const goalkeeperCounts = { A: 0, B: 0 };
+  const lineCounts = { A: 0, B: 0 };
   const assigned = byPosition.map((participant) => {
     let team: 'A' | 'B';
-    if (participant.position === 'GO' && goalkeeperCounts.A === 0) team = 'A';
-    else if (participant.position === 'GO' && goalkeeperCounts.B === 0) team = 'B';
-    else team = teamCounts.A <= teamCounts.B ? 'A' : 'B';
+    if (participant.position === 'GO') team = teamCounts.A === 0 ? 'A' : 'B';
+    else team = lineCounts.A <= lineCounts.B ? 'A' : 'B';
     teamCounts[team] += 1;
-    const roleInMatch = participant.position === 'GO' && goalkeeperCounts[team] === 0 ? 'GOLEIRO' as const : 'LINHA' as const;
-    if (roleInMatch === 'GOLEIRO') goalkeeperCounts[team] += 1;
+    const roleInMatch = participant.position === 'GO' ? 'GOLEIRO' as const : 'LINHA' as const;
+    if (roleInMatch === 'LINHA') lineCounts[team] += 1;
     return { ...participant, team, roleInMatch };
   });
-  for (const team of ['A', 'B'] as const) {
-    if (assigned.some((participant) => participant.team === team && participant.roleInMatch === 'GOLEIRO')) continue;
-    const fallbackGoalkeeper = assigned.find((participant) => participant.team === team);
-    if (fallbackGoalkeeper) fallbackGoalkeeper.roleInMatch = 'GOLEIRO';
-  }
   const teamOrder = { A: 0, B: 0 };
   const finalized = assigned.map((participant, index) => {
     teamOrder[participant.team] += 1;
@@ -285,9 +274,9 @@ async function ensurePregameAvailable(): Promise<void> {
   }
 }
 
-async function activatePregame(execute: QueryExecutor, matchId: string, matchColumns: Set<string>): Promise<void> {
+async function activatePregame(execute: QueryExecutor, matchId: string, matchColumns: Set<string>, playerCapacity = defaultPregameCapacity): Promise<void> {
   if (!matchColumns.has('pregame_state') || !matchColumns.has('player_capacity')) return;
-  await execute("UPDATE matches SET pregame_state = 'CONFIRMING', player_capacity = $2 WHERE id = $1", [matchId, pregameCapacity]);
+  await execute("UPDATE matches SET pregame_state = 'CONFIRMING', player_capacity = $2 WHERE id = $1", [matchId, playerCapacity]);
 }
 
 async function lockScheduleSlot(execute: QueryExecutor, seasonId: string | null | undefined, matchDate: string, scheduledStart: string): Promise<void> {
@@ -956,7 +945,7 @@ matchesRouter.post('/', requireRoles('ADMIN', 'COORDENADOR'), asyncHandler(async
     for (const player of players) {
       await insertMatchPlayerRecord(client.query.bind(client), match.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
     }
-    await activatePregame(client.query.bind(client), match.rows[0].id, matchColumns);
+    await activatePregame(client.query.bind(client), match.rows[0].id, matchColumns, (body.linePlayerCount ?? defaultLinePlayerCount) + goalkeeperCount);
     await client.query('COMMIT');
     res.status(201).json({ id: match.rows[0].id });
   } catch (err) {
@@ -1062,7 +1051,7 @@ matchesRouter.post('/schedule/manual', requireRoles('ADMIN', 'COORDENADOR'), asy
     for (const player of players) {
       await insertMatchPlayerRecord(client.query.bind(client), result.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
     }
-    await activatePregame(client.query.bind(client), result.rows[0].id, await getMatchColumns());
+    await activatePregame(client.query.bind(client), result.rows[0].id, await getMatchColumns(), (body.linePlayerCount ?? defaultLinePlayerCount) + goalkeeperCount);
     await client.query('COMMIT');
     res.status(201).json({ id: result.rows[0].id, confirmationOpenAt, confirmationCloseAt });
   } catch (err) {
@@ -1125,7 +1114,7 @@ matchesRouter.post('/schedule/recurring', requireRoles('ADMIN', 'COORDENADOR'), 
       for (const player of players) {
         await insertMatchPlayerRecord(client.query.bind(client), generatedMatch.rows[0].id, player, guestPlayerEnabled, fieldLayoutEnabled);
       }
-      await activatePregame(client.query.bind(client), generatedMatch.rows[0].id, await getMatchColumns());
+      await activatePregame(client.query.bind(client), generatedMatch.rows[0].id, await getMatchColumns(), (body.linePlayerCount ?? defaultLinePlayerCount) + goalkeeperCount);
       generated += 1;
     }
     await client.query('COMMIT');
@@ -1145,9 +1134,10 @@ matchesRouter.patch('/:id/schedule', requireRoles('ADMIN', 'COORDENADOR'), async
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const current = await client.query<{ seasonId: string | null; matchDate: string; scheduledStart: string; scheduledEnd: string; confirmationOpensHoursBefore: number; confirmationClosesHoursBefore: number; status: string }>('SELECT season_id AS "seasonId", match_date::TEXT AS "matchDate", scheduled_start::TEXT AS "scheduledStart", scheduled_end::TEXT AS "scheduledEnd", confirmation_opens_hours_before AS "confirmationOpensHoursBefore", confirmation_closes_hours_before AS "confirmationClosesHoursBefore", status FROM matches WHERE id = $1 FOR UPDATE', [params.id]);
+    const current = await client.query<{ seasonId: string | null; matchDate: string; scheduledStart: string; scheduledEnd: string; confirmationOpensHoursBefore: number; confirmationClosesHoursBefore: number; status: string; pregameState: string | null; playerCapacity: number | null }>('SELECT season_id AS "seasonId", match_date::TEXT AS "matchDate", scheduled_start::TEXT AS "scheduledStart", scheduled_end::TEXT AS "scheduledEnd", confirmation_opens_hours_before AS "confirmationOpensHoursBefore", confirmation_closes_hours_before AS "confirmationClosesHoursBefore", status, pregame_state AS "pregameState", player_capacity AS "playerCapacity" FROM matches WHERE id = $1 FOR UPDATE', [params.id]);
     if (!current.rowCount) throw httpError(404, 'Jogo agendado não encontrado.');
     if (current.rows[0].status !== 'DRAFT') throw httpError(409, 'Somente jogos em rascunho podem ter agenda editada.');
+    if (body.linePlayerCount !== undefined && current.rows[0].pregameState === 'DRAWN') throw httpError(409, 'A quantidade de jogadores não pode ser alterada depois do sorteio.');
     const matchDate = body.matchDate ?? current.rows[0].matchDate;
     const scheduledStart = body.scheduledStart ?? current.rows[0].scheduledStart.slice(0, 5);
     const scheduledEnd = body.scheduledEnd ?? current.rows[0].scheduledEnd.slice(0, 5);
@@ -1161,6 +1151,7 @@ matchesRouter.patch('/:id/schedule', requireRoles('ADMIN', 'COORDENADOR'), async
     }
     const confirmationOpenAt = buildConfirmationOpenAt(matchDate, scheduledStart, confirmationOpensHoursBefore);
     const confirmationCloseAt = buildConfirmationCloseAt(matchDate, scheduledStart, confirmationClosesHoursBefore);
+    const playerCapacity = body.linePlayerCount !== undefined ? body.linePlayerCount + goalkeeperCount : current.rows[0].playerCapacity ?? defaultPregameCapacity;
     ensureConfirmationWindowOrder(confirmationOpenAt, confirmationCloseAt);
     const result = await client.query(
       `UPDATE matches
@@ -1175,11 +1166,12 @@ matchesRouter.patch('/:id/schedule', requireRoles('ADMIN', 'COORDENADOR'), async
            confirmation_opens_hours_before = $10,
            confirmation_close_at = $11::TIMESTAMPTZ,
            confirmation_closes_hours_before = $12,
+           player_capacity = $13,
            confirmation_opened_at = CASE WHEN confirmation_opened_at IS NOT NULL AND $9::TIMESTAMPTZ > now() THEN NULL ELSE confirmation_opened_at END,
            updated_at = now()
        WHERE id = $1 AND status = 'DRAFT'
        RETURNING id, confirmation_open_at AS "confirmationOpenAt", confirmation_opens_hours_before AS "confirmationOpensHoursBefore", confirmation_close_at AS "confirmationCloseAt", confirmation_closes_hours_before AS "confirmationClosesHoursBefore"`,
-      [params.id, matchDate, body.title ?? null, body.refereeName ?? null, body.teamAName ?? null, body.teamBName ?? null, scheduledStart, scheduledEnd, confirmationOpenAt, confirmationOpensHoursBefore, confirmationCloseAt, confirmationClosesHoursBefore]
+      [params.id, matchDate, body.title ?? null, body.refereeName ?? null, body.teamAName ?? null, body.teamBName ?? null, scheduledStart, scheduledEnd, confirmationOpenAt, confirmationOpensHoursBefore, confirmationCloseAt, confirmationClosesHoursBefore, playerCapacity]
     );
     if (!result.rowCount) throw httpError(409, 'Não foi possível editar o jogo agendado.');
     await client.query('COMMIT');
@@ -1231,7 +1223,7 @@ matchesRouter.get('/:id/pregame', requireRoles('ADMIN', 'COORDENADOR'), asyncHan
          player_capacity = $2,
          updated_at = now()
      WHERE id = $1 AND status = 'DRAFT' AND pregame_state IS NULL`,
-    [params.id, pregameCapacity]
+    [params.id, defaultPregameCapacity]
   );
   const match = await query<{
     id: string;
@@ -1278,17 +1270,22 @@ matchesRouter.get('/:id/pregame', requireRoles('ADMIN', 'COORDENADOR'), asyncHan
   const guestCount = participants.rows.filter((participant: any) => participant.source === 'GUEST' && participant.status !== 'REPLACED').length;
   const confirmedCount = club.rowCount ?? 0;
   const totalEligible = confirmedCount + (match.rows[0].drawnAt ? 0 : guestCount);
+  const playerCapacity = match.rows[0].playerCapacity ?? defaultPregameCapacity;
+  const activeGuests = participants.rows.filter((participant: any) => participant.source === 'GUEST' && participant.status !== 'REPLACED');
+  const eligibleGoalkeepers = club.rows.filter((participant) => participant.position === 'GO').length + activeGuests.filter((participant: any) => participant.position === 'GO').length;
+  const eligibleLinePlayers = totalEligible - eligibleGoalkeepers;
+  const requiredLinePlayers = playerCapacity - goalkeeperCount;
   const confirmationClosed = Boolean(match.rows[0].confirmationCloseAt && Date.now() >= new Date(match.rows[0].confirmationCloseAt).getTime());
   const computedState = match.rows[0].drawnAt
     ? 'DRAWN'
     : !confirmationClosed
       ? 'CONFIRMING'
-      : totalEligible >= pregameCapacity
+      : eligibleGoalkeepers >= goalkeeperCount && eligibleLinePlayers >= requiredLinePlayers
         ? 'READY_TO_DRAW'
         : 'COMPLETING';
   res.json({
     state: computedState,
-    capacity: match.rows[0].playerCapacity ?? pregameCapacity,
+    capacity: playerCapacity,
     confirmationCloseAt: match.rows[0].confirmationCloseAt,
     drawnAt: match.rows[0].drawnAt,
     clubConfirmed: club.rows,
@@ -1296,7 +1293,7 @@ matchesRouter.get('/:id/pregame', requireRoles('ADMIN', 'COORDENADOR'), asyncHan
     confirmedCount,
     guestCount,
     eligibleCount: match.rows[0].drawnAt ? participants.rows.filter((participant: any) => participant.status === 'SELECTED' || participant.status === 'RESERVE').length : totalEligible,
-    missingCount: Math.max(0, pregameCapacity - totalEligible)
+    missingCount: Math.max(0, goalkeeperCount - eligibleGoalkeepers) + Math.max(0, requiredLinePlayers - eligibleLinePlayers)
   });
 }));
 
@@ -1307,8 +1304,8 @@ matchesRouter.post('/:id/pregame/guests', requireRoles('ADMIN', 'COORDENADOR'), 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const match = await client.query<{ status: string; pregameState: string | null }>(
-      `SELECT status, pregame_state AS "pregameState"
+    const match = await client.query<{ status: string; pregameState: string | null; playerCapacity: number | null }>(
+      `SELECT status, pregame_state AS "pregameState", player_capacity AS "playerCapacity"
        FROM matches
        WHERE id = $1
        FOR UPDATE`,
@@ -1368,8 +1365,8 @@ matchesRouter.post('/:id/pregame/draw', requireRoles('ADMIN', 'COORDENADOR'), as
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const match = await client.query<{ status: string; pregameState: string | null }>(
-      `SELECT status, pregame_state AS "pregameState"
+    const match = await client.query<{ status: string; pregameState: string | null; playerCapacity: number | null }>(
+      `SELECT status, pregame_state AS "pregameState", player_capacity AS "playerCapacity"
        FROM matches
        WHERE id = $1 AND clock_timestamp() >= confirmation_close_at
        FOR UPDATE`,
@@ -1395,7 +1392,8 @@ matchesRouter.post('/:id/pregame/draw', requireRoles('ADMIN', 'COORDENADOR'), as
       [params.id]
     );
     const seed = randomBytes(24).toString('hex');
-    const draw = drawPregameParticipants([...club.rows, ...guests.rows], seed);
+    const playerCapacity = match.rows[0].playerCapacity ?? defaultPregameCapacity;
+    const draw = drawPregameParticipants([...club.rows, ...guests.rows], seed, playerCapacity);
     const matchPlayerColumns = await getTableColumns('match_players');
     const guestPlayerEnabled = hasGuestPlayerSupport(matchPlayerColumns);
     const fieldLayoutEnabled = hasFieldLayoutSupport(matchPlayerColumns);
@@ -1438,7 +1436,7 @@ matchesRouter.post('/:id/pregame/draw', requireRoles('ADMIN', 'COORDENADOR'), as
       `UPDATE matches SET pregame_state = 'DRAWN', player_capacity = $2, roster_closed_at = COALESCE(roster_closed_at, now()),
        roster_closed_by = COALESCE(roster_closed_by, $3), drawn_at = now(), drawn_by = $3, draw_seed = $4, updated_at = now()
        WHERE id = $1`,
-      [params.id, pregameCapacity, req.user?.id, seed]
+      [params.id, playerCapacity, req.user?.id, seed]
     );
     await client.query('COMMIT');
     res.json({ selectedCount: draw.selected.length, reserveCount: draw.reserves.length });

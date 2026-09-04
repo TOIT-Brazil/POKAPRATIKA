@@ -1980,7 +1980,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {nextMatch?.status === 'DRAFT' && (canCoordinate || nextMatch.pregameState) && (
         <div className="next-match-actions pregame-entry-actions">
           {!canCoordinate && nextMatch.pregameState === 'DRAWN' && nextMatch.myAttendanceStatus === 'JOGAR' && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && <button type="button" className="primary small" onClick={() => void openSheet(nextMatch.id)}>Ver escalação</button>}
-          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameEligibleCount ?? nextMatch.attendancePlaying ?? 0}/20 respostas enviadas</span>
+          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameEligibleCount ?? nextMatch.attendancePlaying ?? 0}/{nextMatch.playerCapacity ?? 20} respostas enviadas</span>
           {canCoordinate && <button type="button" className="primary small" onClick={() => setSelectedPregameMatch(nextMatch)}>Abrir pré-jogo</button>}
         </div>
       )}
@@ -3799,6 +3799,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
   const [scheduledEnd, setScheduledEnd] = useState('21:00');
   const [confirmationHours, setConfirmationHours] = useState(48);
   const [confirmationCloseHours, setConfirmationCloseHours] = useState(3);
+  const [linePlayerCount, setLinePlayerCount] = useState(18);
   const [teamAName, setTeamAName] = useState('Time A');
   const [teamBName, setTeamBName] = useState('Time B');
   const [tableFilters, setTableFilters] = useState({ date: '', title: '', status: '' });
@@ -3850,6 +3851,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
     setTeamBName(match.teamBName);
     setConfirmationHours(match.confirmationOpensHoursBefore ?? 48);
     setConfirmationCloseHours(match.confirmationClosesHoursBefore ?? 3);
+    setLinePlayerCount(Math.max(2, (match.playerCapacity ?? 20) - 2));
     setMessage(`Editando ${match.title}. Ajuste abertura e fechamento conforme a regra do grupo e salve para recalcular a janela de confirmação.`);
   }
 
@@ -3889,14 +3891,14 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
     event.preventDefault();
     setMessage('Salvando agenda...');
     if (editingId) {
-      await api.request(`/matches/${editingId}/schedule`, { method: 'PATCH', body: JSON.stringify({ matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, teamAName, teamBName }) });
+      await api.request(`/matches/${editingId}/schedule`, { method: 'PATCH', body: JSON.stringify({ matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, linePlayerCount, teamAName, teamBName }) });
       setMessage('Jogo pré-definido atualizado.');
       setEditingId('');
     } else if (mode === 'manual') {
-      await api.request('/matches/schedule/manual', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, teamAName, teamBName }) });
+      await api.request('/matches/schedule/manual', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, linePlayerCount, teamAName, teamBName }) });
       setMessage('Jogo avulso criado e disponível na lista.');
     } else {
-      const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, weekday, startDate: rangeStart, endDate: rangeEnd, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, teamAName, teamBName }) });
+      const result = await api.request<{ generated: number; skipped: number }>('/matches/schedule/recurring', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, weekday, startDate: rangeStart, endDate: rangeEnd, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, linePlayerCount, teamAName, teamBName }) });
       setMessage(`${result.generated} jogo(s) gerado(s). ${result.skipped} data(s) já existiam e foram preservadas.`);
     }
     await onDone();
@@ -3976,6 +3978,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
               <input type="time" value={scheduledEnd} onChange={(event) => setScheduledEnd(event.target.value)} />
               <label className="field-row"><span>Abre antes (h)</span><input type="number" min="1" max="336" value={confirmationHours} onChange={(event) => updateConfirmationHours(Number(event.target.value))} aria-label="Horas antes do jogo para abrir confirmação" /></label>
               <label className="field-row"><span>Fecha antes (h)</span><input type="number" min="0" max={Math.max(0, confirmationHours - 1)} value={confirmationCloseHours} onChange={(event) => updateConfirmationCloseHours(Number(event.target.value))} aria-label="Horas antes do jogo para fechar confirmação" /></label>
+              <label className="field-row"><span>Jogadores de linha</span><input type="number" min="2" max="40" step="2" value={linePlayerCount} onChange={(event) => setLinePlayerCount(Number(event.target.value))} required /></label>
               <input value={teamAName} onChange={(event) => setTeamAName(event.target.value)} placeholder="Time A" />
               <input value={teamBName} onChange={(event) => setTeamBName(event.target.value)} placeholder="Time B" />
             </div>
@@ -4002,6 +4005,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   const [refereeName, setRefereeName] = useState('');
   const [teamAName, setTeamAName] = useState('Time A');
   const [teamBName, setTeamBName] = useState('Time B');
+  const [linePlayerCount, setLinePlayerCount] = useState(18);
   const [players, setPlayers] = useState<MatchDraftPlayer[]>([]);
   const [draggedUserId, setDraggedUserId] = useState('');
   const [guestName, setGuestName] = useState('');
@@ -4071,7 +4075,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       if (draftMatchId) {
         await saveLineup();
       } else {
-        const created = await api.request<{ id: string }>('/matches', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: [] }) });
+        const created = await api.request<{ id: string }>('/matches', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, linePlayerCount, players: [] }) });
         setDraftMatchId(created.id);
       }
       setCreationStep('players');
@@ -4128,7 +4132,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       setSaveStatus(isRecurring ? 'Salvando jogo e gerando recorrência...' : 'Salvando jogo...');
       const created = await api.request<{ id: string }>('/matches', {
         method: 'POST',
-        body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: [], confirmationClosesHoursBefore: 3 })
+        body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, linePlayerCount, players: [], confirmationClosesHoursBefore: 3 })
       });
       setDraftMatchId(created.id);
       if (isRecurring) {
@@ -4147,6 +4151,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
             confirmationClosesHoursBefore: 3,
             teamAName,
             teamBName,
+            linePlayerCount,
             players: []
           })
         });
@@ -4239,6 +4244,12 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   <input value={title} onChange={(event) => setTitle(event.target.value)} />
                 </label>
 
+                <label className="field-shell">
+                  <span>Jogadores de linha no total</span>
+                  <input type="number" min="2" max="40" step="2" value={linePlayerCount} onChange={(event) => setLinePlayerCount(Number(event.target.value))} required />
+                  <small>{linePlayerCount / 2} jogadores de linha + 1 goleiro por time</small>
+                </label>
+
                 <label className="field-shell field-shell-textarea">
                   <span>Arbitragem (Opcional)</span>
                   <textarea value={refereeName} onChange={(event) => setRefereeName(event.target.value)} placeholder="Árbitro" rows={3} />
@@ -4286,7 +4297,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                   </div>
                 )}
 
-                <p className="draw-card-note">Todos os atletas ativos poderão confirmar. A coordenação pode cadastrar suplentes pelo painel Pré-jogo; o sorteio exige no mínimo 20 nomes e mantém os excedentes como reservas.</p>
+                <p className="draw-card-note">O sorteio exige {linePlayerCount} jogadores de linha e 2 goleiros confirmados. Excedentes permanecem como reservas.</p>
               </section>
             </div>
 
