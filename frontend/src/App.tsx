@@ -4999,35 +4999,6 @@ function PaymentsPanel({
                 Gerar mensalidades
               </button>
             )}
-            {cashMode && (
-              <button
-                className="primary small"
-                onClick={() => setPaymentModal("cash")}
-              >
-                Lançar caixa
-              </button>
-            )}
-            {cashMode && filteredCashEntries.length > 0 && (
-              <button
-                className="ghost"
-                onClick={() =>
-                  downloadCsv(
-                    "poka-pratika-caixa.csv",
-                    filteredCashEntries.map((entry) => ({
-                      data: formatDateOnly(entry.entryDate, ""),
-                      tipo:
-                        entry.entryType === "REVENUE" ? "Receita" : "Despesa",
-                      descricao: entry.description,
-                      valor: (entry.amountCents / 100).toFixed(2),
-                      origem: entry.paymentId ? "Mensalidade" : "Manual",
-                      responsavel: entry.recordedByName ?? "",
-                    })),
-                  )
-                }
-              >
-                Exportar caixa
-              </button>
-            )}
           </div>
         )}
       </div>
