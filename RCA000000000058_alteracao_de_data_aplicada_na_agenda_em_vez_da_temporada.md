@@ -25,5 +25,5 @@ Antes de alterar uma superfície citada informalmente, confirmar o componente pe
 - A Agenda voltou à ordem `Data, Jogo, Confirmação, Ações`, à célula compacta original e aos percentuais anteriores à sequência equivocada.
 - O card do próximo jogo na Temporada passou a exibir visualmente `NOME DO JOGO | 09 | SET / QUA / 20:00`.
 - Nome e dia usam o mesmo tamanho, caixa alta e peso forte; mês, dia da semana e horário ficam empilhados.
-- A faixa `.next-match-date-badge` distribui as três áreas por toda a largura disponível: nome à esquerda, dia centralizado e pilha de data alinhada à direita.
+- A faixa `.next-match-date-badge` agrupa nome, dia e pilha de data em uma sequência central contínua, sem coluna elástica nem grande vazio entre os conteúdos.
 - Typecheck, build de produção e diagnósticos do frontend foram concluídos sem erros.
