@@ -1833,8 +1833,8 @@ function PregamePanel({ api, match, onChanged }: { api: ApiClient; match: MatchL
       {confirmedPlayers.length ? <div className="pregame-confirmed-list">{confirmedPlayers.map((participant, index) => <span key={participant.participantKey}><b><em>{index + 1}</em>{participant.name}</b><small>{positionLabel(participant.position)}{participant.source === 'GUEST' ? ' · Suplente' : ''}</small></span>)}</div> : <p className="muted">Nenhum jogador confirmou presença para jogar.</p>}
     </section>
     {data.state === 'CONFIRMING' && <p className="muted">A confirmação fecha em {formatBrasiliaTime(data.confirmationCloseAt ?? '')}. Depois, convidados poderão completar as vagas.</p>}
-    {data.state === 'COMPLETING' && <section className="pregame-section"><div className="card-head"><div><h3>Adicionar suplentes</h3><p className="muted">Faltam {data.missingCount} para atingir 20. Informe os convidados externos já confirmados.</p></div></div><div className="pregame-guest-form"><input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do suplente" maxLength={120} /><select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button type="button" className="primary small" disabled={busy || guestName.trim().length < 2} onClick={() => void addGuest()}>Adicionar suplente</button></div></section>}
-    {data.state === 'READY_TO_DRAW' && <section className="pregame-section pregame-draw-action"><div><h3>Sortear os times</h3><p className="muted">A lista está pronta. O sistema escolherá 20 participantes, ordenará os excedentes como reservas e dividirá duas equipes de 10 por posição.</p></div><button type="button" className="primary" disabled={busy} onClick={() => void drawTeams()}>Sortear times</button></section>}
+    <section className="pregame-section"><div className="card-head"><div><h3>Adicionar suplente</h3><p className="muted">A coordenação pode adicionar suplentes a qualquer momento. Após o sorteio, o novo nome entra no fim da fila de reservas.</p></div></div><div className="pregame-guest-form"><input value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="Nome do suplente" maxLength={120} /><select value={guestPosition} onChange={(event) => setGuestPosition(event.target.value as AthletePosition)}>{athletePositionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button type="button" className="primary small" disabled={busy || guestName.trim().length < 2} onClick={() => void addGuest()}>Adicionar suplente</button></div></section>
+    {data.state !== 'DRAWN' && <section className="pregame-section pregame-draw-action"><div><h3>Sortear os times</h3><p className="muted">{data.state === 'READY_TO_DRAW' ? 'A lista está pronta. O sistema escolherá 20 participantes, ordenará os excedentes como reservas e dividirá duas equipes de 10 por posição.' : `O sorteio será liberado após o fechamento da confirmação e com 20 participantes. Faltam ${data.missingCount}.`}</p></div><button type="button" className="primary" disabled={busy || data.state !== 'READY_TO_DRAW'} onClick={() => void drawTeams()}>Sortear times</button></section>}
     {data.state === 'DRAWN' && <>
       <div className="pregame-teams">{(['A', 'B'] as const).map((team) => <section className="pregame-team" key={team}><h3>{team === 'A' ? match.teamAName : match.teamBName}</h3>{selected.filter((participant) => participant.team === team).map((participant) => <span key={participant.participantKey}><b>{participant.name}</b><small>{positionLabel(participant.position)}</small></span>)}</section>)}</div>
       <section className="pregame-section"><div className="card-head"><div><h3>Fila de reservas</h3><p className="muted">Ordem sorteada para substituições compatíveis.</p></div></div>{reserves.length ? <div className="pregame-reserves">{reserves.map((participant) => <span key={participant.participantKey}><b>#{participant.reserveOrder} {participant.name}</b><small>{positionLabel(participant.position)}</small></span>)}</div> : <p className="muted">Nenhum reserva disponível.</p>}</section>
@@ -1852,6 +1852,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [matchMessage, setMatchMessage] = useState('');
   const [selectedSheetMatch, setSelectedSheetMatch] = useState<MatchDetail | null>(null);
+  const [selectedPregameMatch, setSelectedPregameMatch] = useState<MatchListItem | null>(null);
   const [countdownNow, setCountdownNow] = useState(Date.now());
   const [dismissedSheetMatchId, setDismissedSheetMatchId] = useState('');
   const sheetPromptCheckRef = useRef('');
@@ -1967,7 +1968,8 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       {nextMatch?.pregameState && nextMatch.status === 'DRAFT' && (
         <div className="next-match-actions pregame-entry-actions">
           {!canCoordinate && nextMatch.pregameState === 'DRAWN' && nextMatch.myAttendanceStatus === 'JOGAR' && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && <button type="button" className="primary small" onClick={() => void openSheet(nextMatch.id)}>Ver escalação</button>}
-          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameState === 'DRAWN' ? 'Times definidos' : `${nextMatch.attendancePlaying ?? 0}/20 confirmados`}</span>
+          <span className={`status ${nextMatch.pregameState === 'DRAWN' ? 'open' : ''}`}>{nextMatch.pregameState === 'DRAWN' ? 'Times definidos' : `${nextMatch.attendancePlaying ?? 0} de 20 responderam`}</span>
+          {canCoordinate && <button type="button" className="ghost small" onClick={() => setSelectedPregameMatch(nextMatch)}>Ver confirmados</button>}
         </div>
       )}
       {canCoordinate && nextMatch?.status === 'DRAFT' && dismissedSheetMatchId === nextMatch.id && countdownNow >= getMatchStartTime(nextMatch) - 60 * 60 * 1000 && (
@@ -1997,6 +1999,20 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
                 setSelectedMatch(null);
               }}
             />
+          </section>
+        </div>
+      )}
+      {selectedPregameMatch && (
+        <div className="modal match-modal">
+          <section className="card modal-card pregame-modal-card">
+            <div className="card-head">
+              <div>
+                <h2>Pré-jogo</h2>
+                <p className="muted">{selectedPregameMatch.title} • {formatDateOnly(selectedPregameMatch.matchDate, 'sem data')}</p>
+              </div>
+              <button type="button" className="ghost modal-close-button" aria-label="Fechar pré-jogo" title="Fechar" onClick={() => setSelectedPregameMatch(null)}>X</button>
+            </div>
+            <PregamePanel api={api} match={selectedPregameMatch} onChanged={onReload} />
           </section>
         </div>
       )}

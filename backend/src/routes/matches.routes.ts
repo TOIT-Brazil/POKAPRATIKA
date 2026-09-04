@@ -1284,12 +1284,12 @@ matchesRouter.post('/:id/pregame/guests', requireRoles('ADMIN', 'COORDENADOR'), 
     const match = await client.query<{ status: string; pregameState: string | null }>(
       `SELECT status, pregame_state AS "pregameState"
        FROM matches
-       WHERE id = $1 AND clock_timestamp() >= confirmation_close_at
+       WHERE id = $1
        FOR UPDATE`,
       [params.id]
     );
-    if (!match.rowCount) throw httpError(409, 'Convidados só podem ser adicionados depois do fechamento da confirmação em T-3h.');
-    if (match.rows[0].status !== 'DRAFT' || match.rows[0].pregameState === 'DRAWN') throw httpError(409, 'A lista desta partida não aceita novos convidados.');
+    if (!match.rowCount) throw httpError(404, 'Partida não encontrada.');
+    if (match.rows[0].status !== 'DRAFT') throw httpError(409, 'Suplentes só podem ser adicionados enquanto a partida estiver em rascunho.');
     const count = await client.query<{ total: number }>(
       `SELECT (
         SELECT count(*) FROM match_attendance_responses WHERE match_id = $1 AND response_status = 'JOGAR'
@@ -1298,20 +1298,34 @@ matchesRouter.post('/:id/pregame/guests', requireRoles('ADMIN', 'COORDENADOR'), 
        ) AS total`,
       [params.id]
     );
-    if (Number(count.rows[0].total) >= pregameCapacity) throw httpError(409, 'As 20 vagas já estão preenchidas; convidados não podem retirar vagas de atletas do clube.');
+    const drawn = match.rows[0].pregameState === 'DRAWN';
+    const reserveOrder = drawn
+      ? await client.query<{ nextOrder: number }>(
+          `SELECT COALESCE(max(reserve_order), 0)::INTEGER + 1 AS "nextOrder"
+           FROM match_pregame_participants
+           WHERE match_id = $1 AND participant_status = 'RESERVE'`,
+          [params.id]
+        )
+      : null;
     const guestKey = `guest:${randomBytes(12).toString('hex')}`;
     await client.query(
-      `INSERT INTO match_pregame_participants (match_id, participant_key, guest_key, name_snapshot, position, source, participant_status, created_by)
-       VALUES ($1, $2, $2, $3, $4, 'GUEST', 'ELIGIBLE', $5)`,
-      [params.id, guestKey, body.name, body.position, req.user?.id]
+      `INSERT INTO match_pregame_participants (match_id, participant_key, guest_key, name_snapshot, position, source, participant_status, reserve_order, created_by)
+       VALUES ($1, $2, $2, $3, $4, 'GUEST', $5, $6, $7)`,
+      [params.id, guestKey, body.name, body.position, drawn ? 'RESERVE' : 'ELIGIBLE', reserveOrder?.rows[0].nextOrder ?? null, req.user?.id]
     );
-    await client.query(
-      `UPDATE matches
-       SET pregame_state = CASE WHEN $2 >= player_capacity THEN 'READY_TO_DRAW' ELSE 'COMPLETING' END,
-           roster_closed_at = COALESCE(roster_closed_at, now()), roster_closed_by = COALESCE(roster_closed_by, $3), updated_at = now()
-       WHERE id = $1`,
-      [params.id, Number(count.rows[0].total) + 1, req.user?.id]
-    );
+    if (!drawn) {
+      await client.query(
+        `UPDATE matches
+         SET pregame_state = CASE
+               WHEN clock_timestamp() < confirmation_close_at THEN 'CONFIRMING'
+               WHEN $2 >= player_capacity THEN 'READY_TO_DRAW'
+               ELSE 'COMPLETING'
+             END,
+             updated_at = now()
+         WHERE id = $1`,
+        [params.id, Number(count.rows[0].total) + 1]
+      );
+    }
     await client.query('COMMIT');
     res.status(201).json({ guestKey });
   } catch (err) {
