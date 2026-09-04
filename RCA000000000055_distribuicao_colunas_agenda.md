@@ -1,5 +1,7 @@
 # RCA000000000055 - Distribuição das colunas da Agenda
 
+> Supersedido em 2026-09-04 pelo RCA 057, que inverteu Jogo e Data e definiu a hierarquia visual vigente.
+
 ## Sintoma
 
 Na tabela da Agenda, Data e Jogo apareciam visualmente próximos, enquanto havia espaço excessivo entre o conteúdo de Jogo e a coluna Confirmação.
