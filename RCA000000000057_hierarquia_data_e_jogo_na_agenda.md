@@ -14,7 +14,7 @@ O nome do jogo não era a primeira informação da linha e a data tinha pouca ê
 
 ## Correção
 
-Inverter as duas primeiras colunas para `Jogo, Data`, preservar seus filtros e criar uma composição exclusiva da Agenda: dia grande, mês completo abaixo e dia da semana com horário na terceira linha, em caixa alta e negrito. Jogo permanece alinhado à esquerda e Data à direita.
+Inverter as duas primeiras colunas para `Jogo, Data`, preservar seus filtros e criar uma composição exclusiva da Agenda. O nome do jogo usa o mesmo tamanho do dia e a data é empilhada em quatro linhas: dia, mês abreviado, dia da semana e horário, em caixa alta e negrito. Jogo permanece alinhado à esquerda e Data à direita.
 
 ## Prevenção
 
@@ -25,5 +25,6 @@ Mudanças de ordem em tabelas devem mover conjuntamente cabeçalho, filtro, cél
 - A ordem vigente é `Jogo, Data, Confirmação, Ações`.
 - Jogo e seu filtro ficam alinhados à esquerda.
 - Data e seu filtro ficam alinhados à direita.
-- A data apresenta dia grande e pesado, mês completo abaixo e dia da semana com horário na terceira linha, em caixa alta e negrito.
+- O nome do jogo usa o mesmo tamanho e peso visual do dia.
+- A data apresenta quatro linhas independentes: dia grande, mês abreviado, dia da semana e horário, em caixa alta e negrito.
 - Typecheck, build de produção e diagnósticos do frontend foram concluídos sem erros.

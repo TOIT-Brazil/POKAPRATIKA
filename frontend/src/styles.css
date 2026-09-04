@@ -2030,9 +2030,9 @@ textarea {
 }
 
 .shell-page .schedule-table th:nth-child(1),
-.shell-page .schedule-table td:nth-child(1) { width: 26%; }
+.shell-page .schedule-table td:nth-child(1) { width: 32%; }
 .shell-page .schedule-table th:nth-child(2),
-.shell-page .schedule-table td:nth-child(2) { width: 30%; }
+.shell-page .schedule-table td:nth-child(2) { width: 24%; }
 .shell-page .schedule-table th:nth-child(3),
 .shell-page .schedule-table td:nth-child(3) { width: 27%; }
 .shell-page .schedule-table th:nth-child(4),
@@ -2051,9 +2051,11 @@ textarea {
 .schedule-date-cell { text-align: right; text-transform: uppercase; }
 .schedule-date-day { color: var(--text); font-size: 1.5rem; font-weight: 950; line-height: .9; }
 .schedule-date-month { margin-top: 4px; color: var(--text); font-size: .72rem; font-weight: 950; line-height: 1; }
-.schedule-date-meta { margin-top: 4px; color: var(--muted); font-size: .65rem; font-weight: 900; line-height: 1; white-space: nowrap; }
+.schedule-date-weekday,
+.schedule-date-time { margin-top: 3px; color: var(--muted); font-size: .65rem; font-weight: 900; line-height: 1; white-space: nowrap; }
 .schedule-title-cell,
 .schedule-title-cell .schedule-detail-trigger { text-align: left; }
+.schedule-detail-trigger .schedule-game-title { font-size: 1.5rem; font-weight: 950; line-height: .95; text-transform: uppercase; }
 
 .schedule-detail-trigger {
   width: 100%;
@@ -2180,9 +2182,9 @@ textarea {
   }
 
   .shell-page .schedule-table th:nth-child(1),
-  .shell-page .schedule-table td:nth-child(1) { width: 22%; }
+  .shell-page .schedule-table td:nth-child(1) { width: 27%; }
   .shell-page .schedule-table th:nth-child(2),
-  .shell-page .schedule-table td:nth-child(2) { width: 32%; }
+  .shell-page .schedule-table td:nth-child(2) { width: 27%; }
   .shell-page .schedule-table th:nth-child(3),
   .shell-page .schedule-table td:nth-child(3) { width: 29%; }
   .shell-page .schedule-table th:nth-child(4),
@@ -2195,7 +2197,9 @@ textarea {
 
   .schedule-date-day { font-size: 1.32rem; }
   .schedule-date-month { font-size: .59rem; }
-  .schedule-date-meta { font-size: .54rem; }
+  .schedule-date-weekday,
+  .schedule-date-time { font-size: .54rem; }
+  .schedule-detail-trigger .schedule-game-title { font-size: 1.32rem; }
 
   .schedule-status-cell .status {
     display: inline-block;

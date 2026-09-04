@@ -682,9 +682,9 @@ function matchDateParts(match: MatchListItem): { day: string; month: string; wee
 
 function scheduleDateParts(match: MatchListItem): { day: string; month: string; weekday: string; time: string } {
   const date = new Date(`${match.matchDate?.slice(0, 10) || todayInputValue()}T12:00:00-03:00`);
-  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', weekday: 'long' });
+  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short', weekday: 'long' });
   const parts = formatter.formatToParts(date);
-  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value.replace('.', '') ?? '';
   return {
     day: pick('day'),
     month: pick('month').toUpperCase(),
@@ -3906,8 +3906,8 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
               </thead>
               <tbody>
                 {filteredScheduleGroups.length === 0 ? <tr><td colSpan={4} className="table-empty-cell">Nenhum jogo pré-definido encontrado com os filtros atuais.</td></tr> : filteredScheduleGroups.map((group) => { const match = group.match; const date = scheduleDateParts(match); return <tr key={group.key}>
-                  <td className="management-main-cell schedule-title-cell"><button type="button" className="schedule-detail-trigger" onClick={() => setSelectedScheduleGroup(group)}><strong>{match.title}</strong><small>{match.teamAName} x {match.teamBName}</small>{group.matches.length > 1 && <span className="status danger">{group.matches.length} registros</span>}</button></td>
-                  <td className="schedule-date-cell"><strong className="schedule-date-day">{date.day}</strong><span className="schedule-date-month">{date.month}</span><small className="schedule-date-meta">{date.weekday} {date.time}</small></td>
+                  <td className="management-main-cell schedule-title-cell"><button type="button" className="schedule-detail-trigger" onClick={() => setSelectedScheduleGroup(group)}><strong className="schedule-game-title">{match.title}</strong><small>{match.teamAName} x {match.teamBName}</small>{group.matches.length > 1 && <span className="status danger">{group.matches.length} registros</span>}</button></td>
+                  <td className="schedule-date-cell"><strong className="schedule-date-day">{date.day}</strong><span className="schedule-date-month">{date.month}</span><small className="schedule-date-weekday">{date.weekday}</small><small className="schedule-date-time">{date.time}</small></td>
                   <td className="schedule-status-cell"><span className={`status ${match.confirmationOpen ? 'open' : confirmationWindowHasEnded(match) ? 'danger' : 'draft'}`}>{confirmationStatus(match)}</span></td>
                   <td className="schedule-actions-cell"><button type="button" className="ghost" onClick={() => loadForEdit(match)}>Editar</button></td>
                 </tr>; })}
