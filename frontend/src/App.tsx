@@ -1224,7 +1224,7 @@ export function App() {
                       setAccountMenuOpen(false);
                     }}
                   >
-                    {isAdmin ? 'Gestão financeira' : 'Minha mensalidade'}
+                    {isAdmin ? 'Mensalidades' : 'Minha mensalidade'}
                   </button>
                   {isAdmin && <button
                     onClick={() => {
@@ -1232,7 +1232,7 @@ export function App() {
                       setAccountMenuOpen(false);
                     }}
                   >
-                    Caixa do grupo
+                    Finanças do Grupo
                   </button>}
                   <button
                     onClick={() => {
@@ -5031,9 +5031,9 @@ function PaymentsPanel({
         <div>
           <h2>
             {cashMode
-              ? "Caixa do grupo"
+              ? "Finanças do Grupo"
               : canCoordinate
-                ? "Gestão financeira"
+                ? "Mensalidades"
                 : "Minha mensalidade"}
           </h2>
         </div>
