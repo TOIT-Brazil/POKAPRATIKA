@@ -673,14 +673,17 @@ function abbreviatedAthleteName(name: string): string {
   return `${parts[0]} ${parts[1][0].toUpperCase()}.`;
 }
 
-function matchDateParts(match: MatchListItem): { day: string; month: string; weekday: string; time: string } {
+function matchDateParts(match: MatchListItem): { day: string; month: string; shortMonth: string; year: string; weekday: string; time: string } {
   const date = new Date(`${match.matchDate?.slice(0, 10) || todayInputValue()}T12:00:00-03:00`);
-  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', weekday: 'long' });
+  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' });
   const parts = formatter.formatToParts(date);
   const pick = (type: string) => parts.find((part) => part.type === type)?.value.replace('.', '') ?? '';
+  const shortMonth = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', month: 'short' }).format(date).replace('.', '');
   return {
     day: pick('day'),
     month: pick('month').toUpperCase(),
+    shortMonth: `${shortMonth.charAt(0).toUpperCase()}${shortMonth.slice(1).toLowerCase()}`,
+    year: pick('year'),
     weekday: pick('weekday').replace('-feira', '').toUpperCase(),
     time: match.scheduledStart?.slice(0, 5) ?? '20:00'
   };
@@ -1969,7 +1972,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
       { label: 'Janta', value: dinnerPeople, className: 'dinner' }
     ];
 
-    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><div className="next-match-pitch-field" /></div><div className="next-match-main"><div className="next-match-date-badge"><b>{date.day}</b><div className="next-match-date-stack"><span>{date.month}</span><em>{date.time}</em><small>{date.weekday}</small></div><div className="next-match-title-block"><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><small className="next-match-footnote">{match.isInvited === false ? 'Você não foi convocado para este jogo.' : confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><div className="next-match-cta-row"><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><button type="button" className={`primary attendance-action-button next-match-presence-button ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={match.isInvited === false ? 'Confirmação disponível somente para atletas convocados.' : confirmationReallyOpen ? myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.' : match.status === 'DRAFT' ? 'Prazo de confirmação encerrado.' : 'Confirmação encerrada porque o jogo já começou.'} disabled={!confirmationReallyOpen} onClick={() => void openMatch(match.id)}>Confirmar presença</button></div>{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <div className="next-match-actions"><button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button></div>}</div></article>;
+    return <article className="next-match-hero" key={match.id}><div className="next-match-pitch" aria-hidden="true"><div className="next-match-pitch-field" /></div><div className="next-match-main"><div className="next-match-date-badge"><b>{date.day}</b><div className="next-match-date-stack"><span>{date.shortMonth}.{date.year}</span><em>{date.time}</em><small>{date.weekday}</small></div><div className="next-match-title-block"><strong>{match.title}</strong><small>{matchRelativeLabel(match)} • {matchStatusLabel(match.status)}</small></div></div><div className="match-card-metrics next-match-metrics">{segments.map((segment) => <span className={`metric-pill ${segment.className}`} key={segment.label}><b>{segment.value}</b>{segment.label}</span>)}</div><small className="next-match-footnote">{match.isInvited === false ? 'Você não foi convocado para este jogo.' : confirmationDetail}</small></div><div className="next-match-side"><span className={`status ${match.confirmationOpen ? 'open' : 'danger'}`}>{confirmationText}</span><div className="next-match-cta-row"><div className="countdown-panel"><small>Contagem regressiva</small><b>{matchCountdownLabel(match)}</b></div><button type="button" className={`primary attendance-action-button next-match-presence-button ${myAttendanceStatus ? 'confirmed-action' : ''}`} title={match.isInvited === false ? 'Confirmação disponível somente para atletas convocados.' : confirmationReallyOpen ? myAttendanceStatus ? 'Clique para alterar sua confirmação.' : 'Abrir confirmação da rodada.' : match.status === 'DRAFT' ? 'Prazo de confirmação encerrado.' : 'Confirmação encerrada porque o jogo já começou.'} disabled={!confirmationReallyOpen} onClick={() => void openMatch(match.id)}>Confirmar presença</button></div>{canCoordinate && match.status === 'DRAFT' && !match.confirmationOpen && !confirmationWindowHasEnded(match) && <div className="next-match-actions"><button type="button" className="ghost" onClick={() => void openConfirmation(match.id)}>Abrir confirmação</button></div>}</div></article>;
   }
 
   return (

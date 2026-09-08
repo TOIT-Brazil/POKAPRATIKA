@@ -3865,6 +3865,7 @@ textarea {
 .next-match-date-badge b {
   order: 2;
   flex: 0 0 auto;
+  transform: translateX(-12px);
   font-size: 2.695rem;
   line-height: .92;
   color: #f7fffb;
@@ -3874,6 +3875,7 @@ textarea {
 .next-match-date-stack {
   order: 3;
   flex: 0 0 auto;
+  transform: translateX(-12px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -3907,12 +3909,14 @@ textarea {
 }
 
 .next-match-date-stack span { order: 1; }
+.next-match-date-stack span { text-transform: none; }
 .next-match-date-stack small { order: 2; }
 
 .next-match-title-block {
   order: 1;
   flex: 0 1 auto;
   margin-right: auto;
+  transform: translateX(12px);
   min-width: 0;
   display: flex;
   align-items: baseline;
