@@ -2102,7 +2102,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
   const usersById = new Map(users.map((item) => [item.id, item]));
   const attendanceStatusByUserId = new Map(match.attendance.map((item) => [item.userId, item.responseStatus]));
   const skipAutosaveRef = useRef(true);
-  const appliedAutoSwapMinutesRef = useRef<Record<'A' | 'B', number[]>>({ A: [], B: [] });
+  const appliedAutoSwapKeysRef = useRef<Record<'A' | 'B', string[]>>({ A: [], B: [] });
   const manualSwapOverrideRef = useRef<Record<'A' | 'B', boolean>>({ A: false, B: false });
   const boardDirtyRef = useRef(false);
   const hydratedMatchIdRef = useRef<string | null>(null);
@@ -2143,9 +2143,9 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     setPitchDrag(null);
     setPitchPreview({});
     skipAutosaveRef.current = true;
-    appliedAutoSwapMinutesRef.current = {
-      A: inferAppliedRotationSeconds(hydratedPlayers, 'A'),
-      B: inferAppliedRotationSeconds(hydratedPlayers, 'B')
+    appliedAutoSwapKeysRef.current = {
+      A: inferAppliedRotationKeys(hydratedPlayers, 'A'),
+      B: inferAppliedRotationKeys(hydratedPlayers, 'B')
     };
     manualSwapOverrideRef.current = { A: false, B: false };
     boardDirtyRef.current = false;
@@ -2389,7 +2389,7 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     B: buildSheetRotationPlan(playersForTeam('B').filter((player) => player.roleInMatch === 'LINHA' && player.present !== false).map((player) => ({ userId: player.userId, name: player.name, rotationOrder: player.rotationOrder ?? player.drawOrder ?? 999, startsOnBench: player.startsOnBench })), match.availableMinutes ?? 60)
   }), [players, match.availableMinutes]);
 
-  function inferAppliedRotationSeconds(list: MatchDetail['players'], team: 'A' | 'B') {
+  function inferAppliedRotationKeys(list: MatchDetail['players'], team: 'A' | 'B') {
     const linePlayers = list
       .filter((player) => player.team === team && player.roleInMatch === 'LINHA' && player.present !== false)
       .sort((left, right) => (left.rotationOrder ?? left.drawOrder ?? 999) - (right.rotationOrder ?? right.drawOrder ?? 999));
@@ -2398,40 +2398,41 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
     const simulatedStarters = new Set(linePlayers.slice(0, Math.min(6, linePlayers.length)).map((player) => player.userId));
     const setsMatch = () => currentStarters.size === simulatedStarters.size && [...currentStarters].every((userId) => simulatedStarters.has(userId));
     if (setsMatch()) return [];
-    const appliedSeconds: number[] = [];
+    const appliedKeys: string[] = [];
     for (const step of plan.schedule) {
-      step.leavingIds.forEach((userId) => simulatedStarters.delete(userId));
-      step.enteringIds.forEach((userId) => simulatedStarters.add(userId));
-      appliedSeconds.push(step.second);
-      if (setsMatch()) return appliedSeconds;
+      for (let pairIndex = 0; pairIndex < step.leavingIds.length; pairIndex += 1) {
+        simulatedStarters.delete(step.leavingIds[pairIndex]);
+        if (step.enteringIds[pairIndex]) simulatedStarters.add(step.enteringIds[pairIndex]);
+        appliedKeys.push(`${step.second}:${pairIndex}`);
+        if (setsMatch()) return appliedKeys;
+      }
     }
     return [];
   }
 
-  function applyAutomaticRotation(team: 'A' | 'B', step: SheetRotationStep) {
+  function applyAutomaticRotation(team: 'A' | 'B', step: SheetRotationStep, pairIndex: number) {
     if (!matchIsOperationallyRunning || step.second > clockSeconds || manualSwapOverrideRef.current[team]) return;
-    const leavingLabels = step.leavingIds.map((userId) => {
-      const player = players.find((candidate) => candidate.userId === userId);
-      return player ? `#${playerBoardNumber(player, 0)} ${player.name}` : userId;
-    });
-    const enteringLabels = step.enteringIds.map((userId) => {
-      const player = players.find((candidate) => candidate.userId === userId);
-      return player ? `#${playerBoardNumber(player, 0)} ${player.name}` : userId;
-    });
+    const leavingId = step.leavingIds[pairIndex];
+    const enteringId = step.enteringIds[pairIndex];
+    if (!leavingId || !enteringId) return;
+    const leaving = players.find((candidate) => candidate.userId === leavingId);
+    const entering = players.find((candidate) => candidate.userId === enteringId);
+    const leavingLabel = leaving ? `#${playerBoardNumber(leaving, pairIndex)} ${leaving.name}` : leavingId;
+    const enteringLabel = entering ? `#${playerBoardNumber(entering, pairIndex)} ${entering.name}` : enteringId;
     setPlayers((current) => {
-      const next = current.map((player) => step.enteringIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: false } : step.leavingIds.includes(player.userId) && player.team === team ? { ...player, startsOnBench: true } : player);
+      const next = current.map((player) => player.userId === enteringId && player.team === team ? { ...player, startsOnBench: false } : player.userId === leavingId && player.team === team ? { ...player, startsOnBench: true } : player);
       return normalizePlayersForBoard(next);
     });
-    appliedAutoSwapMinutesRef.current[team].push(step.second);
-    const autoSwapMessage = `Troca automática do Time ${team}: sai ${leavingLabels.join(' e ')}; entra ${enteringLabels.join(' e ')}.`;
+    appliedAutoSwapKeysRef.current[team].push(`${step.second}:${pairIndex}`);
+    const autoSwapMessage = `Troca automática do Time ${team}: sai ${leavingLabel}; entra ${enteringLabel}.`;
     setSheetMessage(autoSwapMessage);
     addActivityLog(autoSwapMessage);
   }
 
-  const nextRotationSteps = {
-    A: sheetRotationPlans.A.schedule.find((step) => !appliedAutoSwapMinutesRef.current.A.includes(step.second)) ?? null,
-    B: sheetRotationPlans.B.schedule.find((step) => !appliedAutoSwapMinutesRef.current.B.includes(step.second)) ?? null
-  };
+  const nextAutomaticRotation = (['A', 'B'] as const)
+    .flatMap((team) => sheetRotationPlans[team].schedule.flatMap((step) => step.leavingIds.map((_leavingId, pairIndex) => ({ team, step, pairIndex, key: `${step.second}:${pairIndex}` }))))
+    .filter((item) => !manualSwapOverrideRef.current[item.team] && !appliedAutoSwapKeysRef.current[item.team].includes(item.key))
+    .sort((left, right) => left.step.second - right.step.second || left.pairIndex - right.pairIndex || left.team.localeCompare(right.team))[0] ?? null;
 
   function scoreForPreview(eventType: MatchEventDraft['eventType'], team: 'A' | 'B') {
     if (eventType === 'GOL') {
@@ -2810,23 +2811,18 @@ function OpenMatchSheetBoard({ api, match, users, onSaved }: { api: ApiClient; m
         </section>
 
         <section className="sheet-auto-rotation-panel" aria-label="Trocas automáticas">
-          <div className="sheet-auto-rotation-head"><strong>Trocas automáticas</strong><small>Rodízio calculado para distribuir igualmente o tempo dos jogadores de linha.</small></div>
-          <div className="sheet-auto-rotation-grid">
-            {(['A', 'B'] as const).map((team) => {
-              const step = nextRotationSteps[team];
-              const paused = manualSwapOverrideRef.current[team];
-              const due = Boolean(step && step.second <= clockSeconds);
-              return <article className={`sheet-auto-rotation-team ${due ? 'is-due' : ''}`} key={team}>
-                <div className="sheet-auto-rotation-title"><b>Time {team}</b><span>{paused ? 'Automático pausado' : step ? `${step.label} aos ${String(Math.floor(step.second / 60)).padStart(2, '0')}:${String(step.second % 60).padStart(2, '0')}` : 'Rodízio concluído'}</span></div>
-                {step ? <div className="sheet-auto-rotation-pairs">{step.leavingIds.map((leavingId, index) => {
-                  const leaving = players.find((player) => player.userId === leavingId);
-                  const entering = players.find((player) => player.userId === step.enteringIds[index]);
-                  return <div className="sheet-auto-rotation-pair" key={`${team}-${step.second}-${leavingId}`}><span className="is-leaving"><small>Sai</small><b>#{leaving ? playerBoardNumber(leaving, index) : '?'} {leaving?.name ?? 'Atleta'}</b></span><span className="sheet-auto-rotation-arrow" aria-hidden="true">→</span><span className="is-entering"><small>Entra</small><b>#{entering ? playerBoardNumber(entering, index) : '?'} {entering?.name ?? 'Atleta'}</b></span></div>;
-                })}</div> : <p className="muted">Não há outra troca prevista para este time.</p>}
-                {step && <button type="button" className="primary sheet-auto-rotation-button" disabled={!due || !matchIsOperationallyRunning || paused} onClick={() => applyAutomaticRotation(team, step)}>{paused ? 'RODÍZIO PAUSADO' : due ? 'FAZER TROCA' : 'AGUARDANDO HORÁRIO'}</button>}
-              </article>;
-            })}
-          </div>
+          <div className="sheet-auto-rotation-head"><strong>Próxima troca automática</strong><small>Uma substituição por vez. Ao executar, a próxima será exibida.</small></div>
+          {nextAutomaticRotation ? (() => {
+            const { team, step, pairIndex } = nextAutomaticRotation;
+            const leaving = players.find((player) => player.userId === step.leavingIds[pairIndex]);
+            const entering = players.find((player) => player.userId === step.enteringIds[pairIndex]);
+            const due = step.second <= clockSeconds;
+            return <article className={`sheet-auto-rotation-team ${due ? 'is-due' : ''}`}>
+              <div className="sheet-auto-rotation-title"><b>Time {team}</b><span>{step.label} aos {String(Math.floor(step.second / 60)).padStart(2, '0')}:{String(step.second % 60).padStart(2, '0')}</span></div>
+              <div className="sheet-auto-rotation-pair"><span className="is-leaving"><small>Sai</small><b>#{leaving ? playerBoardNumber(leaving, pairIndex) : '?'} {leaving?.name ?? 'Atleta'}</b></span><span className="sheet-auto-rotation-arrow" aria-hidden="true">→</span><span className="is-entering"><small>Entra</small><b>#{entering ? playerBoardNumber(entering, pairIndex) : '?'} {entering?.name ?? 'Atleta'}</b></span></div>
+              <button type="button" className="primary sheet-auto-rotation-button" disabled={!due || !matchIsOperationallyRunning} onClick={() => applyAutomaticRotation(team, step, pairIndex)}>{due ? 'FAZER TROCA' : 'AGUARDANDO HORÁRIO'}</button>
+            </article>;
+          })() : <p className="sheet-auto-rotation-complete">Não há outra troca automática pendente.</p>}
         </section>
 
         <section className="sheet-log-panel is-sheet-main">
