@@ -33,7 +33,7 @@ type CareerProfile = {
 type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'LATE' | 'WAIVED';
 type FinancialOverviewDetail = 'received' | 'pending' | 'late' | 'revenue' | 'expense' | 'balance';
 type PaymentRecord = { id?: string; userId?: string; userName?: string; referenceMonth: string; dueDate: string; amountCents: number; paidAmountCents?: number; balanceCents?: number; status: PaymentStatus; paidAt?: string | null; earnsPoint: boolean; notes?: string | null };
-type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; openPayments: PaymentRecord[]; lastPaidPayment?: PaymentRecord | null; currentMonthPayment?: PaymentRecord | null; latePaymentsCount: number };
+type PaymentAthleteGroup = { key: string; userId?: string; userName: string; payments: PaymentRecord[]; openPayments: PaymentRecord[]; lastPaidPayment?: PaymentRecord | null; latePaymentsCount: number };
 type PaymentSummary = { totalCents: number; paidCents: number; openCents: number; total: number; paid: number; pending: number; late: number; waived: number; earlyPoints: number };
 type CashEntryType = 'REVENUE' | 'EXPENSE';
 type CashEntry = { id: string; entryType: CashEntryType; entryDate: string; description: string; amountCents: number; paymentId?: string | null; recordedByName?: string | null; createdAt?: string; updatedAt?: string };
@@ -3793,7 +3793,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [message, setMessage] = useState('');
-  const [title, setTitle] = useState('Futebol de quarta');
+  const [title, setTitle] = useState('Futebol quarta');
   const [manualDate, setManualDate] = useState(todayInputValue());
   const [rangeStart, setRangeStart] = useState(todayInputValue());
   const [rangeEnd, setRangeEnd] = useState(addDaysInput(90));
@@ -3892,6 +3892,10 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
 
   async function saveSchedule(event: FormEvent) {
     event.preventDefault();
+    if (!editingId && title.trim().length > 14) {
+      setMessage('O nome do jogo deve ter no máximo 14 caracteres.');
+      return;
+    }
     setMessage('Salvando agenda...');
     if (editingId) {
       await api.request(`/matches/${editingId}/schedule`, { method: 'PATCH', body: JSON.stringify({ matchDate: manualDate, title, scheduledStart, scheduledEnd, confirmationOpensHoursBefore: confirmationHours, confirmationClosesHoursBefore: confirmationCloseHours, linePlayerCount, teamAName, teamBName }) });
@@ -3970,7 +3974,7 @@ function ScheduleManagerPanel({ api, matches, activeSeasonId, onDone }: { api: A
               <div><h2 id="schedule-editor-title">{editingId ? 'Editar agendamento' : mode === 'recurring' ? 'Agendamento recorrente' : 'Agendamento em data específica'}</h2></div>
               <button type="button" className="ghost modal-close-button" aria-label="Fechar formulário" title="Fechar" onClick={() => setEditorOpen(false)}>X</button>
             </div>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Título do jogo" required />
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Título do jogo" maxLength={editingId ? undefined : 14} required />
             {mode === 'recurring' && !editingId ? <div className="match-meta">
               <select value={weekday} onChange={(event) => setWeekday(Number(event.target.value))}>{weekdayOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
               <input type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} />
@@ -3999,7 +4003,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   const [creationStep, setCreationStep] = useState<'details' | 'players'>('details');
   const [draftMatchId, setDraftMatchId] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
-  const [title, setTitle] = useState('Futebol de quarta');
+  const [title, setTitle] = useState('Futebol quarta');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<'WEEKLY'>('WEEKLY');
@@ -4067,6 +4071,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   async function advanceToPlayers() {
     if (title.trim().length < 2 || !date) {
       setSaveStatus('Informe o tipo e a data do jogo antes de avançar.');
+      return;
+    }
+    if (title.trim().length > 14) {
+      setSaveStatus('O nome do jogo deve ter no máximo 14 caracteres.');
       return;
     }
     if (isRecurring && weekdayFromInputDate(date) !== recurringWeekday) {
@@ -4244,7 +4252,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
 
                 <label className="field-shell">
                   <span>Tipo</span>
-                  <input value={title} onChange={(event) => setTitle(event.target.value)} />
+                  <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={14} />
                 </label>
 
                 <label className="field-shell">
@@ -4825,7 +4833,6 @@ function PaymentsPanel({
   const paymentGroups = useMemo(() => {
     const today = new Date();
     const todayKey = today.toISOString().slice(0, 10);
-    const currentMonthKey = todayKey.slice(0, 7);
     const groupsMap = new Map<
       string,
       {
@@ -4916,10 +4923,6 @@ function PaymentsPanel({
           payments: historyPayments,
           openPayments: displayPayments,
           lastPaidPayment: paidPayments[0] ?? null,
-          currentMonthPayment:
-            historyPayments.find(
-              (payment) => payment.referenceMonth.slice(0, 7) === currentMonthKey,
-            ) ?? null,
           latePaymentsCount: openPayments.filter((payment) =>
             paymentIsLateRecord(payment, comparisonDate),
           ).length,
@@ -5242,7 +5245,6 @@ function PaymentsPanel({
                   )}
                 </th>
                 <th>Situação</th>
-                <th>Pagamento do mês</th>
                 <th>Último mês pago</th>
                 <th>Meses em atraso</th>
               </tr>
@@ -5250,7 +5252,7 @@ function PaymentsPanel({
             <tbody>
               {paymentGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="table-empty-cell">
+                  <td colSpan={4} className="table-empty-cell">
                     Nenhum atleta encontrado com os filtros atuais.
                   </td>
                 </tr>
@@ -5280,17 +5282,6 @@ function PaymentsPanel({
                         )}
                       </td>
                       <td className="payments-summary-cell">
-                        {group.currentMonthPayment ? (
-                          <span
-                            className={`status ${paymentStatusTone(group.currentMonthPayment.status)}`}
-                          >
-                            {statusLabel(group.currentMonthPayment.status)}
-                          </span>
-                        ) : (
-                          <span className="payments-muted">Não lançada</span>
-                        )}
-                      </td>
-                      <td className="payments-summary-cell">
                         {group.lastPaidPayment ? (
                           paymentMonthLabel(
                             group.lastPaidPayment.referenceMonth,
@@ -5311,7 +5302,7 @@ function PaymentsPanel({
                     </tr>
                     {expandedPaymentGroupKey === group.key && (
                       <tr className="payments-group-detail-row">
-                        <td colSpan={5}>
+                        <td colSpan={4}>
                           <div className="payments-subtable-wrap">
                             <div className="payments-subtable-head">
                               <strong>Mensalidades abertas do atleta</strong>

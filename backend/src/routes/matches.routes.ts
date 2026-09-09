@@ -61,6 +61,7 @@ const playerSchema = z.object({
 });
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Informe horário no formato HH:mm.');
+const newMatchTitleSchema = z.string().trim().min(2).max(14, 'O nome do jogo deve ter no máximo 14 caracteres.');
 
 const createMatchBaseSchema = z.object({
   seasonId: z.string().uuid().nullable().optional(),
@@ -77,7 +78,7 @@ const createMatchBaseSchema = z.object({
   linePlayerCount: linePlayerCountSchema,
   players: z.array(playerSchema).default([])
 });
-const createMatchSchema = createMatchBaseSchema.refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
+const createMatchSchema = createMatchBaseSchema.extend({ title: newMatchTitleSchema }).refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
 const lineupSchema = createMatchBaseSchema.omit({ seasonId: true }).partial({ matchDate: true, title: true, teamAName: true, teamBName: true, scheduledStart: true, scheduledEnd: true }).extend({ players: z.array(playerSchema).default([]) }).refine((body) => !body.scheduledStart || !body.scheduledEnd || body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' });
 
 const eventSchema = z.object({ userId: z.string().min(1), relatedUserId: z.string().min(1).nullable().optional(), eventType: z.enum(['GOL', 'GOL_CONTRA', 'ASSISTENCIA', 'CARTAO_AMARELO', 'CARTAO_VERMELHO', 'CARTAO_AZUL']), minute: z.number().int().min(0).max(180), clockSecond: z.number().int().min(0).max(10800).optional(), team: z.enum(['A', 'B']), occurredAt: z.string().datetime().nullable().optional() });
@@ -91,7 +92,7 @@ const idParamSchema = z.object({ id: z.string().uuid() });
 const manualScheduleBaseSchema = z.object({
   seasonId: z.string().uuid().nullable().optional(),
   matchDate: z.string().date(),
-  title: z.string().min(2).default('Futebol de quarta'),
+  title: z.string().min(2),
   refereeName: z.string().max(120).nullable().optional(),
   teamAName: z.string().min(1).default('Time A'),
   teamBName: z.string().min(1).default('Time B'),
@@ -101,8 +102,9 @@ const manualScheduleBaseSchema = z.object({
   confirmationClosesHoursBefore: z.number().int().min(0).max(335).default(3),
   linePlayerCount: linePlayerCountSchema
 });
-const manualScheduleSchema = manualScheduleBaseSchema.refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
+const manualScheduleSchema = manualScheduleBaseSchema.extend({ title: newMatchTitleSchema.default('Futebol quarta') }).refine((body) => body.scheduledEnd > body.scheduledStart, { message: 'O horário final precisa ser maior que o início.' }).refine((body) => body.confirmationOpensHoursBefore > body.confirmationClosesHoursBefore, { message: 'A confirmação precisa abrir antes de fechar.' });
 const recurringScheduleSchema = manualScheduleBaseSchema.omit({ matchDate: true }).extend({
+  title: newMatchTitleSchema.default('Futebol quarta'),
   weekday: z.number().int().min(0).max(6).default(3),
   startDate: z.string().date(),
   endDate: z.string().date(),
