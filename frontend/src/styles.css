@@ -3867,7 +3867,7 @@ textarea {
   order: 2;
   flex: 0 0 auto;
   transform: translateX(-12px);
-  font-size: 2.695rem;
+  font-size: 2.9645rem;
   line-height: .92;
   color: #f7fffb;
   text-shadow: 0 2px 12px rgba(4, 35, 28, .34);
@@ -3890,7 +3890,7 @@ textarea {
 .next-match-date-stack small,
 .next-match-date-stack em {
   color: #27483f;
-  font-size: .99rem;
+  font-size: 1.089rem;
   font-style: normal;
   font-weight: 800;
   text-transform: uppercase;
@@ -3898,7 +3898,7 @@ textarea {
 
 .next-match-date-stack em {
   order: 3;
-  font-size: .946rem;
+  font-size: 1.0406rem;
   color: #f7fffb;
 }
 
@@ -4746,11 +4746,11 @@ textarea {
   .next-match-date-stack span,
   .next-match-date-stack small,
   .next-match-date-stack em {
-    font-size: .924rem;
+    font-size: 1.0164rem;
   }
 
   .next-match-date-badge b {
-    font-size: 1.87rem;
+    font-size: 2.057rem;
   }
 
   .finished-list-score b {
@@ -5286,11 +5286,11 @@ textarea {
   .next-match-date-stack span,
   .next-match-date-stack small,
   .next-match-date-stack em {
-    font-size: .792rem;
+    font-size: .8712rem;
   }
 
   .next-match-date-badge b {
-    font-size: 1.65rem;
+    font-size: 1.815rem;
   }
 
   .next-match-leader-card {
