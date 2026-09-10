@@ -1375,14 +1375,6 @@ export function App() {
       )}
       {!loading && view === "partidas" && (
         <div className="home-stack standard-page">
-          <section className="card compact standard-page-header">
-            <div className="card-head">
-              <div>
-                <h2>Partidas</h2>
-                <p className="muted">Histórico de jogos confirmados da temporada.</p>
-              </div>
-            </div>
-          </section>
           <DashboardFinishedMatchesPanel matches={matches} />
         </div>
       )}
