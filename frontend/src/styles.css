@@ -4092,7 +4092,7 @@ textarea {
 .dashboard-last-match-button {
   width: 100%;
   display: grid;
-  gap: 8px;
+  gap: 5px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -4108,7 +4108,74 @@ textarea {
 }
 
 .dashboard-last-match-card {
-  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 8px 12px;
+  border: 1px solid rgba(116, 219, 167, .14);
+  border-radius: 8px;
+  background: rgba(8, 42, 34, .72);
+}
+
+.dashboard-last-match-info {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.dashboard-last-match-info span,
+.dashboard-last-match-info small {
+  color: #83d7a8;
+  font-size: .65rem;
+  font-weight: 700;
+}
+
+.dashboard-last-match-info span {
+  text-transform: uppercase;
+}
+
+.dashboard-last-match-info strong {
+  overflow: hidden;
+  color: #f4fbf8;
+  font-size: .8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-last-match-score {
+  display: grid;
+  grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-last-match-score > strong {
+  max-width: 88px;
+  overflow: hidden;
+  color: #f5fbf7;
+  font-size: .72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-last-match-score > strong:last-child {
+  text-align: right;
+}
+
+.dashboard-last-match-score b {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #f5fff9;
+  font-size: 1.18rem;
+  line-height: 1;
+}
+
+.dashboard-last-match-score b span {
+  color: #83d7a8;
+  font-size: .7rem;
 }
 
 .dashboard-ops-card {
@@ -4619,6 +4686,31 @@ textarea {
 
   .dashboard-main {
     gap: 10px;
+  }
+
+  .dashboard-last-match-card {
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+    gap: 8px;
+    min-height: 54px;
+    padding: 7px 9px;
+  }
+
+  .dashboard-last-match-info small {
+    display: none;
+  }
+
+  .dashboard-last-match-score {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .dashboard-last-match-score > strong {
+    max-width: none;
+    font-size: .68rem;
+  }
+
+  .dashboard-last-match-score b {
+    font-size: 1.05rem;
   }
 
   .dashboard-season-row {
