@@ -937,11 +937,8 @@ function matchOutcomeLabel(match: MatchListItem): string {
   return `Vitória confirmada de ${match.teamAScore > match.teamBScore ? match.teamAName : match.teamBName}`;
 }
 
-function teamBadgeLabel(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '--';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
+function CompactFinishedMatch({ match }: { match: MatchListItem }) {
+  return <div className="dashboard-last-match-card"><div className="dashboard-last-match-info"><span>{compactMatchDateLabel(match)}</span><strong>{match.title}</strong><small>{matchOutcomeLabel(match)}</small></div><div className="dashboard-last-match-score" aria-label={`${match.teamAName} ${match.teamAScore} a ${match.teamBScore} ${match.teamBName}`}><strong>{match.teamAName}</strong><b>{match.teamAScore}<span>×</span>{match.teamBScore}</b><strong>{match.teamBName}</strong></div></div>;
 }
 
 function DashboardIcon({ name }: { name: 'calendar' | 'clock' | 'shield' | 'wallet' | 'field' | 'table' | 'goal' | 'assist' | 'cards' | 'trophy' | 'file' | 'gear' | 'bell' }) {
@@ -1992,7 +1989,7 @@ function DashboardMatchesPanel({ api, canCoordinate, users, matches, rankings, s
           <button type="button" className="ghost" onClick={() => void openSheet(nextMatch.id)}>Reabrir súmula</button>
         </div>
       )}
-      {lastConfirmedMatch && <button type="button" className="dashboard-last-match-button" onClick={() => void openSheet(lastConfirmedMatch.id)}><span className="dashboard-last-match-label">Último jogo</span><div className="dashboard-last-match-card"><div className="dashboard-last-match-info"><span>{compactMatchDateLabel(lastConfirmedMatch)}</span><strong>{lastConfirmedMatch.title}</strong><small>{matchOutcomeLabel(lastConfirmedMatch)}</small></div><div className="dashboard-last-match-score" aria-label={`${lastConfirmedMatch.teamAName} ${lastConfirmedMatch.teamAScore} a ${lastConfirmedMatch.teamBScore} ${lastConfirmedMatch.teamBName}`}><strong>{lastConfirmedMatch.teamAName}</strong><b>{lastConfirmedMatch.teamAScore}<span>×</span>{lastConfirmedMatch.teamBScore}</b><strong>{lastConfirmedMatch.teamBName}</strong></div></div></button>}
+      {lastConfirmedMatch && <button type="button" className="dashboard-last-match-button" onClick={() => void openSheet(lastConfirmedMatch.id)}><span className="dashboard-last-match-label">Último jogo</span><CompactFinishedMatch match={lastConfirmedMatch} /></button>}
       {selectedMatch && (
         <div className="modal match-modal">
           <section className="match-modal-card">
@@ -2853,7 +2850,7 @@ function DashboardFinishedMatchesPanel({ matches }: { matches: MatchListItem[] }
           <span className="finished-count-badge">{finishedMatches.length}</span>
         </div>
       </div>
-      <div className="finished-vertical-list">{finishedMatches.length === 0 ? <EmptyState title="Sem jogos confirmados" text="Os últimos placares entram aqui quando as súmulas forem fechadas." /> : finishedMatches.map((match) => <article className="finished-list-row" key={match.id}><div className="finished-list-main"><span className="finished-list-date">{compactMatchDateLabel(match)}</span><strong className="finished-list-title">{match.title}</strong><small className="finished-list-outcome">{matchOutcomeLabel(match)}</small></div><div className="finished-list-duel"><div className="finished-list-team"><span className="finished-team-mark">{teamBadgeLabel(match.teamAName)}</span><strong>{match.teamAName}</strong></div><div className="finished-list-score"><b>{match.teamAScore}</b><span>x</span><b>{match.teamBScore}</b></div><div className="finished-list-team is-away"><strong>{match.teamBName}</strong><span className="finished-team-mark">{teamBadgeLabel(match.teamBName)}</span></div></div></article>)}</div>
+      <div className="finished-vertical-list">{finishedMatches.length === 0 ? <EmptyState title="Sem jogos confirmados" text="Os últimos placares entram aqui quando as súmulas forem fechadas." /> : finishedMatches.map((match) => <article key={match.id}><CompactFinishedMatch match={match} /></article>)}</div>
     </section>
   );
 }
