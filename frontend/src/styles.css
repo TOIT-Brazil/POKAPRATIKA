@@ -2624,7 +2624,7 @@ textarea {
 
 .draw-date-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 122px;
+  grid-template-columns: minmax(0, 1fr) 122px 122px;
   gap: 8px;
 }
 

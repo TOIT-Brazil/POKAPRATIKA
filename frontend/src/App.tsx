@@ -3990,6 +3990,8 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
   const [saveStatus, setSaveStatus] = useState('');
   const [title, setTitle] = useState('Futebol quarta');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [scheduledStart, setScheduledStart] = useState('20:00');
+  const [scheduledEnd, setScheduledEnd] = useState('21:00');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<'WEEKLY'>('WEEKLY');
   const [recurringWeekday, setRecurringWeekday] = useState(weekdayFromInputDate(todayInputValue()));
@@ -4026,7 +4028,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
 
   async function saveLineup() {
     if (!draftMatchId) return;
-    await api.request(`/matches/${draftMatchId}/lineup`, { method: 'PATCH', body: JSON.stringify({ matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, players: selectedPlayersPayload() }) });
+    await api.request(`/matches/${draftMatchId}/lineup`, { method: 'PATCH', body: JSON.stringify({ matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, scheduledStart, scheduledEnd, players: selectedPlayersPayload() }) });
   }
 
   function openCreation() {
@@ -4058,6 +4060,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       setSaveStatus('Informe o tipo e a data do jogo antes de avançar.');
       return;
     }
+    if (!scheduledStart || !scheduledEnd || scheduledEnd <= scheduledStart) {
+      setSaveStatus('Informe um horário final posterior ao horário de início.');
+      return;
+    }
     if (title.trim().length > 14) {
       setSaveStatus('O nome do jogo deve ter no máximo 14 caracteres.');
       return;
@@ -4071,7 +4077,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       if (draftMatchId) {
         await saveLineup();
       } else {
-        const created = await api.request<{ id: string }>('/matches', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, linePlayerCount, players: [] }) });
+        const created = await api.request<{ id: string }>('/matches', { method: 'POST', body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, scheduledStart, scheduledEnd, linePlayerCount, players: [] }) });
         setDraftMatchId(created.id);
       }
       setCreationStep('players');
@@ -4116,6 +4122,10 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       setSaveStatus('Informe o tipo e a data do jogo antes de salvar.');
       return;
     }
+    if (!scheduledStart || !scheduledEnd || scheduledEnd <= scheduledStart) {
+      setSaveStatus('Informe um horário final posterior ao horário de início.');
+      return;
+    }
     if (isRecurring && weekdayFromInputDate(date) !== recurringWeekday) {
       setSaveStatus('Para jogo recorrente, a data base precisa cair no mesmo dia escolhido na recorrência. Ex.: quarta-feira com repetição às quartas.');
       return;
@@ -4128,7 +4138,7 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
       setSaveStatus(isRecurring ? 'Salvando jogo e gerando recorrência...' : 'Salvando jogo...');
       const created = await api.request<{ id: string }>('/matches', {
         method: 'POST',
-        body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, linePlayerCount, players: [], confirmationClosesHoursBefore: 3 })
+        body: JSON.stringify({ seasonId: activeSeasonId || null, matchDate: date, title, refereeName: refereeName || null, teamAName, teamBName, scheduledStart, scheduledEnd, linePlayerCount, players: [], confirmationClosesHoursBefore: 3 })
       });
       setDraftMatchId(created.id);
       if (isRecurring) {
@@ -4141,8 +4151,8 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
             endDate: recurringEndDate,
             title,
             refereeName: refereeName || null,
-            scheduledStart: '20:00',
-            scheduledEnd: '21:00',
+            scheduledStart,
+            scheduledEnd,
             confirmationOpensHoursBefore: 48,
             confirmationClosesHoursBefore: 3,
             teamAName,
@@ -4230,8 +4240,12 @@ function OperationalMatchDialog({ api, users, activeSeasonId, onDone, controlled
                     <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
                   </label>
                   <label className="field-shell">
-                    <span>Horário</span>
-                    <input value="20:00" readOnly />
+                    <span>Início</span>
+                    <input type="time" value={scheduledStart} onChange={(event) => setScheduledStart(event.target.value)} required />
+                  </label>
+                  <label className="field-shell">
+                    <span>Fim</span>
+                    <input type="time" value={scheduledEnd} min={scheduledStart} onChange={(event) => setScheduledEnd(event.target.value)} required />
                   </label>
                 </div>
 
